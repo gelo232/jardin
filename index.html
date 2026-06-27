@@ -236,7 +236,7 @@
 
   <!-- PLANTES -->
   <section id="plants">
-    <p class="eyebrow">12 cultures suivies</p>
+    <p class="eyebrow">13 cultures suivies</p>
     <h2 class="title">Mes plantes</h2>
     <div id="plantList"></div>
   </section>
@@ -416,6 +416,12 @@ const PLANTS=[
    watch:["Feuillage abondant, racine fine → trop d'azote","Racines fourchues → surtout sol caillouteux/compacté ou fumier frais"],
    structural:["En pot, profondeur 25 cm+ pour des racines droites.","Éclaircis à 3–4 cm entre carottes."],
    flag:{type:'',txt:"🥕 Garde l'azote au minimum (peu ou pas d'urée ni de MAP) : trop d'azote pousse le feuillage au détriment de la racine. Le doseur propose une formule faible en azote et riche en potassium."}},
+  {id:'ail',icon:'🧄',name:'Ail',sub:'démarré ~mi-avril (intérieur)',
+   stages:['Pousse','Feuillage','Bulbaison','Maturation'],stage:2,recipe:'racine',feedDays:21,sun:'plein soleil',tender:false,
+   water:"Sol frais et régulier pendant la croissance du feuillage ; réduis nettement à l'approche de la récolte et arrête l'arrosage ~2 semaines avant (sinon le bulbe pourrit et se conserve mal).",
+   watch:["Feuilles du bas qui jaunissent → bulbaison en cours ou approche de la maturité","Hampe florale (scape) sur l'ail à col dur : à couper"],
+   structural:["Coupe le scape (ail à col dur) dès qu'il s'enroule : l'énergie part dans le bulbe.","Récolte quand le tiers à la moitié des feuilles du bas ont bruni — pas plus tard."],
+   flag:{type:'',txt:"🧄 Planté au printemps (mi-avril), sans le froid de l'hiver : attends-toi à des bulbes plus petits, voire un bulbe non divisé (« round ») au lieu de gousses. Récolte de fin d'été. Azote utile au début, puis stoppe l'azote dès la bulbaison (sinon beaucoup de feuilles, petit bulbe). Pour de gros bulbes l'an prochain : plante des gousses dehors en octobre."}},
   {id:'citron',icon:'🍋',name:'Citronniers (×2)',sub:'jeunes semis · 1 tige 30 cm · jamais fleuris',
    stages:['Croissance','Floraison','Fruits','Maturation'],stage:0,recipe:'agrumes',feedDays:14,sun:'plein soleil',tender:true,
    water:"Laisse sécher les 3–4 premiers cm, puis arrose à fond jusqu'au drainage. Jamais les pieds dans l'eau.",
@@ -440,7 +446,7 @@ const STAGE_DUR={
   tomate_bac:[14,28,10,10,25,35], tomate_geo:[14,32,12,12,30,30],
   courge:[10,28,12,12,30,16],
   melon:[10,34,14,28,18], pasteque:[10,36,14,30,20],
-  persil:[21,42,90], carotte:[16,22,22,22], thym:[21,49,120],
+  persil:[21,42,90], carotte:[16,22,22,22], thym:[21,49,120], ail:[14,45,35,20],
   citron:[1460,60,120,150], ananas:[600,60,150]
 };
 /* dates de semis réelles (tu as tout semé toi-même) — repère représentatif si plage donnée */
@@ -448,7 +454,7 @@ const SOW_DATE={
   mais_ombre:'2026-05-23', mais_geo:'2026-05-30',
   tomate_bac:'2026-06-01', tomate_geo:'2026-05-23',
   courge:'2026-05-23', melon:'2026-05-23', pasteque:'2026-05-30',
-  persil:'2026-05-23', carotte:'2026-05-21', thym:'2026-05-23',
+  persil:'2026-05-23', carotte:'2026-05-21', thym:'2026-05-23', ail:'2026-04-15',
   citron:'2024-05-01', ananas:'2025-06-01'
 };
 const PEREN={citron:1,ananas:1}; // vivaces : cycles longs, estimations indicatives
