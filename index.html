@@ -340,10 +340,11 @@ let state={
   can:store.get('can',10),
   coords:store.get('coords',{lat:45.5019,lon:-73.5674,name:'Montréal'}),
   feeds:store.get('feeds',{}), waters:store.get('waters',{}), logs:store.get('logs',[]),
+  stage:store.get('stage',{}), // {plantId:{i:index de phase, t:date d'entrée ISO}}
   wx:null, view:'today'
 };
 function save(){store.set('can',state.can);store.set('coords',state.coords);
-  store.set('feeds',state.feeds);store.set('waters',state.waters);store.set('logs',state.logs)}
+  store.set('feeds',state.feeds);store.set('waters',state.waters);store.set('logs',state.logs);store.set('stage',state.stage)}
 
 /* ===== RECETTES ===== */
 const RECIPES={
@@ -437,6 +438,12 @@ const STAGE_DUR={
 };
 const PEREN={citron:1,ananas:1}; // vivaces : cycles longs, estimations indicatives
 function fmtDur(d){return d>=60?Math.round(d/30)+' mois':d+' j';}
+/* phase suivie par l'utilisateur (sinon la phase par défaut des données) + date d'entrée */
+function curStage(p){const s=state.stage[p.id];return s&&typeof s.i==='number'?Math.max(0,Math.min(p.stages.length-1,s.i)):p.stage;}
+function stageSince(p){const s=state.stage[p.id];return s&&s.t?s.t:null;}
+function setStage(id,delta){const p=byId(id);const i=Math.max(0,Math.min(p.stages.length-1,curStage(p)+delta));
+  state.stage[id]={i,t:new Date().toISOString()};save();renderPlants();
+  const c=document.getElementById('card_'+id);if(c)c.classList.add('open');}
 
 /* ===== SEMIS (Québec, mois 1–12) ===== */
 const SOW=[
@@ -651,8 +658,8 @@ function setView(v){
 }
 
 /* ===== PLANTES ===== */
-function gauge(p){const segs=p.stages.map((s,i)=>`<div class="seg ${i<p.stage?'done':i===p.stage?'now':''}"></div>`).join('');
-  const labels=p.stages.map((s,i)=>`<span class="${i===p.stage?'cur':''}">${s}</span>`).join('');
+function gauge(p){const cs=curStage(p);const segs=p.stages.map((s,i)=>`<div class="seg ${i<cs?'done':i===cs?'now':''}"></div>`).join('');
+  const labels=p.stages.map((s,i)=>`<span class="${i===cs?'cur':''}">${s}</span>`).join('');
   return `<div class="gauge"><div class="track">${segs}</div><div class="stages">${labels}</div></div>`}
 function plantBody(p){
   const r=RECIPES[p.recipe],npk=recipeNPK(r),rows=[];
@@ -663,19 +670,33 @@ function plantBody(p){
   let durBlock='';
   const dur=STAGE_DUR[p.id];
   if(dur&&dur.length===p.stages.length){
-    const total=dur.reduce((a,b)=>a+b,0);
-    const remaining=dur.slice(p.stage).reduce((a,b)=>a+b,0); // dès le début du stade actuel
-    const peren=PEREN[p.id];
+    const peren=PEREN[p.id], total=dur.reduce((a,b)=>a+b,0);
+    const ci=curStage(p), since=stageSince(p), elapsed=since?daysSince(since):null;
+    const phaseDur=dur[ci];
+    const remInPhase=elapsed==null?phaseDur:Math.max(0,phaseDur-elapsed);
+    const next=ci<p.stages.length-1?p.stages[ci+1]:null;
     const rows=p.stages.map((s,i)=>{
-      const toEnd=dur.slice(i).reduce((a,b)=>a+b,0);
-      const mark=i<p.stage?'✓':i===p.stage?'●':'○';
-      const cls=i<p.stage?'sd-done':i===p.stage?'sd-cur':'';
-      return `<tr class="${cls}"><td>${mark} ${s}</td><td class="sd-n">${fmtDur(dur[i])}</td><td class="sd-r">${i<p.stage?'—':fmtDur(toEnd)}</td></tr>`;
+      const mark=i<ci?'✓':i===ci?'●':'○';
+      const cls=i<ci?'sd-done':i===ci?'sd-cur':'';
+      let val;
+      if(i<ci)val='✓ fait';
+      else if(i===ci)val=`<b>${fmtDur(remInPhase)}</b>${elapsed==null?'':' restant'}`;
+      else val=fmtDur(dur[i]);
+      return `<tr class="${cls}"><td>${mark} ${s}</td><td class="sd-r">${val}</td></tr>`;
     }).join('');
-    durBlock=`<div class="pact"><h4>⏱️ Durées des stades</h4>
-      <div class="note" style="margin-bottom:7px">Cycle complet ≈ <b style="color:var(--ink)">${fmtDur(total)}</b> · depuis ton stade actuel il reste ≈ <b style="color:var(--leaf-d)">${fmtDur(remaining)}</b>${peren?' <b style="color:var(--amber)">(vivace — indicatif)</b>':''}</div>
-      <table class="sdur"><thead><tr><th>Stade</th><th class="sd-n">durée</th><th class="sd-r">→ fin</th></tr></thead><tbody>${rows}</tbody></table>
-      <p class="note" style="margin-top:7px">Estimations typiques (variété et météo font varier). « → fin » = temps restant si tu entres dans ce stade.</p></div>`;
+    const head=next
+      ? `Phase « <b style="color:var(--leaf-d)">${p.stages[ci]}</b> » : il reste ≈ <b style="color:var(--leaf-d)">${fmtDur(remInPhase)}</b> avant « <b>${next}</b> »`
+      : `Dernière phase « <b style="color:var(--leaf-d)">${p.stages[ci]}</b> » : dure ≈ <b style="color:var(--leaf-d)">${fmtDur(phaseDur)}</b>`;
+    const sinceTxt=elapsed==null
+      ? `<b style="color:var(--amber)">phase non datée</b> — marque le changement ci-dessous pour un décompte exact`
+      : `entrée dans cette phase il y a ${elapsed} j`;
+    durBlock=`<div class="pact"><h4>⏱️ Temps par phase</h4>
+      <div class="note" style="margin-bottom:7px">${head}.<br>${sinceTxt}. Cycle complet ≈ <b style="color:var(--ink)">${fmtDur(total)}</b>${peren?' <b style="color:var(--amber)">(vivace — indicatif)</b>':''}</div>
+      <table class="sdur"><thead><tr><th>Phase</th><th class="sd-r">temps avant la suivante</th></tr></thead><tbody>${rows}</tbody></table>
+      <div style="display:flex;gap:8px;margin-top:9px">
+        <button class="btn sm ghost" style="flex:1" onclick="event.stopPropagation();setStage('${p.id}',-1)">◂ Phase précédente</button>
+        <button class="btn sm" style="flex:1" onclick="event.stopPropagation();setStage('${p.id}',1)">Phase suivante ▸</button></div>
+      <p class="note" style="margin-top:7px">Estimations typiques (variété et météo font varier). Le décompte de la phase démarre quand tu la marques avec ◂ / ▸.</p></div>`;
   }
   return `<div class="plant-body">
     ${durBlock}
