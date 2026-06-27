@@ -236,7 +236,7 @@
 
   <!-- PLANTES -->
   <section id="plants">
-    <p class="eyebrow">11 cultures suivies</p>
+    <p class="eyebrow">12 cultures suivies</p>
     <h2 class="title">Mes plantes</h2>
     <div id="plantList"></div>
   </section>
@@ -361,63 +361,68 @@ function recipeNPK(r){let N=0,P=0,K=0,m=0;for(const p of['urea','map','mkp','kcl
 
 /* ===== PLANTES ===== */
 const PLANTS=[
-  {id:'mais_ombre',icon:'🌽',name:'Maïs — sous les arbres',sub:'3–15 cm · pleine terre, ombragé',
+  {id:'mais_ombre',icon:'🌽',name:'Maïs — sous les arbres',sub:'semé ~23 mai · pleine terre ombragée',
    stages:['Levée','Végétatif','Montaison','Soies','Épis'],stage:1,recipe:'vegetatif',feedDays:13,sun:'plein soleil',tender:false,
    water:"Garder le sol frais sans détremper. L'ombre ralentit l'évaporation : arrose seulement si le sol est sec à 3 cm.",
    watch:["Tiges qui s'étirent et se penchent vers la lumière","Croissance lente vs le maïs au soleil"],
    structural:["Le maïs se pollinise par le vent et en groupe : garde-les serrés en bloc, pas en ligne unique."],
-   flag:{type:'',txt:"⚠️ Le maïs exige le plein soleil (6 h+). Sous le feuillage, attends-toi à des plants étirés et des épis maigres. Si possible, déplace-en quelques-uns au soleil tant qu'ils sont tout petits — mais le maïs supporte mal le dérangement des racines, alors transplante avec une motte intacte."}},
-  {id:'mais_geo',icon:'🌽',name:'Maïs — sous géotextile',sub:'3–15 cm · entre les tomates',
+   flag:{type:'',txt:"⚠️ Le maïs exige le plein soleil (6 h+). Sous le feuillage, attends-toi à des plants étirés et des épis maigres ; déplace-en au soleil tant qu'ils sont petits (motte intacte, il supporte mal le dérangement racinaire). Variétés mêlées : Double Sweet / Ruby / sweet (~75–80 j) arrivent à temps ; Silver Queen (~88–92 j) est juste ; Glass Gem (~110 j, récolté sec/ornemental) semé en juin court fort après le gel du ~7 oct. Le plant le plus avancé (~20 cm) a été démarré à l'intérieur fin avril."}},
+  {id:'mais_geo',icon:'🌽',name:'Maïs — sous géotextile',sub:'semé ~30 mai · entre les tomates',
    stages:['Levée','Végétatif','Montaison','Soies','Épis'],stage:1,recipe:'vegetatif',feedDays:13,sun:'plein soleil',tender:false,
    water:"À travers la membrane, l'eau ne pénètre qu'au trou de plantation : arrose lentement, directement au pied.",
    watch:["Concurrence avec les tomates pour la lumière et l'azote"],
    structural:["Maïs et tomate sont tous deux gourmands : surveille que le maïs ne soit pas étouffé par le feuillage des tomates."],
    flag:{type:'',txt:"La membrane empêche l'épandage de surface : nourris uniquement en solution liquide versée au pied. Parfait pour le doseur."}},
-  {id:'tomate_bac',icon:'🍅',name:'Tomates — bacs surélevés',sub:'3–15 cm · pots surélevés',
+  {id:'tomate_bac',icon:'🍅',name:'Tomates cerises — bacs',sub:'cerises · semé fin mai–juin · bacs',
    stages:['Semis','Végétatif','Boutons','Floraison','Fruits','Récolte'],stage:1,recipe:'jeune',feedDays:12,sun:'plein soleil',tender:false,
    water:"Les bacs sèchent vite : vérifie chaque jour, arrose en profondeur quand les 2–3 premiers cm sont secs. Régularité = pas de cul noir.",
    watch:["Bords de feuilles bruns et secs → excès de sels, lessive","Tiges longues et molles → trop d'azote"],
    structural:["Installe les tuteurs maintenant.","Coupe les feuilles à moins de 25 cm du sol."],flag:null},
-  {id:'tomate_geo',icon:'🍅',name:'Tomates — géotextile',sub:'3–15 cm · pleine terre, membrane',
+  {id:'tomate_geo',icon:'🍅',name:'Tomates — géotextile',sub:'Roma/jaune/brune · semé ~23 mai',
    stages:['Semis','Végétatif','Boutons','Floraison','Fruits','Récolte'],stage:1,recipe:'jeune',feedDays:12,sun:'plein soleil',tender:false,
    water:"La membrane garde l'humidité mais bloque l'arrosage de surface : verse lentement au trou de plantation. Avantage : pas d'éclaboussures = moins de mildiou.",
    watch:["Mildiou dès fin juillet (taches brunes huileuses)","Cul noir si arrosage irrégulier"],
    structural:["Tuteurage dès maintenant.","Effeuillage des feuilles basses.","Pince les gourmands sur variétés indéterminées."],flag:null},
-  {id:'courge',icon:'🎃',name:'Courges',sub:'boutons floraux visibles',
+  {id:'courge',icon:'🎃',name:'Courges',sub:'semé ~23 mai · boutons visibles',
    stages:['Semis','Végétatif','Boutons','Floraison','Fruits','Récolte'],stage:2,recipe:'fleur',feedDays:12,sun:'plein soleil',tender:false,
    water:"Gros besoins en eau. Arrose au pied, jamais sur le feuillage (oïdium garanti sinon).",
    watch:["Oïdium : feutrage blanc sur les feuilles","Premières fleurs mâles puis femelles (petite courge à la base)"],
    structural:["À la floraison : pollinise à la main au pinceau le matin si peu d'abeilles.","Glisse une planchette ou de la paille sous les jeunes fruits."],flag:null},
-  {id:'melon',icon:'🍈',name:'Melon',sub:'3 feuilles · 4–6 cm',
+  {id:'melon',icon:'🍈',name:'Melon cantaloup',sub:'semé ~23 mai · 3 feuilles',
    stages:['Semis','Végétatif','Floraison','Fruits','Maturation'],stage:1,recipe:'jeune',feedDays:14,sun:'chaleur maximale',tender:true,
    water:"Aime la chaleur, déteste les racines détrempées. Arrose régulièrement mais laisse sécher la surface.",
    watch:["Croissance qui stagne sous 15 °C la nuit"],
    structural:["Un paillage sombre réchauffe le sol et accélère tout.","Pince la tige après 4–5 feuilles pour ramifier."],
-   flag:{type:'cold',txt:"❄️ Saison courte au Québec. Donne-lui le coin le plus chaud, protège-le si les nuits passent sous 12 °C."}},
-  {id:'pasteque',icon:'🍉',name:'Pastèque',sub:'2 feuilles',
+   flag:{type:'cold',txt:"❄️ Cantaloup semé en pleine terre ~23 mai : ~100 j depuis le semis avant maturité, donc récolte espérée début–mi-septembre seulement si l'été reste chaud (course contre le gel du ~7 oct). Donne-lui le coin le plus chaud, paillage sombre, protège sous 12 °C la nuit."}},
+  {id:'pasteque',icon:'🍉',name:'Pastèque',sub:'semé fin mai–juin · 2 feuilles',
    stages:['Semis','Végétatif','Floraison','Fruits','Maturation'],stage:1,recipe:'jeune',feedDays:14,sun:'chaleur maximale',tender:true,
    water:"Très jeune et fragile. Sol chaud et humide sans excès. Évite tout stress de froid.",
    watch:["Sensible au froid au stade 2 feuilles — la moindre nuit fraîche la bloque"],
    structural:["Stade le plus vulnérable : fertilisation très diluée seulement."],
-   flag:{type:'cold',txt:"❄️ La plus exigeante en chaleur du jardin, saison québécoise courte. Maximise la chaleur ; récolte avant gel non garantie."}},
-  {id:'persil',icon:'🌿',name:'Persil',sub:'5 cm',
+   flag:{type:'cold',txt:"❄️ La plus à risque : pastèque semée de graine fin mai/juin au Québec, ~110 j jusqu'à maturité → mûrir avant le gel (~7 oct) est incertain. Maximise la chaleur (paillage sombre, mur exposé sud, protection des nuits fraîches). Les variétés hâtives type Sugar Baby (~75–80 j depuis repiquage) sont les seules réalistes ici."}},
+  {id:'persil',icon:'🌿',name:'Persil',sub:'frisé + plat · semé ~23 mai',
    stages:['Levée','Feuillage','Récolte continue'],stage:1,recipe:'jeune',feedDays:21,sun:'soleil à mi-ombre',tender:false,
    water:"Sol frais et régulièrement humide. Tolère un peu d'ombre l'après-midi.",
    watch:["Montée en graine si stress hydrique ou chaleur extrême"],
    structural:["Récolte les tiges extérieures d'abord.","Peu gourmand : apport léger, n'en abuse pas."],flag:null},
+  {id:'thym',icon:'🌿',name:'Thym',sub:'semé ~23 mai · vivace',
+   stages:['Levée','Feuillage','Récolte continue'],stage:1,recipe:'jeune',feedDays:30,sun:'plein soleil',tender:false,
+   water:"Méditerranéen : déteste l'excès d'eau. Sol drainant, laisse bien sécher entre deux arrosages — l'humidité stagnante le tue plus vite que la sécheresse.",
+   watch:["Germination et croissance lentes au début (tout à fait normal)","Jaunissement / pourriture du collet si trop arrosé ou sol lourd"],
+   structural:["Très peu gourmand : sol pauvre, engrais léger et rare (l'excès d'azote dilue l'arôme).","Pince les tiges pour le ramifier ; vivace, il se bonifie en vieillissant."],flag:null},
   {id:'carotte',icon:'🥕',name:'Carottes',sub:'pot · feuillage 15 cm',
    stages:['Levée','Feuillage','Grossissement','Récolte'],stage:2,recipe:'racine',feedDays:21,sun:'plein soleil',tender:false,
    water:"Arrosage régulier et profond : l'irrégularité fait fendre les racines. En pot, surveille le dessèchement.",
    watch:["Feuillage abondant, racine fine → trop d'azote","Racines fourchues → surtout sol caillouteux/compacté ou fumier frais"],
    structural:["En pot, profondeur 25 cm+ pour des racines droites.","Éclaircis à 3–4 cm entre carottes."],
    flag:{type:'',txt:"🥕 Garde l'azote au minimum (peu ou pas d'urée ni de MAP) : trop d'azote pousse le feuillage au détriment de la racine. Le doseur propose une formule faible en azote et riche en potassium."}},
-  {id:'citron',icon:'🍋',name:'Citronniers (×2)',sub:'pot · 2 ans · 30–50 cm',
+  {id:'citron',icon:'🍋',name:'Citronniers (×2)',sub:'jeunes semis · 1 tige 30 cm · jamais fleuris',
    stages:['Croissance','Floraison','Fruits','Maturation'],stage:0,recipe:'agrumes',feedDays:14,sun:'plein soleil',tender:true,
    water:"Laisse sécher les 3–4 premiers cm, puis arrose à fond jusqu'au drainage. Jamais les pieds dans l'eau.",
    watch:["Feuilles jaunes à nervures vertes → carence fer/magnésium (ton fer chélaté corrige ça)","Chute des feuilles → arrosage irrégulier ou coup de froid"],
-   structural:["Dehors au plein soleil l'été, rentrer avant 10 °C.","Magnésium apprécié : poudre Ca/Mg en arrosage séparé, 1×/mois."],
+   structural:["Jeunes semis (1 tige, jamais fleuris) : plusieurs années avant la 1re floraison, surtout non greffés. Vise une croissance saine et ramifiée — étête vers 40–50 cm pour forcer des branches.","Dehors au plein soleil l'été, rentrer avant 10 °C.","Magnésium apprécié : poudre Ca/Mg en arrosage séparé, 1×/mois."],
    flag:{type:'iron',txt:"🍋 Pas de KCl (chlore) sur agrumes. Ton fer chélaté Ferti-Lome couvre désormais le fer, le zinc, le manganèse et le cuivre — exactement ce qui manquait. Si les jeunes feuilles jaunissent à nervures vertes, fais une pulvérisation foliaire."}},
-  {id:'ananas',icon:'🍍',name:'Ananas',sub:'pot · 1 an · 5–10 cm',
+  {id:'ananas',icon:'🍍',name:'Ananas',sub:'couronne · ~1 an · 5–10 cm',
    stages:['Croissance lente','Floraison','Fruit'],stage:0,recipe:'ananas',feedDays:30,sun:'lumière vive',tender:true,
    water:"Broméliacée : laisse bien sécher entre deux arrosages. Un peu d'eau au cœur de la rosette est apprécié.",
    watch:["Pointes brunes → eau calcaire ou excès d'engrais","Croissance très lente — normal, 2 ans+ avant un fruit"],
@@ -426,21 +431,38 @@ const PLANTS=[
 ];
 const byId=id=>PLANTS.find(p=>p.id===id);
 
-/* ===== DURÉES PAR STADE (jours, estimations typiques — varient selon variété/météo) ===== */
-/* une valeur par stade, dans le même ordre que p.stages */
+/* ===== DURÉES PAR PHASE (jours, comptés DEPUIS LE SEMIS) =====
+   Calibré sur tes variétés et tes dates de semis + jours-à-maturité sourcés (catalogues
+   de semences) avec un découpage phénologique typique, ajusté au climat frais de Montréal.
+   Une valeur par phase, dans l'ordre de p.stages. */
 const STAGE_DUR={
-  mais_ombre:[10,30,25,15,25], mais_geo:[10,30,25,15,25],
-  tomate_bac:[14,30,14,14,30,30], tomate_geo:[14,30,14,14,30,30],
-  courge:[10,25,14,14,25,30],
-  melon:[10,30,14,25,21], pasteque:[10,35,14,30,25],
-  persil:[21,40,90], carotte:[18,25,27,15],
-  citron:[120,30,60,150], ananas:[540,60,150]
+  mais_ombre:[8,38,16,10,18], mais_geo:[8,38,16,10,18],
+  tomate_bac:[14,28,10,10,25,35], tomate_geo:[14,32,12,12,30,30],
+  courge:[10,28,12,12,30,16],
+  melon:[10,34,14,28,18], pasteque:[10,36,14,30,20],
+  persil:[21,42,90], carotte:[16,22,22,22], thym:[21,49,120],
+  citron:[1460,60,120,150], ananas:[600,60,150]
+};
+/* dates de semis réelles (tu as tout semé toi-même) — repère représentatif si plage donnée */
+const SOW_DATE={
+  mais_ombre:'2026-05-23', mais_geo:'2026-05-30',
+  tomate_bac:'2026-06-01', tomate_geo:'2026-05-23',
+  courge:'2026-05-23', melon:'2026-05-23', pasteque:'2026-05-30',
+  persil:'2026-05-23', carotte:'2026-05-21', thym:'2026-05-23',
+  citron:'2024-05-01', ananas:'2025-06-01'
 };
 const PEREN={citron:1,ananas:1}; // vivaces : cycles longs, estimations indicatives
-function fmtDur(d){return d>=60?Math.round(d/30)+' mois':d+' j';}
-/* phase suivie par l'utilisateur (sinon la phase par défaut des données) + date d'entrée */
-function curStage(p){const s=state.stage[p.id];return s&&typeof s.i==='number'?Math.max(0,Math.min(p.stages.length-1,s.i)):p.stage;}
-function stageSince(p){const s=state.stage[p.id];return s&&s.t?s.t:null;}
+function fmtDur(d){d=Math.max(0,Math.round(d));return d>=60?Math.round(d/30)+' mois':d+' j';}
+function frDate(iso){return new Date(iso+'T00:00').toLocaleDateString('fr-CA',{day:'numeric',month:'short'});}
+/* phase calculée d'après ta date de semis + STAGE_DUR (modèle), sauf si tu l'as marquée à la main */
+function autoPhase(p){const dur=STAGE_DUR[p.id],sow=SOW_DATE[p.id];if(!dur||!sow)return null;
+  const t0=new Date(sow+'T00:00').getTime(),days=Math.floor((Date.now()-t0)/864e5);
+  let acc=0,i=0;for(;i<dur.length;i++){if(days<acc+dur[i])break;acc+=dur[i];}
+  if(i>=dur.length){i=dur.length-1;acc=dur.slice(0,i).reduce((a,b)=>a+b,0);}
+  return {i,since:new Date(t0+acc*864e5).toISOString(),days};}
+function curStage(p){const s=state.stage[p.id];if(s&&typeof s.i==='number')return Math.max(0,Math.min(p.stages.length-1,s.i));const a=autoPhase(p);return a?a.i:p.stage;}
+function stageSince(p){const s=state.stage[p.id];if(s&&s.t)return s.t;const a=autoPhase(p);return a?a.since:null;}
+function stageManual(p){return !!state.stage[p.id];}
 function setStage(id,delta){const p=byId(id);const i=Math.max(0,Math.min(p.stages.length-1,curStage(p)+delta));
   state.stage[id]={i,t:new Date().toISOString()};save();renderPlants();
   const c=document.getElementById('card_'+id);if(c)c.classList.add('open');}
@@ -687,16 +709,19 @@ function plantBody(p){
     const head=next
       ? `Phase « <b style="color:var(--leaf-d)">${p.stages[ci]}</b> » : il reste ≈ <b style="color:var(--leaf-d)">${fmtDur(remInPhase)}</b> avant « <b>${next}</b> »`
       : `Dernière phase « <b style="color:var(--leaf-d)">${p.stages[ci]}</b> » : dure ≈ <b style="color:var(--leaf-d)">${fmtDur(phaseDur)}</b>`;
-    const sinceTxt=elapsed==null
-      ? `<b style="color:var(--amber)">phase non datée</b> — marque le changement ci-dessous pour un décompte exact`
-      : `entrée dans cette phase il y a ${elapsed} j`;
+    const manual=stageManual(p);
+    const sinceTxt = peren
+      ? `<b style="color:var(--amber)">estimation indicative</b> (vivace, années avant fruit)`
+      : manual
+        ? `phase marquée il y a ${elapsed} j`
+        : `≈ ${elapsed} j dans cette phase · estimé depuis ton semis (~${frDate(SOW_DATE[p.id])})`;
     durBlock=`<div class="pact"><h4>⏱️ Temps par phase</h4>
       <div class="note" style="margin-bottom:7px">${head}.<br>${sinceTxt}. Cycle complet ≈ <b style="color:var(--ink)">${fmtDur(total)}</b>${peren?' <b style="color:var(--amber)">(vivace — indicatif)</b>':''}</div>
       <table class="sdur"><thead><tr><th>Phase</th><th class="sd-r">temps avant la suivante</th></tr></thead><tbody>${rows}</tbody></table>
       <div style="display:flex;gap:8px;margin-top:9px">
         <button class="btn sm ghost" style="flex:1" onclick="event.stopPropagation();setStage('${p.id}',-1)">◂ Phase précédente</button>
         <button class="btn sm" style="flex:1" onclick="event.stopPropagation();setStage('${p.id}',1)">Phase suivante ▸</button></div>
-      <p class="note" style="margin-top:7px">Estimations typiques (variété et météo font varier). Le décompte de la phase démarre quand tu la marques avec ◂ / ▸.</p></div>`;
+      <p class="note" style="margin-top:7px">Calculé depuis ta date de semis + durées de phase calibrées par variété (variété et météo font varier). Ajuste avec ◂ / ▸ si la réalité diffère.</p></div>`;
   }
   return `<div class="plant-body">
     ${durBlock}
