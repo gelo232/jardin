@@ -1,0 +1,17 @@
+{
+  "name": "Jardin · assistant de terrain",
+  "short_name": "Jardin",
+  "description": "Assistant d'entretien de jardin selon la météo et la saison (Montréal, zone 5b).",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#10172e",
+  "theme_color": "#10172e",
+  "lang": "fr",
+  "categories": ["lifestyle", "utilities"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

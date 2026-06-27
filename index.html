@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#10172e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Jardin · assistant de terrain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+  /* Bootstrap Icons — police embarquée localement (6 glyphes utilisés), fidèle à kgw.afronim.com, fonctionne hors-ligne */
+  @font-face{font-family:bootstrap-icons;src:url("bootstrap-icons.woff2") format("woff2");font-display:swap}
+  .bi::before{display:inline-block;font-family:bootstrap-icons!important;font-style:normal;font-weight:400!important;font-variant:normal;text-transform:none;line-height:1;vertical-align:-.125em;-webkit-font-smoothing:antialiased}
+  .bi-card-checklist::before{content:"\f224"}
+  .bi-tree::before{content:"\f5e2"}
+  .bi-flower1::before{content:"\f3cd"}
+  .bi-eyedropper::before{content:"\f342"}
+  .bi-journal-text::before{content:"\f444"}
+  .bi-chevron-right::before{content:"\f285"}
+  :root{
+    /* palette recalée sur kgw.afronim.com : navy #1c2341 + cyan #6ec6d8 + blanc */
+    --paper:#10172e; --card:#1c2341; --card-2:#262f54;
+    --ink:#eef3fb; --ink-soft:#9fb1d0; --line:#33406b;
+    --leaf:#6ec6d8; --leaf-d:#9fe0ee; --salt:#6f97e0; --salt-soft:#1c2647;
+    --amber:#e7a35a; --amber-soft:#33271a; --danger:#e0664f;
+    --radius:10px; --shadow:0 1px 0 rgba(255,255,255,.03), 0 16px 34px -20px rgba(0,0,0,.8);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{background:
+      radial-gradient(120% 60% at 50% -10%, rgba(110,198,216,.12), transparent 55%),
+      radial-gradient(120% 50% at 80% 0%, rgba(111,151,224,.10), transparent 50%),
+      linear-gradient(180deg,#0d1429 0%, #10172e 40%, #121a34 100%);
+    background-attachment:fixed;
+    color:var(--ink);font-family:'Montserrat',system-ui,sans-serif;
+    font-size:16px;line-height:1.45;padding-bottom:84px;-webkit-font-smoothing:antialiased}
+  .mono{font-family:'Montserrat',sans-serif;font-variant-numeric:tabular-nums;font-weight:600}
+  .wrap{max-width:680px;margin:0 auto;padding:0 16px}
+
+  header{position:relative;overflow:hidden;color:var(--ink);
+    background:linear-gradient(180deg,#0d1530 0%, #16203f 100%);
+    padding:calc(env(safe-area-inset-top) + 16px) 0 18px;border-bottom:1px solid var(--line)}
+  /* signature : voile d'aurore (ciel-nuit cyan/teal du hero kgw.afronim.com) */
+  header::before{content:"";position:absolute;top:-40%;left:-10%;right:-10%;height:120%;
+    background:linear-gradient(105deg,transparent 8%,rgba(110,198,216,.30) 26%,rgba(120,210,200,.22) 40%,rgba(111,151,224,.28) 58%,transparent 78%);
+    filter:blur(26px);opacity:.55;pointer-events:none}
+  header::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;
+    background:linear-gradient(90deg,transparent,var(--leaf),var(--salt),transparent);opacity:.9}
+  header .wrap{position:relative;z-index:1}
+  .brand{display:flex;align-items:baseline;gap:8px}
+  .brand h1{font-size:21px;font-weight:800;letter-spacing:-.02em;margin:0}
+  .brand .tag{font-size:12px;color:#8fa3c0;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+  .wx{margin-top:14px;display:flex;gap:14px;align-items:center}
+  .wx .glyph{font-size:34px;line-height:1}
+  .wx .temp{font-size:30px;font-weight:800;letter-spacing:-.03em}
+  .wx .meta{font-size:13px;color:#9fb1cc;line-height:1.3}
+  .wx .meta b{color:var(--ink);font-weight:700}
+  .wx-loc{font-size:11px;color:#8294b0;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;text-decoration:underline dotted}
+  .directive{margin-top:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
+    border-radius:10px;padding:11px 13px;font-size:14px;display:flex;gap:9px;align-items:flex-start}
+  .directive .d-ic{font-size:18px;line-height:1.2}
+  .directive.hot{border-color:var(--amber)} .directive.rain{border-color:var(--salt)} .directive.cold{border-color:#6aa0c8}
+
+  nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:40;background:var(--card-2);border-top:1px solid var(--line);
+    display:flex;padding-bottom:env(safe-area-inset-bottom);box-shadow:0 -6px 20px -14px rgba(0,0,0,.3)}
+  nav.tabs button{flex:1;background:none;border:0;padding:9px 2px 10px;color:var(--ink-soft);
+    font-family:inherit;font-size:10.5px;font-weight:600;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px}
+  nav.tabs button .ti{font-size:19px;line-height:1}
+  nav.tabs button.active{color:var(--leaf)}
+
+  section{display:none;padding:18px 0 24px} section.active{display:block}
+  .eyebrow{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--leaf);margin:0 0 4px}
+  h2.title{font-size:24px;font-weight:800;letter-spacing:-.025em;margin:0 0 14px}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden}
+  .card-pad{padding:14px}
+
+  /* segmented control */
+  .seg-ctrl{display:flex;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:3px;margin-bottom:14px}
+  .seg-ctrl button{flex:1;border:0;background:none;padding:9px;border-radius:8px;font-family:inherit;font-size:14px;font-weight:700;color:var(--ink-soft);cursor:pointer}
+  .seg-ctrl button.on{background:linear-gradient(135deg,var(--leaf),#4aa9c4);color:#07131f}
+
+  .task{display:flex;gap:11px;padding:13px 14px;border-bottom:1px solid var(--line);align-items:flex-start}
+  .task:last-child{border-bottom:0}
+  .task .tk-ic{width:30px;height:30px;border-radius:8px;flex:none;display:grid;place-items:center;font-size:16px;background:var(--salt-soft);color:var(--salt)}
+  .task.prio .tk-ic{background:var(--amber-soft);color:var(--amber)}
+  .task.feed .tk-ic{background:rgba(110,198,216,.16);color:var(--leaf)}
+  .task .tk-body{flex:1;min-width:0}
+  .task .tk-t{font-weight:700;font-size:15px}
+  .task .tk-d{font-size:13.5px;color:var(--ink-soft);margin-top:2px}
+  .empty{padding:26px 16px;text-align:center;color:var(--ink-soft);font-size:14px}
+
+  /* plan 14 jours */
+  .day{display:flex;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line)}
+  .day:last-child{border-bottom:0}
+  .day.free{opacity:.62}
+  .day .d-date{flex:none;width:46px;text-align:center}
+  .day .d-dow{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);font-weight:700}
+  .day .d-num{font-size:21px;font-weight:800;line-height:1;letter-spacing:-.02em}
+  .day .d-wx{flex:none;text-align:center;width:50px}
+  .day .d-gl{font-size:20px;line-height:1.2}
+  .day .d-tmp{font-size:12px;color:var(--ink-soft)}
+  .day .d-tmp .mx{color:var(--ink);font-weight:700}
+  .day .d-ev{flex:1;min-width:0}
+  .ev{display:flex;gap:7px;align-items:flex-start;font-size:13.5px;margin-bottom:5px;line-height:1.35}
+  .ev:last-child{margin-bottom:0}
+  .ev .e-ic{flex:none}
+  .ev.feed{color:var(--leaf-d);font-weight:600}
+  .ev.warn{color:var(--amber)}
+  .ev.cold{color:var(--salt)}
+  .ev.none-x{color:var(--ink-soft)}
+
+  .plant{cursor:pointer}
+  .plant-head{display:flex;gap:12px;align-items:center;padding:13px 14px}
+  .plant-head .pic{font-size:26px;width:42px;height:42px;border-radius:10px;background:var(--card-2);border:1px solid var(--line);display:grid;place-items:center;flex:none}
+  .plant-head .pname{font-weight:800;font-size:16px;letter-spacing:-.01em}
+  .plant-head .psub{font-size:12.5px;color:var(--ink-soft)}
+  .plant-head .chev{margin-left:auto;color:var(--ink-soft);transition:transform .2s;font-size:18px}
+  .plant.open .chev{transform:rotate(90deg)}
+
+  .gauge{padding:0 14px 12px}
+  .track{display:flex;gap:3px;margin-bottom:5px}
+  .seg{flex:1;height:6px;border-radius:3px;background:var(--line)}
+  .seg.done{background:var(--leaf)} .seg.now{background:var(--salt);box-shadow:0 0 10px 1px rgba(111,151,224,.55)}
+  .stages{display:flex;justify-content:space-between;font-size:9.5px;color:var(--ink-soft);letter-spacing:.01em;text-transform:uppercase;font-weight:600}
+  .stages span.cur{color:var(--salt)}
+  .sdur{width:100%;border-collapse:collapse;font-size:13px;margin-top:2px}
+  .sdur th{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);font-weight:700;text-align:left;padding:0 0 5px;border-bottom:1px solid var(--line)}
+  .sdur td{padding:6px 0;border-bottom:1px solid var(--line);color:var(--ink)}
+  .sdur tr:last-child td{border-bottom:0}
+  .sdur .sd-n,.sdur th.sd-n,.sdur .sd-r,.sdur th.sd-r{text-align:right;white-space:nowrap}
+  .sdur .sd-n{color:var(--ink-soft)}
+  .sdur .sd-done td{color:var(--ink-soft)}
+  .sdur .sd-cur td{color:var(--leaf-d);font-weight:700}
+
+  .plant-body{display:none;border-top:1px solid var(--line);padding:13px 14px;background:var(--card-2)}
+  .plant.open .plant-body{display:block}
+  .pact{margin-bottom:13px} .pact:last-child{margin-bottom:0}
+  .pact h4{margin:0 0 5px;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--leaf-d);display:flex;align-items:center;gap:6px}
+  .pact p{margin:0 0 5px;font-size:14px;color:var(--ink)}
+  .pact ul{margin:0;padding-left:18px;font-size:13.5px;color:var(--ink);line-height:1.55}
+  .flag{background:var(--amber-soft);border-left:3px solid var(--amber);padding:9px 11px;border-radius:0 8px 8px 0;font-size:13.5px;margin-top:6px}
+  .flag.cold{background:rgba(106,160,200,.14);border-color:#6aa0c8}
+  .flag.iron{background:rgba(110,198,216,.12);border-color:var(--leaf)}
+
+  .recipe{background:linear-gradient(160deg,#141d3a,#0f1730);border:1px solid #2b3a63;color:#eef3fb;border-radius:10px;padding:12px 13px;margin-top:6px}
+  .recipe .r-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px}
+  .recipe .r-name{font-weight:700;font-size:13px} .recipe .r-can{font-size:11px;color:#8fa3c8}
+  .recipe table{width:100%;border-collapse:collapse;font-size:13.5px}
+  .recipe td{padding:4px 0;border-bottom:1px solid rgba(255,255,255,.09)}
+  .recipe tr:last-child td{border-bottom:0}
+  .recipe td.amt{text-align:right;color:var(--leaf-d);font-weight:700}
+  .recipe .r-note{font-size:11.5px;color:#aebbd6;margin-top:8px;line-height:1.4}
+
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin-bottom:6px}
+  select,input[type=number]{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card-2);
+    font-family:inherit;font-size:15px;color:var(--ink);-webkit-appearance:none;appearance:none}
+  select{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' stroke='%239fb1d0' stroke-width='1.6' fill='none'/></svg>");background-repeat:no-repeat;background-position:right 13px center}
+  .btn{display:block;width:100%;text-align:center;background:var(--leaf);color:#07131f;border:0;border-radius:11px;padding:13px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;margin-top:4px}
+  .btn.ghost{background:transparent;color:var(--leaf);border:1px solid var(--leaf)}
+  .btn.sm{padding:9px;font-size:13px;width:auto;display:inline-block;padding-left:16px;padding-right:16px}
+
+  .npk-out{margin-top:14px}
+  .npk-badges{display:flex;gap:8px;margin-top:10px}
+  .npk-b{flex:1;text-align:center;background:var(--card-2);border:1px solid var(--line);border-radius:10px;padding:9px 4px}
+  .npk-b .v{font-weight:800;font-size:20px} .npk-b .k{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin-top:2px}
+  .npk-b.n .v{color:var(--leaf)} .npk-b.p .v{color:var(--amber)} .npk-b.k2 .v{color:var(--salt)}
+
+  .log-row{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .log-row:last-child{border-bottom:0}
+  .log-row .lg-d{color:var(--ink-soft);font-size:12px;white-space:nowrap}
+  .chip{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:20px}
+  .chip.f{background:rgba(110,198,216,.16);color:var(--leaf)} .chip.w{background:rgba(111,151,224,.18);color:#a9c0f2}
+
+  /* semis */
+  .sow{cursor:pointer}
+  .sow-head{display:flex;gap:11px;align-items:center;padding:12px 14px}
+  .sow-head .si{font-size:22px;width:38px;height:38px;border-radius:9px;background:var(--card-2);border:1px solid var(--line);display:grid;place-items:center;flex:none}
+  .sow-head .sn{font-weight:700;font-size:15px}
+  .sow-head .ss{font-size:12px;color:var(--ink-soft)}
+  .sow-head .tag2{margin-left:auto;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:rgba(110,198,216,.16);color:var(--leaf)}
+  .sow-head .tag2.tight{background:var(--amber-soft);color:var(--amber)}
+  .sow-body{display:none;border-top:1px solid var(--line);padding:12px 14px;background:var(--card-2);font-size:13.5px}
+  .sow.open .sow-body{display:block}
+  .gtab{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin-bottom:8px}
+  .gtab .k{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);font-weight:700;align-self:center}
+  .gtab .v{font-size:13.5px}
+
+  .note{font-size:12.5px;color:var(--ink-soft);line-height:1.5}
+  .install-hint{background:var(--salt-soft);border:1px dashed var(--salt);border-radius:12px;padding:13px;font-size:13.5px;color:var(--leaf-d);margin-bottom:14px}
+  .install-hint b{color:var(--salt)}
+  .kit{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+  .kit div{background:var(--card-2);border:1px solid var(--line);border-radius:9px;padding:9px;font-size:13px}
+  .kit .npk{font-family:'Montserrat',sans-serif;font-variant-numeric:tabular-nums;color:var(--salt);font-weight:700;font-size:12px}
+  hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
+  .pill-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .pill{font-size:11px;background:var(--card-2);border:1px solid var(--line);border-radius:20px;padding:4px 10px;color:var(--ink-soft)}
+  a{color:var(--salt)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="brand"><h1>Jardin</h1><span class="tag">assistant de terrain</span></div>
+    <div class="wx">
+      <div class="glyph" id="wxGlyph">·</div>
+      <div><div class="temp"><span id="wxTemp">—</span></div><div class="meta" id="wxMeta">Lecture de la météo…</div></div>
+      <div style="margin-left:auto;text-align:right"><div class="wx-loc" id="wxLoc" onclick="askLocation()">📍 position</div></div>
+    </div>
+    <div id="directives"></div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- AUJOURD'HUI / PLAN -->
+  <section id="today" class="active">
+    <p class="eyebrow">Le <span id="dateLabel"></span></p>
+    <h2 class="title">Programme</h2>
+    <div class="seg-ctrl">
+      <button class="on" id="segToday" onclick="setView('today')">Aujourd'hui</button>
+      <button id="segPlan" onclick="setView('plan')">2 semaines</button>
+    </div>
+    <div class="card" id="todayList"></div>
+    <div id="planList" style="display:none"></div>
+    <p class="note" id="todayNote" style="margin-top:10px">Les priorités s'ajustent à la météo et à ton journal. Coche une action dans l'onglet d'une plante pour mettre à jour les rappels.</p>
+  </section>
+
+  <!-- PLANTES -->
+  <section id="plants">
+    <p class="eyebrow">11 cultures suivies</p>
+    <h2 class="title">Mes plantes</h2>
+    <div id="plantList"></div>
+  </section>
+
+  <!-- SEMIS -->
+  <section id="seeds">
+    <p class="eyebrow" id="sowEyebrow">À semer en ce moment</p>
+    <h2 class="title">Semis & germination</h2>
+    <div class="seg-ctrl">
+      <button class="on" id="segOut" onclick="setSow('out')">En pleine terre</button>
+      <button id="segIn" onclick="setSow('in')">En intérieur</button>
+    </div>
+    <div id="sowOut">
+      <div class="card card-pad" id="frostCard"></div>
+      <div id="sowList"></div>
+    </div>
+    <div id="sowIn" style="display:none">
+      <div class="card card-pad" id="indoorIntro"></div>
+      <div id="indoorNow"></div>
+      <p class="eyebrow" style="margin-top:18px">Calendrier de démarrage (région de Montréal)</p>
+      <div class="card" id="indoorCal"></div>
+      <p class="note" style="margin-top:8px">Le mois en cours est mis en vert. La règle : on sème « X semaines avant le dernier gel » (≈ début mai), pour repiquer dehors une fois le risque de gel passé (après le 20–25 mai pour les cultures fragiles).</p>
+    </div>
+
+    <p class="eyebrow" style="margin-top:18px">Pourquoi mes poivrons n'ont pas germé</p>
+    <div class="card card-pad">
+      <p style="margin:0 0 8px;font-size:14px">Les poivrons et piments sont parmi les graines les plus capricieuses. Trois causes presque toujours en jeu :</p>
+      <ul style="margin:0;padding-left:18px;font-size:13.5px;line-height:1.6">
+        <li><b>Trop froid.</b> Ils exigent un sol à <b>27–30 °C</b> pour germer. Sous ~21 °C, la germination est très lente, voire nulle, et les graines pourrissent en sol froid et humide.</li>
+        <li><b>Trop d'impatience.</b> Même au chaud, comptez <b>1 à 3 semaines</b>. Beaucoup abandonnent trop tôt.</li>
+        <li><b>Humidité mal dosée.</b> Le substrat doit rester constamment humide mais jamais détrempé.</li>
+      </ul>
+      <div class="flag iron" style="margin-top:10px">✅ <b>La recette qui marche :</b> chaleur du bas (tapis chauffant, ou dessus du réfrigérateur), semer à 0,5 cm, couvrir d'un dôme ou film plastique pour garder l'humidité, retirer le dôme dès la levée, puis lumière vive.</div>
+      <div class="flag" style="margin-top:8px">📅 <b>Timing au Québec :</b> les poivrons se sèment <b>à l'intérieur en février–mars</b> pour transplanter dehors <b>fin mai – début juin</b>. Fin juin est trop tard pour récolter cette saison — garde tes graines pour l'an prochain.</div>
+    </div>
+
+    <p class="eyebrow" style="margin-top:18px">Principes de germination</p>
+    <div class="card card-pad">
+      <ul style="margin:0;padding-left:18px;font-size:13.5px;line-height:1.65">
+        <li><b>Profondeur</b> ≈ 2 à 3× le diamètre de la graine. Les fines graines (laitue, basilic) se posent en surface — certaines ont même besoin de lumière pour germer.</li>
+        <li><b>Humidité constante</b> jusqu'à la levée. C'est l'erreur n°1 : un seul assèchement tue l'embryon.</li>
+        <li><b>La chaleur fait la vitesse.</b> Chaque culture a sa plage idéale ; le froid ralentit ou bloque tout.</li>
+        <li><b>Graines anciennes</b> = taux de réussite plus faible : sème plus dense pour compenser.</li>
+        <li><b>Test de viabilité :</b> quelques graines dans un essuie-tout humide, en sachet, au chaud — vérifie après 5–7 jours.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- DOSEUR -->
+  <section id="mix">
+    <p class="eyebrow">À partir de tes sels purs</p>
+    <h2 class="title">Doseur d'engrais</h2>
+    <div class="card card-pad">
+      <div class="field"><label>Pour quelle plante / quel objectif ?</label><select id="mixPlant" onchange="renderMix()"></select></div>
+      <div class="field" style="margin-bottom:0"><label>Volume de l'arrosoir (litres)</label>
+        <input type="number" id="canSize" min="0.25" step="0.25" value="10" inputmode="decimal"
+               placeholder="ex. 8" oninput="setCan()">
+        <p class="note" style="margin-top:6px">Entre n'importe quel volume — les doses se recalculent en direct.</p></div>
+    </div>
+    <div id="mixOut"></div>
+    <div class="card card-pad">
+      <p class="eyebrow" style="margin-bottom:8px">Ton kit</p>
+      <div class="kit">
+        <div>Urée <span class="npk">46-0-0</span><br>azote pur</div>
+        <div>MAP <span class="npk">12-61-0</span><br>phosphore + N</div>
+        <div>MKP <span class="npk">0-52-34</span><br>phosphore + K</div>
+        <div>KCl <span class="npk">0-0-62</span><br>potassium pur</div>
+        <div>Fer chélaté Ferti-Lome<br><span class="note">Fe·Zn·Mn·Cu (EDTA) — micronutriments</span></div>
+        <div>Magnésium + Calcium<br><span class="note">à appliquer seul, jamais avec le phosphate</span></div>
+      </div>
+    </div>
+    <div class="flag iron">🩹 <b>Fer chélaté = correctif, pas engrais.</b> Il comble les carences en fer, zinc, manganèse et cuivre (feuilles jaunes à nervures vertes). Foliaire : ≈ 1 c. à soupe / 4 L, sur les deux faces des feuilles. En pot : ≈ ½ c. à thé / litre, une fois par mois jusqu'au retour du vert. N'augmente pas la dose — l'excès de micronutriments est toxique.</div>
+    <div class="flag">⚗️ <b>Règle de sécurité</b> — ne mélange jamais la poudre Ca/Mg dans le même arrosoir que le MAP ou le MKP : le calcium et le phosphate forment un précipité blanc qui bloque l'absorption. Arrosage séparé, autre jour.</div>
+  </section>
+
+  <!-- JOURNAL -->
+  <section id="log">
+    <p class="eyebrow">Mémoire du jardin</p>
+    <h2 class="title">Journal</h2>
+    <div class="install-hint">📲 <b>Installer l'app</b> — dans Chrome (Android) : menu ⋮ → <b>Ajouter à l'écran d'accueil</b>. Elle s'ouvrira en plein écran comme une vraie app, et ce journal sera conservé sur ton téléphone.</div>
+    <div class="card card-pad"><div id="logList"></div></div>
+    <button class="btn ghost" style="margin-top:12px" onclick="clearLog()">Effacer le journal</button>
+    <hr class="sep">
+    <p class="note">Fonctionne hors-ligne. Seule la météo en direct a besoin d'Internet ; sans connexion, les conseils s'appuient sur la saison en cours.</p>
+  </section>
+</main>
+
+<nav class="tabs">
+  <button class="active" data-s="today" onclick="go('today')"><i class="ti bi bi-card-checklist"></i>Programme</button>
+  <button data-s="plants" onclick="go('plants')"><i class="ti bi bi-tree"></i>Plantes</button>
+  <button data-s="seeds" onclick="go('seeds')"><i class="ti bi bi-flower1"></i>Semis</button>
+  <button data-s="mix" onclick="go('mix')"><i class="ti bi bi-eyedropper"></i>Doseur</button>
+  <button data-s="log" onclick="go('log')"><i class="ti bi bi-journal-text"></i>Journal</button>
+</nav>
+
+<script>
+/* ===== ÉTAT & STOCKAGE ===== */
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let state={
+  can:store.get('can',10),
+  coords:store.get('coords',{lat:45.5019,lon:-73.5674,name:'Montréal'}),
+  feeds:store.get('feeds',{}), waters:store.get('waters',{}), logs:store.get('logs',[]),
+  wx:null, view:'today'
+};
+function save(){store.set('can',state.can);store.set('coords',state.coords);
+  store.set('feeds',state.feeds);store.set('waters',state.waters);store.set('logs',state.logs)}
+
+/* ===== RECETTES ===== */
+const RECIPES={
+  jeune:{name:'Jeune pousse (douce)',urea:4,map:4,mkp:0,kcl:3,note:"Demi-force, pour les plants de 3–15 cm. Arroser sur sol déjà humide."},
+  vegetatif:{name:'Croissance végétative',urea:8,map:5,mkp:0,kcl:4,note:"Riche en azote pour bâtir le feuillage. Tous les 12–14 jours."},
+  fleur:{name:'Floraison & fruits',urea:2,map:0,mkp:10,kcl:5,note:"Pauvre en azote, riche en P et K — mise à fleur et grossissement des fruits."},
+  racine:{name:"Racines (faible azote)",urea:0,map:0,mkp:5,kcl:5,note:"Faible en azote : un excès d'azote pousse le feuillage au détriment de la racine. Le forking vient surtout d'un sol caillouteux/compacté ou de fumier frais, pas de l'engrais. La carotte se contente de l'azote déjà présent dans le sol."},
+  agrumes:{name:'Agrumes (sans chlore)',urea:6,map:0,mkp:8,kcl:0,note:"Pas de KCl (chlore). Ajouter le Mg/Ca et le fer chélaté en arrosages séparés."},
+  ananas:{name:'Ananas (léger, acide)',urea:2,map:0,mkp:3,kcl:0,note:"Très dilué, une fois par mois. Sans chlore. Sol acide."}
+};
+const PROD={urea:[.46,0,0],map:[.12,.61,0],mkp:[0,.52,.34],kcl:[0,0,.62]};
+function recipeNPK(r){let N=0,P=0,K=0,m=0;for(const p of['urea','map','mkp','kcl']){const g=r[p]||0;m+=g;N+=g*PROD[p][0];P+=g*PROD[p][1];K+=g*PROD[p][2]}
+  return m?[Math.round(N/m*100),Math.round(P/m*100),Math.round(K/m*100)]:[0,0,0]}
+
+/* ===== PLANTES ===== */
+const PLANTS=[
+  {id:'mais_ombre',icon:'🌽',name:'Maïs — sous les arbres',sub:'3–15 cm · pleine terre, ombragé',
+   stages:['Levée','Végétatif','Montaison','Soies','Épis'],stage:1,recipe:'vegetatif',feedDays:13,sun:'plein soleil',tender:false,
+   water:"Garder le sol frais sans détremper. L'ombre ralentit l'évaporation : arrose seulement si le sol est sec à 3 cm.",
+   watch:["Tiges qui s'étirent et se penchent vers la lumière","Croissance lente vs le maïs au soleil"],
+   structural:["Le maïs se pollinise par le vent et en groupe : garde-les serrés en bloc, pas en ligne unique."],
+   flag:{type:'',txt:"⚠️ Le maïs exige le plein soleil (6 h+). Sous le feuillage, attends-toi à des plants étirés et des épis maigres. Si possible, déplace-en quelques-uns au soleil tant qu'ils sont tout petits — mais le maïs supporte mal le dérangement des racines, alors transplante avec une motte intacte."}},
+  {id:'mais_geo',icon:'🌽',name:'Maïs — sous géotextile',sub:'3–15 cm · entre les tomates',
+   stages:['Levée','Végétatif','Montaison','Soies','Épis'],stage:1,recipe:'vegetatif',feedDays:13,sun:'plein soleil',tender:false,
+   water:"À travers la membrane, l'eau ne pénètre qu'au trou de plantation : arrose lentement, directement au pied.",
+   watch:["Concurrence avec les tomates pour la lumière et l'azote"],
+   structural:["Maïs et tomate sont tous deux gourmands : surveille que le maïs ne soit pas étouffé par le feuillage des tomates."],
+   flag:{type:'',txt:"La membrane empêche l'épandage de surface : nourris uniquement en solution liquide versée au pied. Parfait pour le doseur."}},
+  {id:'tomate_bac',icon:'🍅',name:'Tomates — bacs surélevés',sub:'3–15 cm · pots surélevés',
+   stages:['Semis','Végétatif','Boutons','Floraison','Fruits','Récolte'],stage:1,recipe:'jeune',feedDays:12,sun:'plein soleil',tender:false,
+   water:"Les bacs sèchent vite : vérifie chaque jour, arrose en profondeur quand les 2–3 premiers cm sont secs. Régularité = pas de cul noir.",
+   watch:["Bords de feuilles bruns et secs → excès de sels, lessive","Tiges longues et molles → trop d'azote"],
+   structural:["Installe les tuteurs maintenant.","Coupe les feuilles à moins de 25 cm du sol."],flag:null},
+  {id:'tomate_geo',icon:'🍅',name:'Tomates — géotextile',sub:'3–15 cm · pleine terre, membrane',
+   stages:['Semis','Végétatif','Boutons','Floraison','Fruits','Récolte'],stage:1,recipe:'jeune',feedDays:12,sun:'plein soleil',tender:false,
+   water:"La membrane garde l'humidité mais bloque l'arrosage de surface : verse lentement au trou de plantation. Avantage : pas d'éclaboussures = moins de mildiou.",
+   watch:["Mildiou dès fin juillet (taches brunes huileuses)","Cul noir si arrosage irrégulier"],
+   structural:["Tuteurage dès maintenant.","Effeuillage des feuilles basses.","Pince les gourmands sur variétés indéterminées."],flag:null},
+  {id:'courge',icon:'🎃',name:'Courges',sub:'boutons floraux visibles',
+   stages:['Semis','Végétatif','Boutons','Floraison','Fruits','Récolte'],stage:2,recipe:'fleur',feedDays:12,sun:'plein soleil',tender:false,
+   water:"Gros besoins en eau. Arrose au pied, jamais sur le feuillage (oïdium garanti sinon).",
+   watch:["Oïdium : feutrage blanc sur les feuilles","Premières fleurs mâles puis femelles (petite courge à la base)"],
+   structural:["À la floraison : pollinise à la main au pinceau le matin si peu d'abeilles.","Glisse une planchette ou de la paille sous les jeunes fruits."],flag:null},
+  {id:'melon',icon:'🍈',name:'Melon',sub:'3 feuilles · 4–6 cm',
+   stages:['Semis','Végétatif','Floraison','Fruits','Maturation'],stage:1,recipe:'jeune',feedDays:14,sun:'chaleur maximale',tender:true,
+   water:"Aime la chaleur, déteste les racines détrempées. Arrose régulièrement mais laisse sécher la surface.",
+   watch:["Croissance qui stagne sous 15 °C la nuit"],
+   structural:["Un paillage sombre réchauffe le sol et accélère tout.","Pince la tige après 4–5 feuilles pour ramifier."],
+   flag:{type:'cold',txt:"❄️ Saison courte au Québec. Donne-lui le coin le plus chaud, protège-le si les nuits passent sous 12 °C."}},
+  {id:'pasteque',icon:'🍉',name:'Pastèque',sub:'2 feuilles',
+   stages:['Semis','Végétatif','Floraison','Fruits','Maturation'],stage:1,recipe:'jeune',feedDays:14,sun:'chaleur maximale',tender:true,
+   water:"Très jeune et fragile. Sol chaud et humide sans excès. Évite tout stress de froid.",
+   watch:["Sensible au froid au stade 2 feuilles — la moindre nuit fraîche la bloque"],
+   structural:["Stade le plus vulnérable : fertilisation très diluée seulement."],
+   flag:{type:'cold',txt:"❄️ La plus exigeante en chaleur du jardin, saison québécoise courte. Maximise la chaleur ; récolte avant gel non garantie."}},
+  {id:'persil',icon:'🌿',name:'Persil',sub:'5 cm',
+   stages:['Levée','Feuillage','Récolte continue'],stage:1,recipe:'jeune',feedDays:21,sun:'soleil à mi-ombre',tender:false,
+   water:"Sol frais et régulièrement humide. Tolère un peu d'ombre l'après-midi.",
+   watch:["Montée en graine si stress hydrique ou chaleur extrême"],
+   structural:["Récolte les tiges extérieures d'abord.","Peu gourmand : apport léger, n'en abuse pas."],flag:null},
+  {id:'carotte',icon:'🥕',name:'Carottes',sub:'pot · feuillage 15 cm',
+   stages:['Levée','Feuillage','Grossissement','Récolte'],stage:2,recipe:'racine',feedDays:21,sun:'plein soleil',tender:false,
+   water:"Arrosage régulier et profond : l'irrégularité fait fendre les racines. En pot, surveille le dessèchement.",
+   watch:["Feuillage abondant, racine fine → trop d'azote","Racines fourchues → surtout sol caillouteux/compacté ou fumier frais"],
+   structural:["En pot, profondeur 25 cm+ pour des racines droites.","Éclaircis à 3–4 cm entre carottes."],
+   flag:{type:'',txt:"🥕 Garde l'azote au minimum (peu ou pas d'urée ni de MAP) : trop d'azote pousse le feuillage au détriment de la racine. Le doseur propose une formule faible en azote et riche en potassium."}},
+  {id:'citron',icon:'🍋',name:'Citronniers (×2)',sub:'pot · 2 ans · 30–50 cm',
+   stages:['Croissance','Floraison','Fruits','Maturation'],stage:0,recipe:'agrumes',feedDays:14,sun:'plein soleil',tender:true,
+   water:"Laisse sécher les 3–4 premiers cm, puis arrose à fond jusqu'au drainage. Jamais les pieds dans l'eau.",
+   watch:["Feuilles jaunes à nervures vertes → carence fer/magnésium (ton fer chélaté corrige ça)","Chute des feuilles → arrosage irrégulier ou coup de froid"],
+   structural:["Dehors au plein soleil l'été, rentrer avant 10 °C.","Magnésium apprécié : poudre Ca/Mg en arrosage séparé, 1×/mois."],
+   flag:{type:'iron',txt:"🍋 Pas de KCl (chlore) sur agrumes. Ton fer chélaté Ferti-Lome couvre désormais le fer, le zinc, le manganèse et le cuivre — exactement ce qui manquait. Si les jeunes feuilles jaunissent à nervures vertes, fais une pulvérisation foliaire."}},
+  {id:'ananas',icon:'🍍',name:'Ananas',sub:'pot · 1 an · 5–10 cm',
+   stages:['Croissance lente','Floraison','Fruit'],stage:0,recipe:'ananas',feedDays:30,sun:'lumière vive',tender:true,
+   water:"Broméliacée : laisse bien sécher entre deux arrosages. Un peu d'eau au cœur de la rosette est apprécié.",
+   watch:["Pointes brunes → eau calcaire ou excès d'engrais","Croissance très lente — normal, 2 ans+ avant un fruit"],
+   structural:["Aime l'humidité de l'air : brumise par temps sec.","Apport mensuel très dilué suffit."],
+   flag:{type:'iron',txt:"🍍 Confirmé sensible au chlore : pas de KCl. L'ananas est pourtant gourmand en potassium — or le seul potassium sans chlore de ton kit (MKP) apporte aussi pas mal de phosphore. Garde donc des doses légères et espacées ; un sulfate de potassium (0-0-50) serait l'idéal pour bien faire. Sol acide préféré ; le fer chélaté corrige les pointes pâles."}},
+];
+const byId=id=>PLANTS.find(p=>p.id===id);
+
+/* ===== DURÉES PAR STADE (jours, estimations typiques — varient selon variété/météo) ===== */
+/* une valeur par stade, dans le même ordre que p.stages */
+const STAGE_DUR={
+  mais_ombre:[10,30,25,15,25], mais_geo:[10,30,25,15,25],
+  tomate_bac:[14,30,14,14,30,30], tomate_geo:[14,30,14,14,30,30],
+  courge:[10,25,14,14,25,30],
+  melon:[10,30,14,25,21], pasteque:[10,35,14,30,25],
+  persil:[21,40,90], carotte:[18,25,27,15],
+  citron:[120,30,60,150], ananas:[540,60,150]
+};
+const PEREN={citron:1,ananas:1}; // vivaces : cycles longs, estimations indicatives
+function fmtDur(d){return d>=60?Math.round(d/30)+' mois':d+' j';}
+
+/* ===== SEMIS (Québec, mois 1–12) ===== */
+const SOW=[
+  {n:'Haricots nains',i:'🫘',dtm:55,win:[5,6,7],type:'semis direct',gt:'18–30 °C',gd:'7–10 j',dp:'3 cm',tip:"Aime la chaleur, ne pas semer en sol froid (pourrissent). Dernier semis viable vers mi-juillet."},
+  {n:'Laitue',i:'🥬',dtm:50,win:[4,5,6,7,8,9],type:'semis direct',gt:'10–22 °C',gd:'5–8 j',dp:'0,5 cm (lumière requise)',tip:"Monte en graine à la chaleur : semer à la mi-ombre l'été. Semis échelonnés toutes les 2 sem."},
+  {n:'Radis',i:'🔴',dtm:28,win:[4,5,6,7,8,9],type:'semis direct',gt:'10–25 °C',gd:'4–6 j',dp:'1 cm',tip:"Le plus rapide. Idéal échelonné. Arrosage régulier sinon ils piquent et deviennent creux."},
+  {n:'Carottes',i:'🥕',dtm:75,win:[4,5,6,7],type:'semis direct',gt:'10–25 °C',gd:'14–21 j (lent)',dp:'0,5 cm',tip:"Germination lente : garder la surface humide jusqu'à la levée (planche/jute par-dessus). Dernier semis début juillet."},
+  {n:'Betteraves',i:'🟣',dtm:58,win:[4,5,6,7],type:'semis direct',gt:'10–25 °C',gd:'7–14 j',dp:'2 cm',tip:"Tremper les graines 12 h avant. Éclaircir : chaque graine donne plusieurs plants."},
+  {n:'Concombre',i:'🥒',dtm:58,win:[5,6,7],type:'semis direct',gt:'21–30 °C',gd:'5–10 j',dp:'2 cm',tip:"Chaleur indispensable. Dernier semis viable vers début juillet."},
+  {n:'Courgette',i:'🥒',dtm:52,win:[5,6,7],type:'semis direct',gt:'21–30 °C',gd:'6–10 j',dp:'2–3 cm',tip:"Très productive. Un semis début juillet donne encore une récolte au Québec."},
+  {n:'Basilic',i:'🌿',dtm:60,win:[5,6,7],type:'direct / repiquage',gt:'20–28 °C',gd:'5–10 j',dp:'0,3 cm (lumière)',tip:"Aime la chaleur. Ne pas enterrer : germe à la lumière."},
+  {n:'Aneth',i:'🌿',dtm:55,win:[5,6,7,8],type:'semis direct',gt:'15–25 °C',gd:'10–14 j',dp:'0,5 cm',tip:"Se ressème seul. Supporte mal le repiquage : semer en place."},
+  {n:'Coriandre',i:'🌿',dtm:45,win:[4,5,6,8,9],type:'semis direct',gt:'12–22 °C',gd:'7–14 j',dp:'1 cm',tip:"Monte vite en graine par forte chaleur : mi-ombre l'été ou attendre fin août."},
+  {n:'Kale / chou frisé',i:'🥬',dtm:55,win:[5,6,7],type:'direct / repiquage',gt:'10–25 °C',gd:'5–8 j',dp:'1 cm',tip:"Excellent en automne : un semis de juillet donne des feuilles meilleures après les premières gelées."},
+  {n:'Navet',i:'⚪',dtm:50,win:[6,7,8],type:'semis direct',gt:'10–25 °C',gd:'4–7 j',dp:'1 cm',tip:"Culture d'automne idéale : semer en juillet-août."},
+  {n:'Bette à carde',i:'🥬',dtm:55,win:[5,6,7],type:'semis direct',gt:'10–25 °C',gd:'7–14 j',dp:'2 cm',tip:"Tolère la chaleur mieux que l'épinard. Récolte continue feuille par feuille."},
+  {n:'Épinard',i:'🥬',dtm:45,win:[4,8,9],type:'semis direct',gt:'5–18 °C',gd:'7–14 j',dp:'1 cm',tip:"Déteste la chaleur (monte en graine). Pas en juin : attendre fin août pour l'automne."},
+  {n:'Pois',i:'🟢',dtm:60,win:[4,7,8],type:'semis direct',gt:'5–20 °C',gd:'7–14 j',dp:'3 cm',tip:"Saison fraîche. Trop tard pour l'été ; resemer fin juillet pour l'automne."},
+];
+function daysToFrost(){const now=new Date();const frost=new Date(now.getFullYear(),9,7);/*~7 oct, gel moyen Montréal*/
+  return Math.max(0,Math.round((frost-now)/864e5))}
+function renderSeeds(){
+  const m=new Date().getMonth()+1, dleft=daysToFrost();
+  document.getElementById('frostCard').innerHTML=
+    `<p style="margin:0;font-size:14px">🍁 Au Québec (Montréal), le premier gel d'automne arrive en moyenne <b>vers le 7 octobre</b> (centre-ville ; un peu plus tôt en banlieue). Il reste environ <b>${dleft} jours</b> de saison. Compte les jours à maturité d'une culture à partir d'aujourd'hui pour savoir si elle a le temps.</p>`;
+  const now=SOW.filter(s=>s.win.includes(m));
+  document.getElementById('sowEyebrow').textContent=`À semer en ${new Date().toLocaleDateString('fr-CA',{month:'long'})}`;
+  document.getElementById('sowList').innerHTML = now.length? now.map((s,idx)=>{
+    const tight = s.dtm > dleft-14;
+    return `<div class="card sow" id="sow_${idx}" onclick="this.classList.toggle('open')">
+      <div class="sow-head"><div class="si">${s.i}</div>
+        <div><div class="sn">${s.n}</div><div class="ss">${s.type} · ${s.dtm} j à maturité</div></div>
+        <span class="tag2 ${tight?'tight':''}">${tight?'⏳ juste avant gel':'✓ a le temps'}</span></div>
+      <div class="sow-body">
+        <div class="gtab">
+          <span class="k">Température</span><span class="v">${s.gt}</span>
+          <span class="k">Germination</span><span class="v">${s.gd}</span>
+          <span class="k">Profondeur</span><span class="v">${s.dp}</span>
+        </div>
+        <p style="margin:0">${s.tip}</p>
+        ${tight?`<div class="flag" style="margin-top:8px">⏳ ${s.dtm} jours à maturité pour ~${dleft} jours restants : plante une variété rapide ou vise une récolte jeune / d'automne.</div>`:''}
+      </div></div>`}).join('')
+    : '<div class="card"><div class="empty">Hors période de semis principale. Reviens au printemps, ou tente des cultures d\'automne en fin d\'été.</div></div>';
+  renderIndoor();
+}
+
+/* ===== SEMIS INTÉRIEUR (Québec, dernier gel ~ mi-mai) ===== */
+const MOIS=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+const INDOOR=[
+  {n:'Piments & poivrons',i:'🌶️',win:[2,3],wk:'8–10 sem. avant le dernier gel',gt:'27–30 °C',gd:'1–3 sem.',tip:"Les plus lents et frileux. Tapis chauffant vivement conseillé. Repiquer dehors début juin, après tout risque de gel."},
+  {n:'Aubergines',i:'🍆',win:[2,3],wk:'8–10 sem. avant le dernier gel',gt:'24–30 °C',gd:'1–2 sem.',tip:"Mêmes exigences que le poivron : chaleur de fond et patience."},
+  {n:'Céleri',i:'🥬',win:[2,3],wk:'10–12 sem. avant le dernier gel',gt:'18–24 °C',gd:'2–3 sem.',tip:"Graines fines semées en surface (lumière requise). Germination capricieuse."},
+  {n:'Oignons (de semis)',i:'🧅',win:[2,3],wk:'10–12 sem. avant le dernier gel',gt:'18–24 °C',gd:'1–2 sem.',tip:"Tailler le feuillage à ~8 cm pour renforcer les plants avant repiquage."},
+  {n:'Poireaux',i:'🥬',win:[2,3],wk:'10–12 sem. avant le dernier gel',gt:'18–24 °C',gd:'1–2 sem.',tip:"Démarrage long ; repiquer en pleine terre fin mai."},
+  {n:'Tomates',i:'🍅',win:[3,4],wk:'6–8 sem. avant le dernier gel',gt:'21–27 °C',gd:'5–10 j',tip:"Ne pas démarrer trop tôt : des plants trop grands en pot s'étiolent. Repiquer après le dernier gel."},
+  {n:'Basilic',i:'🌿',win:[3,4],wk:'6–8 sem. avant le dernier gel',gt:'20–28 °C',gd:'5–10 j',tip:"Craint le froid : ne sort qu'une fois les nuits au-dessus de 12 °C."},
+  {n:'Choux · brocoli · chou-fleur (printemps)',i:'🥦',win:[3,4],wk:'5–6 sem. avant le dernier gel',gt:'10–25 °C',gd:'5–8 j',tip:"Tolèrent le frais : repiquer tôt, dès la mi-mai."},
+  {n:'Laitue (en plateau)',i:'🥬',win:[3,4],wk:'4–5 sem. avant le dernier gel',gt:'10–22 °C',gd:'5–8 j',tip:"Aussi en semis échelonnés. Pour l'automne, redémarrer en juillet au frais."},
+  {n:'Concombre',i:'🥒',win:[4,5],wk:'3–4 sem. avant le dernier gel',gt:'21–30 °C',gd:'5–10 j',tip:"Repique mal : godets de tourbe, manipuler les racines avec soin."},
+  {n:'Courge & courgette',i:'🥒',win:[4,5],wk:'3–4 sem. avant le dernier gel',gt:'21–30 °C',gd:'6–10 j',tip:"Godets de tourbe. Croissance rapide : ne pas démarrer trop tôt."},
+  {n:'Melon',i:'🍈',win:[4],wk:'3–4 sem. avant le dernier gel',gt:'24–30 °C',gd:'5–10 j',tip:"Sensible au froid et au repiquage : godets de tourbe, chaleur de fond, sortir après le dernier gel."},
+  {n:'Pastèque',i:'🍉',win:[4],wk:'3–4 sem. avant le dernier gel',gt:'24–30 °C',gd:'5–10 j',tip:"La plus frileuse : démarrage intérieur quasi obligatoire au Québec. Godets de tourbe, chaleur constante."},
+  {n:"Choux & kale (récolte d'automne)",i:'🥬',win:[6,7],wk:'à repiquer en juillet–août',gt:'10–25 °C',gd:'5–8 j',tip:"Démarrés à l'abri en plein été pour une récolte d'automne, souvent meilleure après les premières gelées."},
+];
+function renderIndoor(){
+  const m=new Date().getMonth()+1;
+  document.getElementById('indoorIntro').innerHTML=
+    `<p style="margin:0;font-size:14px">🪴 Région de Montréal : le <b>dernier gel printanier</b> tombe en moyenne <b>début mai</b> (~3–9 mai au centre-ville, plus tard en banlieue), mais on repique les cultures fragiles (tomate, poivron, courge) seulement <b>après le 20–25 mai</b> par prudence. On démarre donc en intérieur de <b>février à mai</b> ; en été, seules les <b>cultures d'automne</b>.</p>`;
+  const now=INDOOR.filter(s=>s.win.includes(m));
+  const nowEl=document.getElementById('indoorNow');
+  nowEl.innerHTML = now.length
+    ? `<p class="eyebrow" style="margin:16px 0 6px">À démarrer en ${MOIS[m-1]}</p>`+now.map(s=>`
+        <div class="card sow" onclick="this.classList.toggle('open')">
+          <div class="sow-head"><div class="si">${s.i}</div>
+            <div><div class="sn">${s.n}</div><div class="ss">${s.wk}</div></div>
+            <span class="tag2">à semer</span></div>
+          <div class="sow-body"><div class="gtab">
+            <span class="k">Température</span><span class="v">${s.gt}</span>
+            <span class="k">Germination</span><span class="v">${s.gd}</span></div>
+            <p style="margin:0">${s.tip}</p></div></div>`).join('')
+    : `<div class="card" style="margin-top:16px"><div class="empty">En ${MOIS[m-1]}, rien à démarrer en intérieur — l'essentiel se sème de février à mai, et les choux d'automne en juin-juillet. Consulte le calendrier ci-dessous.</div></div>`;
+  const sorted=[...INDOOR].sort((a,b)=>a.win[0]-b.win[0]);
+  document.getElementById('indoorCal').innerHTML=sorted.map(s=>{
+    const months=s.win.map(x=>MOIS[x-1]).join(' – '), cur=s.win.includes(m);
+    return `<div class="log-row" style="padding:11px 14px;align-items:center">
+      <span style="font-size:18px">${s.i}</span>
+      <span style="flex:1"><b style="${cur?'color:var(--leaf)':''}">${s.n}</b><br><span class="note">${s.wk}</span></span>
+      <span class="lg-d" style="text-transform:capitalize;${cur?'color:var(--leaf);font-weight:700':''}">${months}</span></div>`;
+  }).join('');
+}
+function setSow(v){
+  document.getElementById('segOut').classList.toggle('on',v==='out');
+  document.getElementById('segIn').classList.toggle('on',v==='in');
+  document.getElementById('sowOut').style.display=v==='out'?'':'none';
+  document.getElementById('sowIn').style.display=v==='in'?'':'none';
+}
+
+/* ===== MÉTÉO ===== */
+const WMO={0:['Ciel dégagé','☀️'],1:['Plutôt clair','🌤️'],2:['Partiellement nuageux','⛅'],3:['Couvert','☁️'],
+  45:['Brouillard','🌫️'],48:['Brouillard givrant','🌫️'],51:['Bruine','🌦️'],53:['Bruine','🌦️'],55:['Bruine forte','🌧️'],
+  61:['Pluie légère','🌦️'],63:['Pluie','🌧️'],65:['Forte pluie','🌧️'],71:['Neige','🌨️'],73:['Neige','🌨️'],75:['Forte neige','🌨️'],
+  80:['Averses','🌦️'],81:['Averses','🌧️'],82:['Fortes averses','⛈️'],95:['Orage','⛈️'],96:['Orage grêle','⛈️'],99:['Orage violent','⛈️']};
+async function loadWeather(){
+  const {lat,lon}=state.coords;
+  document.getElementById('wxLoc').textContent='📍 '+(state.coords.name||'position');
+  try{
+    const u=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,precipitation,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max&timezone=auto&forecast_days=14`;
+    const r=await fetch(u);const d=await r.json();
+    const daily=d.daily.time.map((t,i)=>({date:new Date(t+'T00:00'),code:d.daily.weather_code[i],
+      tmax:Math.round(d.daily.temperature_2m_max[i]),tmin:Math.round(d.daily.temperature_2m_min[i]),
+      rainSum:d.daily.precipitation_sum[i],rainProb:d.daily.precipitation_probability_max[i]}));
+    state.wx={temp:Math.round(d.current.temperature_2m),code:d.current.weather_code,
+      tmax:daily[0].tmax,tmin:daily[0].tmin,tmin2:daily[1]?daily[1].tmin:daily[0].tmin,
+      rainToday:daily[0].rainSum,rainProb:daily[0].rainProb,daily,cachedAt:Date.now()};
+    store.set('wxCache',state.wx); // dernière météo connue, pour l'affichage hors-ligne
+  }catch(e){
+    const c=store.get('wxCache',null); // hors-ligne : on réutilise la dernière météo connue
+    if(c&&c.daily){c.daily=c.daily.map(x=>({...x,date:new Date(x.date)}));c.offline=true;state.wx=c}
+    else state.wx=null;
+  }
+  renderWeather();renderToday();renderPlan();
+}
+function askLocation(){
+  if(!navigator.geolocation){alert("Géolocalisation indisponible.");return}
+  navigator.geolocation.getCurrentPosition(
+    p=>{state.coords={lat:+p.coords.latitude.toFixed(4),lon:+p.coords.longitude.toFixed(4),name:'ma position'};save();loadWeather()},
+    ()=>alert("Position refusée. Montréal utilisé par défaut."));
+}
+function season(){const m=new Date().getMonth();return(m>=4&&m<=8)?'culture':(m>=9&&m<=10)?'fin':'repos'}
+function renderWeather(){
+  const w=state.wx;
+  if(!w){document.getElementById('wxGlyph').textContent='🌐';document.getElementById('wxTemp').textContent='—';
+    document.getElementById('wxMeta').innerHTML="Météo indisponible hors-ligne.<br>Conseils basés sur la <b>saison</b>.";
+    document.getElementById('directives').innerHTML='';return}
+  const[lab,gl]=WMO[w.code]||['—','🌡️'];
+  document.getElementById('wxGlyph').textContent=gl;document.getElementById('wxTemp').textContent=w.temp+'°';
+  document.getElementById('wxMeta').innerHTML=`${lab} · max <b>${w.tmax}°</b> / min <b>${w.tmin}°</b><br>Pluie aujourd'hui : <b>${w.rainProb}%</b>${w.offline?' · <b style="color:var(--amber)">hors-ligne</b>':''}`;
+  const D=[];
+  if(w.tmax>=28)D.push(['hot','🔥',`Chaleur (${w.tmax}°). Arrose tôt le matin, pas en plein midi. Évite la fertilisation aux heures chaudes.`]);
+  if(w.rainProb>=55||w.rainToday>=4)D.push(['rain','🌧️',`Pluie probable (${w.rainProb}%). Reporte l'engrais — il serait lessivé. Pas besoin d'arroser.`]);
+  if(w.tmin<=12||w.tmin2<=12)D.push(['cold','❄️',`Nuit fraîche (min ${Math.min(w.tmin,w.tmin2)}°). Melon, pastèque, ananas n'aiment pas ; rentre les citronniers si <10°.`]);
+  if(!D.length)D.push(['','🌿','Conditions idéales. Bonne journée pour fertiliser et entretenir.']);
+  document.getElementById('directives').innerHTML=D.map(([c,ic,t])=>`<div class="directive ${c}"><span class="d-ic">${ic}</span><span>${t}</span></div>`).join('');
+}
+
+/* ===== AUJOURD'HUI ===== */
+function daysSince(iso){if(!iso)return Infinity;return Math.floor((Date.now()-new Date(iso))/864e5)}
+function renderToday(){
+  const w=state.wx,list=[],rainSoon=w&&(w.rainProb>=55||w.rainToday>=4),hot=w&&w.tmax>=28;
+  if(hot)list.push(['prio','🔥','Arroser tôt le matin','La chaleur assèche vite pots et bacs surélevés.']);
+  PLANTS.forEach(p=>{const d=daysSince(state.feeds[p.id]);
+    if(d>=p.feedDays){const r=RECIPES[p.recipe];
+      if(rainSoon)list.push(['feed','⏸️',`Fertiliser ${p.name} — à reporter`,`Dû depuis ${isFinite(d)?d+' j':'le début'}, mais la pluie le lessiverait. Attends une journée sèche.`]);
+      else list.push(['feed','💧',`Nourrir ${p.name}`,`Apport « ${r.name} » recommandé (jamais fertilisé depuis ${isFinite(d)?d+' jours':'le début'}). Voir le doseur.`]);
+    }});
+  list.push(['','🐝','Courges en boutons',"Surveille l'ouverture des premières fleurs ; pollinise au pinceau le matin si peu d'abeilles."]);
+  list.push(['','🍅','Tomates : tuteurage & effeuillage','Tuteurs tant que les plants sont petits, coupe les feuilles basses (prévention mildiou).']);
+  if(season()==='culture')list.push(['','📏',"Tour d'inspection",'Mildiou (tomates/courges), jaunissement entre les nervures des jeunes feuilles (citron → fer chélaté), tiges étirées (maïs ombragé).']);
+  const el=document.getElementById('todayList');
+  el.innerHTML=list.length?list.map(([c,ic,t,d])=>`<div class="task ${c}"><div class="tk-ic">${ic}</div><div class="tk-body"><div class="tk-t">${t}</div><div class="tk-d">${d}</div></div></div>`).join(''):'<div class="empty">Rien d\'urgent. Profite du jardin.</div>';
+  document.getElementById('dateLabel').textContent=new Date().toLocaleDateString('fr-CA',{day:'numeric',month:'long'});
+}
+
+/* ===== PLAN 14 JOURS (auto-réajusté) ===== */
+function renderPlan(){
+  const el=document.getElementById('planList'),w=state.wx;
+  if(!w||!w.daily){el.innerHTML='<div class="card"><div class="empty">Prévisions indisponibles hors-ligne. Reconnecte-toi pour le plan sur 14 jours.</div></div>';return}
+  const days=w.daily.slice(0,14);
+  const dry=i=>days[i].rainProb<55&&days[i].rainSum<4;
+  const events=days.map(()=>[]);
+  // projection des fertilisations, en décalant hors des jours de pluie
+  const today0=new Date();today0.setHours(0,0,0,0);
+  PLANTS.forEach(p=>{
+    let due = state.feeds[p.id] ? new Date(state.feeds[p.id]).getTime()+p.feedDays*864e5 : today0.getTime();
+    for(let i=0;i<days.length;i++){
+      const t=days[i].date.getTime();
+      if(t>=due){ if(dry(i)){ events[i].push({cls:'feed',ic:'💧',txt:`Nourrir ${p.name} (${RECIPES[p.recipe].name})`}); due=t+p.feedDays*864e5; } }
+    }
+  });
+  // météo + arrosage heuristique
+  let dryStreak=0;
+  const tender=PLANTS.filter(p=>p.tender);
+  days.forEach((dd,i)=>{
+    if(dd.tmax>=28) events[i].unshift({cls:'warn',ic:'🔥',txt:`Chaleur ${dd.tmax}° — arroser tôt le matin`});
+    if(dd.rainProb>=55||dd.rainSum>=4){ events[i].push({cls:'cold',ic:'🌧️',txt:'Pluie — ni arrosage ni engrais'}); dryStreak=0; }
+    else { dryStreak++; if(dryStreak>=3 && dd.tmax>=24) events[i].push({cls:'',ic:'🚿',txt:'Arrosage profond (bacs & pots qui sèchent)'}); }
+    if(dd.tmin<=10) events[i].push({cls:'cold',ic:'❄️',txt:`Nuit froide ${dd.tmin}° — protéger melon/pastèque/ananas, rentrer les citrons`});
+    else if(dd.tmin<=12 && tender.length) events[i].push({cls:'cold',ic:'🌡️',txt:`Nuit fraîche ${dd.tmin}° — surveiller les plantes de chaleur`});
+  });
+  const dow=['dim','lun','mar','mer','jeu','ven','sam'];
+  el.innerHTML=days.map((dd,i)=>{
+    const[lab,gl]=WMO[dd.code]||['','🌡️'];
+    const evs=events[i];
+    const body = evs.length? evs.map(e=>`<div class="ev ${e.cls}"><span class="e-ic">${e.ic}</span><span>${e.txt}</span></div>`).join('')
+      : `<div class="ev none-x"><span class="e-ic">·</span><span>Rien de prévu</span></div>`;
+    return `<div class="day ${evs.length?'':'free'}">
+      <div class="d-date"><div class="d-dow">${i===0?"auj.":dow[dd.date.getDay()]}</div><div class="d-num">${dd.date.getDate()}</div></div>
+      <div class="d-wx"><div class="d-gl">${gl}</div><div class="d-tmp"><span class="mx">${dd.tmax}°</span> ${dd.tmin}°</div></div>
+      <div class="d-ev">${body}</div></div>`;
+  }).join('');
+  el.className='card';
+}
+function setView(v){
+  state.view=v;
+  document.getElementById('segToday').classList.toggle('on',v==='today');
+  document.getElementById('segPlan').classList.toggle('on',v==='plan');
+  document.getElementById('todayList').style.display=v==='today'?'':'none';
+  document.getElementById('planList').style.display=v==='plan'?'':'none';
+  document.getElementById('todayNote').textContent = v==='plan'
+    ? "Plan calculé sur les prévisions réelles ; il se réajuste à chaque ouverture. Les apports d'engrais sont automatiquement décalés hors des jours de pluie."
+    : "Les priorités s'ajustent à la météo et à ton journal. Coche une action dans l'onglet d'une plante pour mettre à jour les rappels.";
+}
+
+/* ===== PLANTES ===== */
+function gauge(p){const segs=p.stages.map((s,i)=>`<div class="seg ${i<p.stage?'done':i===p.stage?'now':''}"></div>`).join('');
+  const labels=p.stages.map((s,i)=>`<span class="${i===p.stage?'cur':''}">${s}</span>`).join('');
+  return `<div class="gauge"><div class="track">${segs}</div><div class="stages">${labels}</div></div>`}
+function plantBody(p){
+  const r=RECIPES[p.recipe],npk=recipeNPK(r),rows=[];
+  if(r.urea)rows.push(['Urée 46-0-0',scale(r.urea)]);if(r.map)rows.push(['MAP 12-61-0',scale(r.map)]);
+  if(r.mkp)rows.push(['MKP 0-52-34',scale(r.mkp)]);if(r.kcl)rows.push(['KCl 0-0-62',scale(r.kcl)]);
+  const fed=daysSince(state.feeds[p.id]),wat=daysSince(state.waters[p.id]);
+  // bloc durées par stade : durée de chaque stade + temps restant jusqu'à la fin du cycle
+  let durBlock='';
+  const dur=STAGE_DUR[p.id];
+  if(dur&&dur.length===p.stages.length){
+    const total=dur.reduce((a,b)=>a+b,0);
+    const remaining=dur.slice(p.stage).reduce((a,b)=>a+b,0); // dès le début du stade actuel
+    const peren=PEREN[p.id];
+    const rows=p.stages.map((s,i)=>{
+      const toEnd=dur.slice(i).reduce((a,b)=>a+b,0);
+      const mark=i<p.stage?'✓':i===p.stage?'●':'○';
+      const cls=i<p.stage?'sd-done':i===p.stage?'sd-cur':'';
+      return `<tr class="${cls}"><td>${mark} ${s}</td><td class="sd-n">${fmtDur(dur[i])}</td><td class="sd-r">${i<p.stage?'—':fmtDur(toEnd)}</td></tr>`;
+    }).join('');
+    durBlock=`<div class="pact"><h4>⏱️ Durées des stades</h4>
+      <div class="note" style="margin-bottom:7px">Cycle complet ≈ <b style="color:var(--ink)">${fmtDur(total)}</b> · depuis ton stade actuel il reste ≈ <b style="color:var(--leaf-d)">${fmtDur(remaining)}</b>${peren?' <b style="color:var(--amber)">(vivace — indicatif)</b>':''}</div>
+      <table class="sdur"><thead><tr><th>Stade</th><th class="sd-n">durée</th><th class="sd-r">→ fin</th></tr></thead><tbody>${rows}</tbody></table>
+      <p class="note" style="margin-top:7px">Estimations typiques (variété et météo font varier). « → fin » = temps restant si tu entres dans ce stade.</p></div>`;
+  }
+  return `<div class="plant-body">
+    ${durBlock}
+    <div class="pact"><h4>💧 Arrosage</h4><p>${p.water}</p></div>
+    <div class="pact"><h4>⚗️ Engrais · ${r.name}</h4>
+      <div class="recipe"><div class="r-h"><span class="r-name">≈ ${npk[0]}-${npk[1]}-${npk[2]}</span><span class="r-can">pour ${state.can} L</span></div>
+        <table>${rows.map(([n,g])=>`<tr><td>${n}</td><td class="amt mono">${g} g</td></tr>`).join('')}</table>
+        <div class="r-note">${r.note}</div></div></div>
+    <div class="pact"><h4>👁️ À surveiller</h4><ul>${p.watch.map(x=>`<li>${x}</li>`).join('')}</ul></div>
+    <div class="pact"><h4>🛠️ Entretien</h4><ul>${p.structural.map(x=>`<li>${x}</li>`).join('')}</ul></div>
+    ${p.flag?`<div class="flag ${p.flag.type}">${p.flag.txt}</div>`:''}
+    <div class="pill-row"><span class="pill">Soleil : ${p.sun}</span>
+      <span class="pill">Dernier engrais : ${isFinite(fed)?fed+' j':'—'}</span>
+      <span class="pill">Dernier arrosage : ${isFinite(wat)?wat+' j':'—'}</span></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn sm" style="flex:1" onclick="event.stopPropagation();logAction('${p.id}','feed')">✓ Fertilisé</button>
+      <button class="btn sm ghost" style="flex:1" onclick="event.stopPropagation();logAction('${p.id}','water')">✓ Arrosé</button></div>
+  </div>`}
+function renderPlants(){
+  document.getElementById('plantList').innerHTML=PLANTS.map(p=>`
+    <div class="card plant" id="card_${p.id}" onclick="toggle('${p.id}')">
+      <div class="plant-head"><div class="pic">${p.icon}</div>
+        <div><div class="pname">${p.name}</div><div class="psub">${p.sub}</div></div><i class="bi bi-chevron-right chev"></i></div>
+      ${gauge(p)}${plantBody(p)}</div>`).join('')}
+function toggle(id){document.getElementById('card_'+id).classList.toggle('open')}
+
+/* ===== DOSEUR ===== */
+function scale(g){const v=g*state.can/10;return v<1?v.toFixed(1).replace('.0',''):(Math.round(v*10)/10).toString().replace('.0','')}
+function setCan(){const v=parseFloat(document.getElementById('canSize').value);
+  if(!isFinite(v)||v<=0)return; state.can=v;save();renderMix();renderPlants()}
+function fillMixSelect(){const sel=document.getElementById('mixPlant');
+  sel.innerHTML=PLANTS.map(p=>`<option value="plant:${p.id}">${p.icon} ${p.name}</option>`).join('')
+    +'<optgroup label="Objectifs génériques">'+Object.entries(RECIPES).map(([k,r])=>`<option value="recipe:${k}">${r.name}</option>`).join('')+'</optgroup>'}
+function renderMix(){
+  const val=document.getElementById('mixPlant').value;let r,title;
+  if(val.startsWith('plant:')){const p=byId(val.slice(6));r=RECIPES[p.recipe];title=p.icon+' '+p.name}
+  else{const k=val.slice(7);r=RECIPES[k];title=r.name}
+  const npk=recipeNPK(r),rows=[];
+  if(r.urea)rows.push(['Urée 46-0-0',scale(r.urea)]);if(r.map)rows.push(['MAP 12-61-0',scale(r.map)]);
+  if(r.mkp)rows.push(['MKP 0-52-34',scale(r.mkp)]);if(r.kcl)rows.push(['KCl 0-0-62',scale(r.kcl)]);
+  document.getElementById('mixOut').innerHTML=`<div class="card card-pad npk-out">
+    <div style="font-weight:800;font-size:16px">${title}</div><div class="note" style="margin-top:2px">${r.name}</div>
+    <div class="npk-badges"><div class="npk-b n"><div class="v mono">${npk[0]}</div><div class="k">Azote N</div></div>
+      <div class="npk-b p"><div class="v mono">${npk[1]}</div><div class="k">Phosphore P</div></div>
+      <div class="npk-b k2"><div class="v mono">${npk[2]}</div><div class="k">Potassium K</div></div></div>
+    <div class="recipe" style="margin-top:14px"><div class="r-h"><span class="r-name">À dissoudre dans ${state.can} L d'eau</span></div>
+      <table>${rows.map(([n,g])=>`<tr><td>${n}</td><td class="amt mono">${g} g</td></tr>`).join('')}</table>
+      <div class="r-note">${r.note}</div></div>
+    <p class="note" style="margin-top:10px">💡 Repère : une cuillère à café rase ≈ 4–5 g. Dissous bien (l'eau tiède aide) avant d'arroser au pied, sur sol déjà humide.</p></div>`}
+
+/* ===== JOURNAL ===== */
+function logAction(id,type){const now=new Date().toISOString();
+  if(type==='feed')state.feeds[id]=now;else state.waters[id]=now;
+  state.logs.unshift({date:now,plant:id,type});if(state.logs.length>200)state.logs.pop();
+  save();renderLog();renderToday();renderPlan();renderPlants();
+  const c=document.getElementById('card_'+id);if(c)c.classList.add('open')}
+function renderLog(){const el=document.getElementById('logList');
+  if(!state.logs.length){el.innerHTML='<div class="empty">Aucune action. Coche « Fertilisé » ou « Arrosé » sur une plante.</div>';return}
+  el.innerHTML=state.logs.map(l=>{const p=byId(l.plant),d=new Date(l.date);
+    const chip=l.type==='feed'?'<span class="chip f">engrais</span>':'<span class="chip w">arrosage</span>';
+    return `<div class="log-row"><span class="lg-d mono">${d.toLocaleDateString('fr-CA',{day:'2-digit',month:'2-digit'})}</span><span style="flex:1">${p?p.icon+' '+p.name:l.plant}</span>${chip}</div>`}).join('')}
+function clearLog(){if(confirm('Effacer tout le journal et les rappels ?')){state.logs=[];state.feeds={};state.waters={};save();renderLog();renderToday();renderPlan();renderPlants()}}
+
+/* ===== NAV ===== */
+function go(s){document.querySelectorAll('section').forEach(x=>x.classList.toggle('active',x.id===s));
+  document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.s===s));window.scrollTo(0,0)}
+function registerSW(){ // service worker : met l'app en cache pour un fonctionnement hors-ligne
+  if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{})}}
+
+/* INIT */
+document.getElementById('canSize').value=state.can;
+fillMixSelect();renderMix();renderPlants();renderLog();renderToday();renderSeeds();
+registerSW();loadWeather();
+</script>
+</body>
+</html>
