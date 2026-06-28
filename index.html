@@ -77,8 +77,19 @@
   section{display:none;padding:18px 0 24px} section.active{display:block}
   .eyebrow{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--leaf);margin:0 0 4px}
   h2.title{font-size:24px;font-weight:800;letter-spacing:-.025em;margin:0 0 14px}
-  .eyebrow.cat-h{margin:20px 0 9px;font-size:12px}
-  #plantList > .cat-h:first-child{margin-top:2px}
+  /* catégories repliables (onglet Plantes) */
+  .cat{margin-bottom:12px}
+  .cat-h{width:100%;display:flex;align-items:center;gap:10px;cursor:pointer;
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);
+    padding:12px 14px;font-family:inherit;color:var(--leaf);
+    font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin:0 0 10px}
+  .cat-h .cat-l{flex:1;text-align:left}
+  .cat-h .cat-count{font-size:11px;font-weight:600;color:var(--ink-soft);letter-spacing:.02em;text-transform:none;
+    background:var(--card-2);border:1px solid var(--line);border-radius:20px;padding:2px 9px}
+  .cat-h .cat-chev{color:var(--ink-soft);font-size:16px;letter-spacing:0;transition:transform .2s}
+  .cat.open .cat-h .cat-chev{transform:rotate(90deg)}
+  .cat-items{display:none}
+  .cat.open .cat-items{display:block}
 
   .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden}
   .card-pad{padding:14px}
@@ -351,6 +362,7 @@ let state={
   can:store.get('can',10),
   coords:store.get('coords',{lat:45.5019,lon:-73.5674,name:'Montréal'}),
   feeds:store.get('feeds',{}), waters:store.get('waters',{}), logs:store.get('logs',[]),
+  catFold:store.get('catFold',{}),
   wx:null, view:'today'
 };
 function save(){store.set('can',state.can);store.set('coords',state.coords);
@@ -954,15 +966,29 @@ function plantCard(p){return `<div class="card plant" id="card_${p.id}" onclick=
       <div class="plant-head"><div class="pic">${p.icon}</div>
         <div><div class="pname">${p.name}</div><div class="psub">${p.sub}</div></div><i class="bi bi-chevron-right chev"></i></div>
       ${gauge(p)}${plantBody(p)}</div>`;}
+function catBlock(key,icon,label,ps){
+  const open=state.catFold[key]!==false; // ouvert par défaut, repli mémorisé
+  return `<div class="cat ${open?'open':''}" id="cat_${key}">
+    <button class="cat-h" type="button" onclick="toggleCat('${key}')">
+      <span class="cat-l">${icon?icon+' ':''}${label}</span>
+      <span class="cat-count">${ps.length}</span>
+      <i class="bi bi-chevron-right cat-chev"></i></button>
+    <div class="cat-items">${ps.map(plantCard).join('')}</div></div>`;
+}
 function renderPlants(){
   const used=new Set();
-  let html=CATEGORIES.map(cat=>{
+  let html=CATEGORIES.map((cat,i)=>{
     const ps=cat.ids.map(id=>byId(id)).filter(Boolean); ps.forEach(p=>used.add(p.id));
-    return ps.length?`<p class="eyebrow cat-h">${cat.icon} ${cat.label}</p>`+ps.map(plantCard).join(''):'';
+    return ps.length?catBlock('c'+i,cat.icon,cat.label,ps):'';
   }).join('');
   const others=PLANTS.filter(p=>!used.has(p.id));
-  if(others.length)html+=`<p class="eyebrow cat-h">Autres</p>`+others.map(plantCard).join('');
+  if(others.length)html+=catBlock('others','','Autres',others);
   document.getElementById('plantList').innerHTML=html;
+}
+function toggleCat(key){
+  const el=document.getElementById('cat_'+key); if(!el)return;
+  state.catFold[key]=el.classList.toggle('open');
+  store.set('catFold',state.catFold);
 }
 function renderResow(){
   const el=document.getElementById('resowList'); if(!el)return;
