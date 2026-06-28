@@ -150,6 +150,9 @@
   .flag{background:var(--amber-soft);border-left:3px solid var(--amber);padding:9px 11px;border-radius:0 8px 8px 0;font-size:13.5px;margin-top:6px}
   .flag.cold{background:rgba(106,160,200,.14);border-color:#6aa0c8}
   .flag.iron{background:rgba(110,198,216,.12);border-color:var(--leaf)}
+  .freq{font-size:12.5px;margin-top:7px;padding:8px 10px;border-radius:8px;background:var(--card);border:1px solid var(--line);color:var(--ink-soft);line-height:1.45}
+  .freq b{font-weight:700;color:var(--ink)}
+  .freq .note{font-size:11px}
 
   .recipe{background:linear-gradient(160deg,#141d3a,#0f1730);border:1px solid #2b3a63;color:#eef3fb;border-radius:10px;padding:12px 13px;margin-top:6px}
   .recipe .r-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px}
@@ -521,6 +524,37 @@ function phaseInfo(p){const arr=PH[p.id],ci=curStage(p),b=arr&&arr[ci];
 function curRecipe(p){return RECIPES[phaseInfo(p).r]||RECIPES.aucun;}
 function isNoFeed(r){return !(r.urea||r.map||r.mkp||r.kcl);}
 
+/* ===== FRÉQUENCES & PROCHAINE DATE ===== */
+/* arrosage : intervalle indicatif EN JOURS par phase (null = réduire/arrêter à ce stade) */
+const WATER_EVERY={
+  mais_ombre:[2,2,2,1,2], mais_geo:[2,2,2,1,2],
+  tomate_bac:[1,2,2,2,2,3], tomate_geo:[2,2,2,2,2,3],
+  courge:[2,2,2,2,2,4],
+  melon:[2,2,2,2,4], pasteque:[2,2,2,2,4],
+  persil:[1,2,2], thym:[4,6,7], carotte:[2,3,3,4], ail:[3,4,5,null],
+  citron:[4,4,4,5], ananas:[7,7,7],
+};
+function waterEvery(p){const a=WATER_EVERY[p.id];return a?a[curStage(p)]:null;}
+function fmtDate(d){return d.toLocaleDateString('fr-CA',{weekday:'short',day:'numeric',month:'short'});}
+/* prochaine échéance d'après la dernière action validée + l'intervalle */
+function dueInfo(last,every){if(!every)return null;
+  if(!last)return{due:true};
+  const next=new Date(new Date(last).getTime()+every*864e5);next.setHours(0,0,0,0);
+  const today=new Date();today.setHours(0,0,0,0);
+  return{next,diff:Math.round((next-today)/864e5)};}
+function dueTxt(info){if(!info)return '';
+  if(info.due)return `<b style="color:var(--amber)">à faire maintenant</b>`;
+  const d=info.diff;
+  if(d<0)return `<b style="color:var(--amber)">en retard de ${-d} j</b>`;
+  if(d===0)return `<b style="color:var(--amber)">aujourd'hui</b>`;
+  return `prochain ≈ <b style="color:var(--leaf-d)">${fmtDate(info.next)}</b> (dans ${d} j)`;}
+function waterFreqLine(p){const e=waterEvery(p);
+  if(!e)return `<div class="freq">💧 Arrosage à réduire / arrêter à ce stade (voir ci-dessus)</div>`;
+  return `<div class="freq">💧 Environ <b>tous les ${e} j</b> · ${dueTxt(dueInfo(state.waters[p.id],e))}<br><span class="note">Repère : plus souvent par forte chaleur, moins par temps frais/pluvieux.</span></div>`;}
+function feedFreqLine(p,noF){
+  if(noF)return `<div class="freq">⚗️ Pas d'apport à ce stade (maturation / repos)</div>`;
+  return `<div class="freq">⚗️ Environ <b>tous les ${p.feedDays} j</b> · ${dueTxt(dueInfo(state.feeds[p.id],p.feedDays))}</div>`;}
+
 /* ===== DURÉES PAR PHASE (jours, comptés DEPUIS LE SEMIS) =====
    Calibré sur tes variétés et tes dates de semis + jours-à-maturité sourcés (catalogues
    de semences) avec un découpage phénologique typique, ajusté au climat frais de Montréal.
@@ -757,6 +791,8 @@ function renderToday(){
       if(rainSoon)list.push(['feed','⏸️',`Fertiliser ${p.name} — à reporter`,`Dû depuis ${isFinite(d)?d+' j':'le début'}, mais la pluie le lessiverait. Attends une journée sèche.`]);
       else list.push(['feed','💧',`Nourrir ${p.name}`,`Phase « ${p.stages[curStage(p)]} » → apport « ${r.name} » (jamais fertilisé depuis ${isFinite(d)?d+' jours':'le début'}). Voir le doseur.`]);
     }});
+  const waterDue=PLANTS.filter(p=>{const e=waterEvery(p);if(!e)return false;const inf=dueInfo(state.waters[p.id],e);return inf&&(inf.due||inf.diff<=0);});
+  if(waterDue.length&&!rainSoon)list.push(['prio','🚿',`À arroser : ${waterDue.map(p=>p.name).join(', ')}`,'Selon la fréquence de chaque phase (plus souvent par forte chaleur). Valide « ✓ Arrosé » sur la plante pour fixer le prochain tour.']);
   const resowNow=PLANTS.filter(p=>{const r=RESOW[p.id];if(!r||r.kind!=='frais')return false;const s=nextSow(p);return s&&s.now;});
   if(resowNow.length)list.push(['feed','🌱',`Ressemer possible : ${resowNow.map(p=>p.name).join(', ')}`,"Il reste assez de temps avant le gel pour une récolte d'automne — détails dans l'onglet Semis."]);
   // actions du jour dérivées de la PHASE de chaque plante (seulement les phases « action »)
@@ -861,12 +897,12 @@ function plantBody(p){
   }
   return `<div class="plant-body">
     ${durBlock}
-    <div class="pact"><h4>💧 Arrosage · ${phName}</h4><p>${info.water}</p></div>
+    <div class="pact"><h4>💧 Arrosage · ${phName}</h4><p>${info.water}</p>${waterFreqLine(p)}</div>
     <div class="pact"><h4>⚗️ Engrais · ${r.name}</h4>
       ${noF?`<div class="recipe"><div class="r-note">${r.note}</div></div>`
       :`<div class="recipe"><div class="r-h"><span class="r-name">≈ ${npk[0]}-${npk[1]}-${npk[2]}</span><span class="r-can">pour ${state.can} L</span></div>
         <table>${rows.map(([n,g])=>`<tr><td>${n}</td><td class="amt mono">${g} g</td></tr>`).join('')}</table>
-        <div class="r-note">${r.note}</div></div>`}</div>
+        <div class="r-note">${r.note}</div></div>`}${feedFreqLine(p,noF)}</div>
     <div class="pact"><h4>👁️ À surveiller</h4><ul>${(info.watch||[]).map(x=>`<li>${x}</li>`).join('')}</ul></div>
     <div class="pact"><h4>🛠️ Entretien · ${phName}</h4><ul>${(info.care||[]).map(x=>`<li>${x}</li>`).join('')}</ul></div>
     ${p.flag?`<div class="flag ${p.flag.type}">${p.flag.txt}</div>`:''}
