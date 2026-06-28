@@ -77,6 +77,8 @@
   section{display:none;padding:18px 0 24px} section.active{display:block}
   .eyebrow{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--leaf);margin:0 0 4px}
   h2.title{font-size:24px;font-weight:800;letter-spacing:-.025em;margin:0 0 14px}
+  .eyebrow.cat-h{margin:20px 0 9px;font-size:12px}
+  #plantList > .cat-h:first-child{margin-top:2px}
 
   .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden}
   .card-pad{padding:14px}
@@ -245,6 +247,11 @@
   <section id="seeds">
     <p class="eyebrow" id="sowEyebrow">À semer en ce moment</p>
     <h2 class="title">Semis & germination</h2>
+
+    <p class="eyebrow" style="margin-top:2px">🔁 Ressemer mes cultures (au plus tôt)</p>
+    <div class="card" id="resowList"></div>
+    <p class="note" style="margin:8px 0 16px">D'après tes cultures suivies, la saison et le gel moyen (~7 oct). <b style="color:var(--leaf)">✅</b> = possible dès maintenant ; <b>📅</b> = prochaine fenêtre.</p>
+
     <div class="seg-ctrl">
       <button class="on" id="segOut" onclick="setSow('out')">En pleine terre</button>
       <button id="segIn" onclick="setSow('in')">En intérieur</button>
@@ -458,6 +465,50 @@ const SOW_DATE={
   citron:'2024-05-01', ananas:'2025-06-01'
 };
 const PEREN={citron:1,ananas:1}; // vivaces : cycles longs, estimations indicatives
+
+/* ===== CATÉGORIES (regroupement dans l'onglet Plantes) ===== */
+const CATEGORIES=[
+  {label:'Légumes-fruits',icon:'🍅',ids:['tomate_bac','tomate_geo','courge','melon','pasteque','mais_ombre','mais_geo']},
+  {label:'Racines & bulbes',icon:'🥕',ids:['carotte','ail']},
+  {label:'Fines herbes',icon:'🌿',ids:['persil','thym']},
+  {label:'Plantes en pot',icon:'🪴',ids:['citron','ananas']},
+];
+
+/* ===== RESSEMIS : quand ressemer chaque culture, au plus tôt ===== */
+const RESOW={
+  mais_ombre:{kind:'chaud',win:'fin mai, semis direct en place'},
+  mais_geo:{kind:'chaud',win:'fin mai, semis direct en place'},
+  tomate_bac:{kind:'chaud',win:'mars–avril en intérieur (6–8 sem. avant le dernier gel)'},
+  tomate_geo:{kind:'chaud',win:'mars–avril en intérieur (6–8 sem. avant le dernier gel)'},
+  courge:{kind:'chaud',win:'fin avril en intérieur, ou semis direct fin mai'},
+  melon:{kind:'chaud',win:'fin avril en intérieur → repiquage début juin'},
+  pasteque:{kind:'chaud',win:'fin avril en intérieur → repiquage début juin'},
+  carotte:{kind:'frais',win:'avril à juillet, semis direct'},
+  persil:{kind:'frais',win:'avril à juin, direct ou en intérieur'},
+  thym:{kind:'vivace',win:'mars–mai en intérieur (vivace, lent au départ)'},
+  ail:{kind:'bulbe',win:"gousses en pleine terre en octobre (pour de gros bulbes l'été suivant)"},
+  citron:{kind:'pot',win:"pépins en intérieur, toute l'année (très lent)"},
+  ananas:{kind:'pot',win:"replanter une couronne d'ananas, toute l'année en intérieur"},
+};
+function toHarvestDays(p){const d=STAGE_DUR[p.id];return d?d.slice(0,Math.max(1,d.length-1)).reduce((a,b)=>a+b,0):null;}
+function nextSow(p){
+  const r=RESOW[p.id]; if(!r)return null;
+  const m=new Date().getMonth()+1, dleft=daysToFrost(), th=toHarvestDays(p);
+  if(r.kind==='frais'){
+    if(th!=null && th+10<=dleft && m>=4 && m<=7){
+      const h=new Date(Date.now()+th*864e5).toLocaleDateString('fr-CA',{day:'numeric',month:'long'});
+      return {now:true,txt:`✅ Ressème maintenant — récolte d'automne vers le ${h} (~${fmtDur(th)}).`};
+    }
+    return {now:false,txt:`📅 Prochaine fenêtre : ${r.win}.`};
+  }
+  if(r.kind==='chaud'){
+    if(th!=null && th+30<=dleft && m>=5 && m<=6) return {now:true,txt:`✅ Encore jouable de justesse cette saison : ${r.win}.`};
+    return {now:false,txt:`📅 Trop tard cette saison — prochain départ : ${r.win}.`};
+  }
+  if(r.kind==='bulbe') return {now:false,txt:`📅 ${r.win}.`};
+  if(r.kind==='vivace') return {now:false,txt:`📅 ${r.win}.`};
+  return {now:true,txt:`🪴 ${r.win}.`}; // pot : toute l'année
+}
 function fmtDur(d){d=Math.max(0,Math.round(d));return d>=60?Math.round(d/30)+' mois':d+' j';}
 function frDate(iso){return new Date(iso+'T00:00').toLocaleDateString('fr-CA',{day:'numeric',month:'short'});}
 /* phase calculée d'après ta date de semis + STAGE_DUR (modèle), sauf si tu l'as marquée à la main */
@@ -515,7 +566,7 @@ function renderSeeds(){
         ${tight?`<div class="flag" style="margin-top:8px">⏳ ${s.dtm} jours à maturité pour ~${dleft} jours restants : plante une variété rapide ou vise une récolte jeune / d'automne.</div>`:''}
       </div></div>`}).join('')
     : '<div class="card"><div class="empty">Hors période de semis principale. Reviens au printemps, ou tente des cultures d\'automne en fin d\'été.</div></div>';
-  renderIndoor();
+  renderIndoor();renderResow();
 }
 
 /* ===== SEMIS INTÉRIEUR (Québec, dernier gel ~ mi-mai) ===== */
@@ -627,6 +678,8 @@ function renderToday(){
       if(rainSoon)list.push(['feed','⏸️',`Fertiliser ${p.name} — à reporter`,`Dû depuis ${isFinite(d)?d+' j':'le début'}, mais la pluie le lessiverait. Attends une journée sèche.`]);
       else list.push(['feed','💧',`Nourrir ${p.name}`,`Apport « ${r.name} » recommandé (jamais fertilisé depuis ${isFinite(d)?d+' jours':'le début'}). Voir le doseur.`]);
     }});
+  const resowNow=PLANTS.filter(p=>{const r=RESOW[p.id];if(!r||r.kind!=='frais')return false;const s=nextSow(p);return s&&s.now;});
+  if(resowNow.length)list.push(['feed','🌱',`Ressemer possible : ${resowNow.map(p=>p.name).join(', ')}`,"Il reste assez de temps avant le gel pour une récolte d'automne — détails dans l'onglet Semis."]);
   list.push(['','🐝','Courges en boutons',"Surveille l'ouverture des premières fleurs ; pollinise au pinceau le matin si peu d'abeilles."]);
   list.push(['','🍅','Tomates : tuteurage & effeuillage','Tuteurs tant que les plants sont petits, coupe les feuilles basses (prévention mildiou).']);
   if(season()==='culture')list.push(['','📏',"Tour d'inspection",'Mildiou (tomates/courges), jaunissement entre les nervures des jeunes feuilles (citron → fer chélaté), tiges étirées (maïs ombragé).']);
@@ -746,12 +799,27 @@ function plantBody(p){
       <button class="btn sm" style="flex:1" onclick="event.stopPropagation();logAction('${p.id}','feed')">✓ Fertilisé</button>
       <button class="btn sm ghost" style="flex:1" onclick="event.stopPropagation();logAction('${p.id}','water')">✓ Arrosé</button></div>
   </div>`}
-function renderPlants(){
-  document.getElementById('plantList').innerHTML=PLANTS.map(p=>`
-    <div class="card plant" id="card_${p.id}" onclick="toggle('${p.id}')">
+function plantCard(p){return `<div class="card plant" id="card_${p.id}" onclick="toggle('${p.id}')">
       <div class="plant-head"><div class="pic">${p.icon}</div>
         <div><div class="pname">${p.name}</div><div class="psub">${p.sub}</div></div><i class="bi bi-chevron-right chev"></i></div>
-      ${gauge(p)}${plantBody(p)}</div>`).join('')}
+      ${gauge(p)}${plantBody(p)}</div>`;}
+function renderPlants(){
+  const used=new Set();
+  let html=CATEGORIES.map(cat=>{
+    const ps=cat.ids.map(id=>byId(id)).filter(Boolean); ps.forEach(p=>used.add(p.id));
+    return ps.length?`<p class="eyebrow cat-h">${cat.icon} ${cat.label}</p>`+ps.map(plantCard).join(''):'';
+  }).join('');
+  const others=PLANTS.filter(p=>!used.has(p.id));
+  if(others.length)html+=`<p class="eyebrow cat-h">Autres</p>`+others.map(plantCard).join('');
+  document.getElementById('plantList').innerHTML=html;
+}
+function renderResow(){
+  const el=document.getElementById('resowList'); if(!el)return;
+  const items=PLANTS.map(p=>({p,s:nextSow(p)})).filter(x=>x.s).sort((a,b)=>(b.s.now?1:0)-(a.s.now?1:0));
+  el.innerHTML=items.map(({p,s})=>`<div class="task ${s.now?'feed':''}">
+     <div class="tk-ic">${p.icon}</div>
+     <div class="tk-body"><div class="tk-t">${p.name}</div><div class="tk-d">${s.txt}</div></div></div>`).join('');
+}
 function toggle(id){document.getElementById('card_'+id).classList.toggle('open')}
 
 /* ===== DOSEUR ===== */
