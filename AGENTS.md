@@ -57,6 +57,18 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
 - **Arrosage météo-adaptatif** (`waterPlan`) : intervalle par phase (`WATER_EVERY`) ;
   pluie ≥ 5 mm / ≥ 60 % **reporte** le tour, ≥ 2 jours chauds le **resserrent**. Date du
   prochain tour recalculée quand l'utilisateur valide « ✓ Arrosé / Fertilisé ».
+- **Moment opportun de la journée** (`actionTiming(kind)`, `careTimingKind`) : **toute**
+  recommandation est proposée à l'heure factuellement optimale, selon l'heure locale + la
+  chaleur du jour. Types : `water`, `feed`, `foliar`, `pollinate` (cucurbitacées), `corn`,
+  `harvest` (herbes). Renvoie `{good, ic, short, verb, advice}`. Utilisé par `renderToday`
+  (Programme), `waterFreqLine`/`feedFreqLine` et le flag foliaire des fiches plante. Le
+  Programme se réévalue toutes les 5 min et au retour sur l'app (`visibilitychange`).
+  **Bases factuelles sourcées** (commentaire au-dessus de `actionTiming`) : arrosage tôt
+  le matin 5h30–9h (Iowa State Ext.) ; engrais sol 6–9h ou 16–19h sur sol humide, éviter
+  >29 °C ; foliaire <9h30 ou >18h30 (stomates ouverts, anti-brûlure ; Univ. Missouri IPM,
+  ICL) ; pollinisation cucurbitacées 6–10h (UF IFAS, ISHS) ; maïs 9–11h30 (Purdue, Univ.
+  Wisconsin) ; récolte d'herbes le matin après la rosée (WSU Ext.). **Toute nouvelle
+  recommandation doit rester factuelle/sourcée**, pas spéculative.
 - **Repères gel Montréal** : dernier gel printanier ~3–9 mai ; premier gel d'automne
   **~7 oct** (`daysToFrost()`). Repiquage des cultures fragiles après le 20–25 mai.
 - Tout a été semé par l'utilisateur fin mai–juin 2026 → melon/pastèque/maïs tardif en
@@ -69,7 +81,7 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v11`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v12`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.

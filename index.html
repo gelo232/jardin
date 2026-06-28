@@ -593,9 +593,12 @@ function waterFreqLine(p){
   const e=waterEvery(p);
   if(!e)return `<div class="freq">💧 Arrosage à réduire / arrêter à ce stade (voir ci-dessus)</div>`;
   const wp=waterPlan(p), d=wp.diff;
-  const when = d<0?`<b style="color:var(--amber)">à faire (retard ${-d} j)</b>`
+  let when = d<0?`<b style="color:var(--amber)">à faire (retard ${-d} j)</b>`
     : d===0?`<b style="color:var(--amber)">à faire aujourd'hui</b>`
     : `prochain ≈ <b style="color:var(--leaf-d)">${fmtDate(wp.due)}</b> (dans ${d} j)`;
+  if(d<=0){const t=actionTiming('water');
+    when+=t.good?` · <span style="color:var(--leaf-d)">✅ ${t.short}</span>`
+                :` · <span style="color:var(--amber)">⏳ ${t.short}</span>`;}
   let tags='';
   if(wp.eff<wp.baseEvery)tags+=` · <span style="color:var(--amber)">resserré (chaleur)</span>`;
   else if(wp.eff>wp.baseEvery)tags+=` · <span class="note">espacé (temps frais)</span>`;
@@ -604,7 +607,11 @@ function waterFreqLine(p){
 }
 function feedFreqLine(p,noF){
   if(noF)return `<div class="freq">⚗️ Pas d'apport à ce stade (maturation / repos)</div>`;
-  return `<div class="freq">⚗️ Environ <b>tous les ${p.feedDays} j</b> · ${dueTxt(dueInfo(state.feeds[p.id],p.feedDays))}</div>`;}
+  const info=dueInfo(state.feeds[p.id],p.feedDays);
+  let tag='';
+  if(info&&(info.due||info.diff<=0)){const t=actionTiming('feed');
+    tag=t.good?` · <span style="color:var(--leaf-d)">✅ ${t.short}</span>`:` · <span style="color:var(--amber)">⏳ ${t.short}</span>`;}
+  return `<div class="freq">⚗️ Environ <b>tous les ${p.feedDays} j</b> · ${dueTxt(info)}${tag}</div>`;}
 
 /* ===== DURÉES PAR PHASE (jours, comptés DEPUIS LE SEMIS) =====
    Calibré sur tes variétés et tes dates de semis + jours-à-maturité sourcés (catalogues
@@ -833,23 +840,132 @@ function renderWeather(){
 
 /* ===== AUJOURD'HUI ===== */
 function daysSince(iso){if(!iso)return Infinity;return Math.floor((Date.now()-new Date(iso))/864e5)}
+/* ===== MOMENT OPPORTUN PAR TYPE D'ACTION (fondé sur des sources horticoles) =====
+   Toutes les recommandations sont proposées à l'heure factuellement optimale :
+   - arrosage : tôt le matin 5h30–9h (Iowa State Univ. Ext. : feuillage sèche vite =
+     moins de maladies, faible évaporation) ; éviter le plein midi ; soir = au pied.
+   - engrais au sol : tôt le matin 6–9h ou fin d'après-midi 16–19h, sur SOL HUMIDE ;
+     éviter >29 °C / sol sec (les sels brûlent les racines). (Univ. ext., RuralSprout)
+   - foliaire (fer chélaté, Ca/Mg) : tôt le matin <9h30 ou soir >18h30, stomates ouverts
+     + air humide = absorption max ; midi/chaleur >24–27 °C = stomates fermés + brûlure.
+     (Univ. of Missouri IPM, ICL, UConn) ; pas juste avant la pluie (lessivage).
+   - pollinisation cucurbitacées : 6–10h, fleurs ouvertes/pollen viable, stigmate fermé
+     vers midi ; pollen peu viable >32 °C. (UF IFAS, ISHS 1271_52)
+   - pollinisation maïs : émission du pollen en milieu de matinée 9–11h30 après séchage de
+     la rosée, 2e flux en fin d'après-midi ; baisse >30 °C. (Purdue, Univ. Wisconsin)
+   - récolte d'herbes : le matin après séchage de la rosée (~8–11h), avant la chaleur =
+     huiles essentielles maximales ; midi = arôme dissipé. (WSU Ext.) */
+function actionTiming(kind){
+  const now=new Date(), h=now.getHours()+now.getMinutes()/60;
+  const w=state.wx, tmax=w?w.tmax:null, hot=w&&w.tmax>=28;
+  const fmtH=x=>{const hh=Math.floor(x),mm=Math.round((x-hh)*60);return mm?`${hh} h ${String(mm).padStart(2,'0')}`:`${hh} h`;};
+  const G=(ic,short,verb,advice)=>({good:true,ic,short,verb,advice});
+  const W=(ic,short,verb,advice)=>({good:false,ic,short,verb,advice});
+
+  if(kind==='pollinate'){ // cucurbitacées : fenêtre du matin uniquement
+    const heatNote=(tmax&&tmax>=32)?" Attention : au-dessus de 32° le pollen devient peu viable.":"";
+    if(h>=6&&h<11) return G('🐝','bon moment (matin)','polliniser à la main maintenant',
+      `Fleurs ouvertes et pollen frais : transfère le pollen (pinceau ou fleur mâle → femelle). Le stigmate se ferme vers midi.${heatNote}`);
+    return W('🌙','demain 6–10 h','pollinisation trop tard aujourd\'hui',
+      `Les fleurs de courge/melon se ferment vers midi et ne sont plus réceptives. À faire demain entre 6 h et 10 h (pollen frais).${heatNote}`);
+  }
+  if(kind==='corn'){ // maïs : émission du pollen en milieu de matinée
+    if(h>=9&&h<11.5) return G('🌽','bon moment (mi-matinée)','secouer les tiges maintenant',
+      'Rosée évaporée : le pollen se libère le mieux en milieu de matinée. Secoue les tiges pour le disperser sur les soies.');
+    if(h>=16&&h<19) return G('🌽','2ᵉ fenêtre (fin d\'après-midi)','secouer les tiges',
+      'Deuxième pic d\'émission du pollen quand la chaleur retombe en fin d\'après-midi.');
+    if(h<9) return W('⏳','attends ~9–11 h','pollinisation maïs : un peu tôt',
+      'Attends que la rosée soit évaporée : l\'émission du pollen culmine vers 9–11 h.');
+    return W('🌙','demain 9–11 h','pollinisation maïs : fenêtre passée',
+      'L\'émission du pollen culmine en milieu de matinée (9–11 h). Reprends demain.');
+  }
+  if(kind==='harvest'){ // herbes : matin après la rosée, avant la chaleur
+    if(h>=8&&h<11) return G('✂️','bon moment (matin)','récolter les herbes maintenant',
+      'Rosée évaporée et avant la chaleur : pic d\'huiles essentielles (arôme maximal). Coupe des tiges saines.');
+    if(h>=11&&h<16) return W('🔥','attends demain matin','récolte d\'herbes à reporter',
+      'En pleine chaleur les huiles essentielles se dissipent (arôme réduit). Récolte demain matin, après séchage de la rosée.');
+    if(h<8) return W('💧','attends ~8 h (rosée)','récolte d\'herbes : un peu tôt',
+      'Attends l\'évaporation de la rosée (~8 h) : feuillage mouillé = moisissure, et l\'arôme n\'est pas encore au maximum.');
+    return W('🌙','demain matin','récolte d\'herbes : préfère le matin',
+      'Arôme maximal le matin. Pour cuisiner sur le moment, quelques feuilles conviennent à toute heure.');
+  }
+  if(kind==='foliar'){ // pulvérisation foliaire (fer chélaté / Ca-Mg)
+    const tooHot=tmax&&tmax>=27;
+    if(h>=5.5&&h<9.5&&!(tooHot&&h>=8)) return G('🌅','bon moment (matin)','pulvériser maintenant',
+      'Tôt le matin : stomates ouverts, air frais et humide, faible évaporation = absorption maximale, pas de brûlure. Mouille le dessous des feuilles, sans former de gouttes.');
+    if(h>=18.5&&h<21) return G('🌇','bon moment (soir)','pulvériser maintenant',
+      'En soirée : humidité élevée, le film liquide reste actif longtemps = meilleure absorption. À éviter juste avant la pluie (lessivage).');
+    return W(tooHot?'🔥':'⏳',tooHot?'attends le soir (>18 h 30)':'matin <9 h 30 / soir >18 h 30','pulvérisation foliaire à reporter',
+      'En journée (chaleur / plein soleil) les stomates se ferment et les sels brûlent les feuilles. Pulvérise tôt le matin (<9 h 30) ou en soirée (>18 h 30).');
+  }
+  if(kind==='feed'){ // engrais au sol / fertigation
+    if(h>=6&&h<11) return G('🌱','bon moment (matin)','fertiliser maintenant',
+      'Tôt le matin, sur sol déjà humide : fraîcheur et faible évaporation, bonne absorption sans brûlure des sels.');
+    if(h>=16&&h<19) return G('🌇','bon moment (fin de journée)','fertiliser maintenant',
+      'Fin d\'après-midi, sur sol humide : la chaleur retombe, bonne absorption. Arrose d\'abord si le sol est sec.');
+    if(h>=11&&h<16) return W(hot?'🔥':'⏳',hot?'attends ce soir (16–19 h)':'matin / fin de journée','fertilisation à reporter',
+      hot?`Pleine chaleur (max ${tmax}°) : les sels concentrés brûlent les racines sur sol chaud/sec. Reprends en fin d'après-midi (16–19 h), sur sol humide.`:'Mieux vaut fertiliser tôt le matin (6–9 h) ou en fin d\'après-midi (16–19 h), sur sol humide.');
+    return W('🌙','demain matin','fertilisation : préfère le jour',
+      'Fertilise tôt le matin (6–9 h) ou en fin d\'après-midi (16–19 h), toujours sur sol humide (jamais sec ni en pleine chaleur).');
+  }
+  // défaut : arrosage
+  const eve=[18,20.5];
+  if(h<5.5) return W('🌙','attends le matin','Arrosage à prévoir',
+    `Avant le lever du jour : vise la fenêtre du matin (≈ ${fmtH(5.5)}–9 h), le meilleur moment.`);
+  if(h<9) return G('🌅','bon moment (matin)','C\'est le moment d\'arroser',
+    'Fenêtre idéale : fraîcheur, faible évaporation, feuillage sec avant la nuit. Arrose au pied.');
+  if(h<11) return G('🌤️','bon moment','Arrose maintenant',
+    hot?'La chaleur monte — arrose tout de suite, avant le pic de midi.':'Encore une bonne fenêtre du matin. Arrose au pied.');
+  if(h<16){
+    if(hot) return W('🔥','attends ce soir','Arrosage à reporter',
+      `Pleine chaleur (max ${tmax}°) : évite d'arroser maintenant (évaporation + choc thermique). Prochaine bonne fenêtre : ce soir vers ${fmtH(eve[0])}–${fmtH(eve[1])}.`);
+    return G('🌤️','ok · idéal tôt le matin','Arrosage possible',
+      'Temps doux : tu peux arroser, mais le tôt matin reste idéal. Arrose au pied, pas sur le feuillage.');
+  }
+  if(h<eve[0]) return W('⏳','attends le soir','Arrosage bientôt',
+    `Attends la fraîcheur du soir (≈ ${fmtH(eve[0])}) : tu limites l'évaporation et le choc thermique.`);
+  if(h<eve[1]) return G('🌇','bon moment (soir)','C\'est le moment d\'arroser',
+    "Bonne fenêtre du soir (fraîcheur). Arrose au pied et évite de mouiller le feuillage — l'humidité nocturne favorise le mildiou.");
+  return W('🌙','attends demain matin','Arrosage à reporter à demain',
+    'Trop tard : un feuillage mouillé toute la nuit favorise les maladies. Vise demain matin tôt (≈ 6 h).');
+}
+/* type de fenêtre horaire selon la plante et la phase (pour les actions d'entretien) */
+function careTimingKind(p,ph){
+  if((p.id==='courge'||p.id==='melon'||p.id==='pasteque')&&ph==='Floraison')return 'pollinate';
+  if((p.id==='mais_ombre'||p.id==='mais_geo')&&ph==='Soies')return 'corn';
+  if((p.id==='persil'||p.id==='thym')&&ph==='Récolte continue')return 'harvest';
+  return null;
+}
 function renderToday(){
   const w=state.wx,list=[],rainSoon=w&&(w.rainProb>=55||w.rainToday>=4),hot=w&&w.tmax>=28;
-  if(hot)list.push(['prio','🔥','Arroser tôt le matin','La chaleur assèche vite pots et bacs surélevés.']);
+  // Arrosage proposé au MOMENT OPPORTUN de la journée (heure + chaleur du jour)
+  const waterDue=PLANTS.filter(p=>{const wp=waterPlan(p);return wp&&wp.diff<=0;});
+  if(waterDue.length){
+    const t=actionTiming('water'), names=waterDue.map(p=>p.name).join(', ');
+    list.push([t.good?'prio':'', `${t.ic}`, `${t.verb} : ${names}`,
+      `${t.advice} Valide « ✓ Arrosé » sur la plante pour fixer le prochain tour.`]);
+  } else if(hot){
+    const t=actionTiming('water');
+    list.push(['', `${t.ic}`, 'Arrosage — meilleur moment', `Journée chaude (max ${w.tmax}°). ${t.advice}`]);
+  }
+  const ft=rainSoon?null:actionTiming('feed');
   PLANTS.forEach(p=>{const d=daysSince(state.feeds[p.id]),r=curRecipe(p);
     if(isNoFeed(r))return; // phase de maturation/repos : aucun rappel d'engrais
     if(d>=p.feedDays){
-      if(rainSoon)list.push(['feed','⏸️',`Fertiliser ${p.name} — à reporter`,`Dû depuis ${isFinite(d)?d+' j':'le début'}, mais la pluie le lessiverait. Attends une journée sèche.`]);
-      else list.push(['feed','💧',`Nourrir ${p.name}`,`Phase « ${p.stages[curStage(p)]} » → apport « ${r.name} » (jamais fertilisé depuis ${isFinite(d)?d+' jours':'le début'}). Voir le doseur.`]);
+      const ph=p.stages[curStage(p)];
+      if(rainSoon)list.push(['feed','⏸️',`Fertiliser ${p.name} — à reporter`,`Dû depuis ${isFinite(d)?d+' j':'le début'}, mais la pluie le lessiverait (l'engrais a besoin d'heures pour pénétrer). Attends une journée sèche.`]);
+      else list.push([ft.good?'feed':'', ft.ic, `${ft.good?'Nourrir':'À fertiliser ('+ft.short+') :'} ${p.name}`,`Phase « ${ph} » → apport « ${r.name} » (jamais fertilisé depuis ${isFinite(d)?d+' jours':'le début'}). ${ft.advice} Voir le doseur.`]);
     }});
-  const waterDue=PLANTS.filter(p=>{const wp=waterPlan(p);return wp&&wp.diff<=0;});
-  if(waterDue.length)list.push(['prio','🚿',`À arroser : ${waterDue.map(p=>p.name).join(', ')}`,'Tours ajustés à la météo (la pluie reporte, la chaleur resserre). Valide « ✓ Arrosé » sur la plante pour fixer le prochain tour.']);
   const resowNow=PLANTS.filter(p=>{const r=RESOW[p.id];if(!r||r.kind!=='frais')return false;const s=nextSow(p);return s&&s.now;});
   if(resowNow.length)list.push(['feed','🌱',`Ressemer possible : ${resowNow.map(p=>p.name).join(', ')}`,"Il reste assez de temps avant le gel pour une récolte d'automne — détails dans l'onglet Semis."]);
   // actions du jour dérivées de la PHASE de chaque plante (seulement les phases « action »)
   const ACTION=new Set(['Boutons','Floraison','Fruits','Récolte','Récolte continue','Maturation','Bulbaison','Soies','Épis','Grossissement']);
   PLANTS.forEach(p=>{const ph=p.stages[curStage(p)],info=phaseInfo(p);
-    if(ACTION.has(ph)&&info.care&&info.care.length)list.push(['','🌿',`${p.name} · ${ph}`,info.care[0]]);});
+    if(!(ACTION.has(ph)&&info.care&&info.care.length))return;
+    const kind=careTimingKind(p,ph);
+    if(kind){const t=actionTiming(kind);
+      list.push([t.good?'prio':'',t.ic,`${p.name} · ${ph} — ${t.verb}`,`${info.care[0]} ${t.advice}`]);}
+    else list.push(['','🌿',`${p.name} · ${ph}`,info.care[0]]);});
   if(season()==='culture')list.push(['','📏',"Tour d'inspection",'Mildiou (tomates/courges), jaunissement entre les nervures des jeunes feuilles (citron → fer chélaté), tiges étirées (maïs ombragé).']);
   const el=document.getElementById('todayList');
   el.innerHTML=list.length?list.map(([c,ic,t,d])=>`<div class="task ${c}"><div class="tk-ic">${ic}</div><div class="tk-body"><div class="tk-t">${t}</div><div class="tk-d">${d}</div></div></div>`).join(''):'<div class="empty">Rien d\'urgent. Profite du jardin.</div>';
@@ -954,7 +1070,7 @@ function plantBody(p){
         <div class="r-note">${r.note}</div></div>`}${feedFreqLine(p,noF)}</div>
     <div class="pact"><h4>👁️ À surveiller</h4><ul>${(info.watch||[]).map(x=>`<li>${x}</li>`).join('')}</ul></div>
     <div class="pact"><h4>🛠️ Entretien · ${phName}</h4><ul>${(info.care||[]).map(x=>`<li>${x}</li>`).join('')}</ul></div>
-    ${p.flag?`<div class="flag ${p.flag.type}">${p.flag.txt}</div>`:''}
+    ${p.flag?`<div class="flag ${p.flag.type}">${p.flag.txt}${p.flag.type==='iron'?(()=>{const t=actionTiming('foliar');return `<br><span class="note" style="display:block;margin-top:7px">🕑 Si pulvérisation foliaire (fer chélaté) : ${t.good?`<b style="color:var(--leaf-d)">c'est le bon moment (${t.short})</b>`:`<b style="color:var(--amber)">${t.short}</b>`} — stomates ouverts tôt le matin (&lt;9 h 30) ou en soirée (&gt;18 h 30), jamais en plein soleil.`})():''}</div>`:''}
     <div class="pill-row"><span class="pill">Soleil : ${p.sun}</span>
       <span class="pill">Dernier engrais : ${isFinite(fed)?fed+' j':'—'}</span>
       <span class="pill">Dernier arrosage : ${isFinite(wat)?wat+' j':'—'}</span></div>
@@ -1044,6 +1160,9 @@ function registerSW(){ // service worker : met l'app en cache pour un fonctionne
 document.getElementById('canSize').value=state.can;
 fillMixSelect();renderMix();renderPlants();renderLog();renderToday();renderSeeds();
 registerSW();loadWeather();
+// l'arrosage est proposé au bon moment de la journée : on réévalue régulièrement et au retour sur l'app
+setInterval(()=>{if(!document.hidden)renderToday();},5*60*1000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)renderToday();});
 </script>
 </body>
 </html>

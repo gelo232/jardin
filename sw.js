@@ -4,7 +4,7 @@
    - assets locaux + police : stale-while-revalidate (affiche le cache, rafraîchit en arrière-plan)
    - météo : réseau d'abord → cache en secours
    Pense à incrémenter CACHE à chaque déploiement pour forcer le renouvellement. */
-const CACHE = 'jardin-v11';
+const CACHE = 'jardin-v12';
 const SHELL = [
   './', './index.html', './manifest.webmanifest',
   './bootstrap-icons.woff2', './icon-192.png', './icon-512.png'
