@@ -246,6 +246,7 @@
       <button id="segPlan" onclick="setView('plan')">2 semaines</button>
     </div>
     <div class="card" id="todayList"></div>
+    <div class="card" id="checkCard" style="margin-top:12px"></div>
     <div id="planList" style="display:none"></div>
     <p class="note" id="todayNote" style="margin-top:10px">Les priorités s'ajustent à la météo et à ton journal. Coche une action dans l'onglet d'une plante pour mettre à jour les rappels.</p>
   </section>
@@ -312,10 +313,17 @@
     <h2 class="title">Doseur d'engrais</h2>
     <div class="card card-pad">
       <div class="field"><label>Pour quelle plante / quel objectif ?</label><select id="mixPlant" onchange="renderMix()"></select></div>
-      <div class="field" style="margin-bottom:0"><label>Volume de l'arrosoir (litres)</label>
-        <input type="number" id="canSize" min="0.25" step="0.25" value="10" inputmode="decimal"
-               placeholder="ex. 8" oninput="setCan()">
-        <p class="note" style="margin-top:6px">Entre n'importe quel volume — les doses se recalculent en direct.</p></div>
+      <div class="field" style="margin-bottom:0"><label>Volume de l'arrosoir</label>
+        <div style="display:flex;gap:8px">
+          <input type="number" id="canSize" min="0.25" step="0.25" value="10" inputmode="decimal"
+                 placeholder="ex. 8" oninput="setCan()" style="flex:1">
+          <select id="canUnit" onchange="setCan()" style="width:auto;flex:none">
+            <option value="L">litres</option>
+            <option value="galUS">gallons US</option>
+            <option value="galImp">gallons imp.</option>
+          </select>
+        </div>
+        <p class="note" style="margin-top:6px">Entre n'importe quel volume et choisis l'unité — les doses se recalculent en direct (converties en litres).</p></div>
     </div>
     <div id="mixOut"></div>
     <div class="card card-pad">
@@ -342,6 +350,14 @@
     <div class="card card-pad"><div id="logList"></div></div>
     <button class="btn ghost" style="margin-top:12px" onclick="clearLog()">Effacer le journal</button>
     <hr class="sep">
+    <p class="eyebrow">Sauvegarde des données</p>
+    <p class="note" style="margin:0 0 10px">Tes données (journal, réglages, dernières actions) sont gardées sur cet appareil et <b>conservées d'une mise à jour à l'autre</b>. Pour les transférer ou les mettre à l'abri, exporte un fichier de sauvegarde.</p>
+    <div style="display:flex;gap:8px">
+      <button class="btn ghost sm" style="flex:1" onclick="exportData()">⬇️ Exporter</button>
+      <button class="btn ghost sm" style="flex:1" onclick="document.getElementById('importFile').click()">⬆️ Importer</button>
+    </div>
+    <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importData(event)">
+    <hr class="sep">
     <p class="note">Fonctionne hors-ligne. Seule la météo en direct a besoin d'Internet ; sans connexion, les conseils s'appuient sur la saison en cours.</p>
   </section>
 </main>
@@ -360,13 +376,23 @@ const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v)
   set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 let state={
   can:store.get('can',10),
+  canUnit:store.get('canUnit','L'),
   coords:store.get('coords',{lat:45.5019,lon:-73.5674,name:'Montréal'}),
   feeds:store.get('feeds',{}), waters:store.get('waters',{}), logs:store.get('logs',[]),
   catFold:store.get('catFold',{}),
   wx:null, view:'today'
 };
-function save(){store.set('can',state.can);store.set('coords',state.coords);
-  store.set('feeds',state.feeds);store.set('waters',state.waters);store.set('logs',state.logs)}
+/* Persistance : toutes les données utilisateur vivent dans localStorage et survivent aux
+   mises à jour de l'app (le service worker ne touche pas localStorage). save() est appelé
+   à chaque changement ; le chargement utilise des valeurs par défaut, donc l'ajout de
+   nouvelles clés ne réinitialise jamais les données existantes. */
+function save(){store.set('can',state.can);store.set('canUnit',state.canUnit);store.set('coords',state.coords);
+  store.set('feeds',state.feeds);store.set('waters',state.waters);store.set('logs',state.logs);store.set('catFold',state.catFold)}
+/* unités de volume sélectionnables pour le doseur (converties en litres pour le calcul) */
+const UNITS={L:{f:1,lab:'L'},galUS:{f:3.785411784,lab:'gal US'},galImp:{f:4.54609,lab:'gal imp.'}};
+function unitInfo(){return UNITS[state.canUnit]||UNITS.L;}
+function canLiters(){return state.can*unitInfo().f;}
+function canLabel(){return unitInfo().lab;}
 
 /* ===== RECETTES ===== */
 const RECIPES={
@@ -391,73 +417,136 @@ const PLANTS=[
    water:"Garder le sol frais sans détremper. L'ombre ralentit l'évaporation : arrose seulement si le sol est sec à 3 cm.",
    watch:["Tiges qui s'étirent et se penchent vers la lumière","Croissance lente vs le maïs au soleil"],
    structural:["Le maïs se pollinise par le vent et en groupe : garde-les serrés en bloc, pas en ligne unique."],
+   checks:[
+    {q:"Tiges étirées / penchées vers la lumière (manque de soleil sous les arbres)",fix:"Déplace au plein soleil tant que le plant est jeune, motte intacte (le maïs supporte mal le dérangement racinaire). Il lui faut 6 h+ de soleil."},
+    {q:"Feuilles jaunissant en V depuis la pointe",fix:"Carence d'azote : applique la recette végétative (le maïs est très gourmand en azote)."}
+   ],
    flag:{type:'',txt:"⚠️ Le maïs exige le plein soleil (6 h+). Sous le feuillage, attends-toi à des plants étirés et des épis maigres ; déplace-en au soleil tant qu'ils sont petits (motte intacte, il supporte mal le dérangement racinaire). Variétés mêlées : Double Sweet / Ruby / sweet (~75–80 j) arrivent à temps ; Silver Queen (~88–92 j) est juste ; Glass Gem (~110 j, récolté sec/ornemental) semé en juin court fort après le gel du ~7 oct. Le plant le plus avancé (~20 cm) a été démarré à l'intérieur fin avril."}},
   {id:'mais_geo',icon:'🌽',name:'Maïs — sous géotextile',sub:'semé ~30 mai · entre les tomates',
    stages:['Levée','Végétatif','Montaison','Soies','Épis'],stage:1,recipe:'vegetatif',feedDays:13,sun:'plein soleil',tender:false,
    water:"À travers la membrane, l'eau ne pénètre qu'au trou de plantation : arrose lentement, directement au pied.",
    watch:["Concurrence avec les tomates pour la lumière et l'azote"],
    structural:["Maïs et tomate sont tous deux gourmands : surveille que le maïs ne soit pas étouffé par le feuillage des tomates."],
+   checks:[
+    {q:"Maïs étouffé / ombragé par le feuillage des tomates voisines",fix:"Dégage ou rabats le feuillage des tomates qui ombrage le maïs ; les deux sont gourmands en azote."},
+    {q:"Eau qui ne pénètre qu'au trou de plantation (géotextile)",fix:"Arrose lentement, directement au pied ; nourris uniquement en solution liquide versée au pied (pas d'épandage de surface)."}
+   ],
    flag:{type:'',txt:"La membrane empêche l'épandage de surface : nourris uniquement en solution liquide versée au pied. Parfait pour le doseur."}},
   {id:'tomate_bac',icon:'🍅',name:'Tomates cerises — bacs',sub:'cerises · semé fin mai–juin · bacs',
    stages:['Semis','Végétatif','Boutons','Floraison','Fruits','Récolte'],stage:1,recipe:'jeune',feedDays:12,sun:'plein soleil',tender:false,
    water:"Les bacs sèchent vite : vérifie chaque jour, arrose en profondeur quand les 2–3 premiers cm sont secs. Régularité = pas de cul noir.",
-   watch:["Bords de feuilles bruns et secs → excès de sels, lessive","Tiges longues et molles → trop d'azote"],
-   structural:["Installe les tuteurs maintenant.","Coupe les feuilles à moins de 25 cm du sol."],flag:null},
+   watch:["Bords de feuilles bruns et secs → excès de sels, lessive","Tiges longues et molles → trop d'azote","Plants cassés : tige couchée qui repousse / tête sèche (voir solutions)"],
+   structural:["Installe les tuteurs maintenant.","Coupe les feuilles à moins de 25 cm du sol."],
+   checks:[
+    {q:"Tige cassée mais encore reliée, qui repousse (plant couché)",fix:"Le vaisseau n'est pas totalement rompu : redresse et attelle la tige à un tuteur avec un lien souple (ruban), juste au-dessus et au-dessous de la cassure, sans serrer. La tomate forme un cal et cicatrise en 2–4 sem. Une tige couchée peut aussi être buttée de terre : elle s'enracine le long de la tige. N'ajoute pas d'engrais pendant la cicatrisation, garde un arrosage régulier."},
+    {q:"Tête (apex) cassée et complètement séchée",fix:"La partie sèche ne reviendra pas. Coupe proprement sous le sec, dans le bois sain. La perte de l'apex lève la dominance apicale : un gourmand (pousse à l'aisselle d'une feuille) sous la cassure va prendre le relais — choisis le plus vigoureux, attache-le au tuteur comme nouvelle tête, retire les autres. Nouvelle pousse visible en 1–2 sem."},
+    {q:"Cul noir (tache noire sous le fruit)",fix:"À-coups d'arrosage (carence locale en calcium) : régularise l'eau. Inutile d'ajouter du calcium si le substrat en contient."},
+    {q:"Bords de feuilles bruns/secs",fix:"Excès de sels : lessive le substrat à l'eau claire et réduis la dose d'engrais."}
+   ],
+   flag:{type:'',txt:"🩹 Tes 2 plants cassés : (1) la tige couchée encore reliée qui repousse vers le haut — attelle-la à un tuteur (lien souple, au-dessus et au-dessous de la cassure), elle cicatrise en 2–4 sem. ; pas d'engrais le temps de la reprise. (2) La tête cassée et desséchée — coupe sous le sec dans le bois sain, puis laisse un gourmand sous la cassure devenir la nouvelle tête (tuteure-le)."}},
   {id:'tomate_geo',icon:'🍅',name:'Tomates — géotextile',sub:'Roma/jaune/brune · semé ~23 mai',
    stages:['Semis','Végétatif','Boutons','Floraison','Fruits','Récolte'],stage:1,recipe:'jeune',feedDays:12,sun:'plein soleil',tender:false,
    water:"La membrane garde l'humidité mais bloque l'arrosage de surface : verse lentement au trou de plantation. Avantage : pas d'éclaboussures = moins de mildiou.",
    watch:["Mildiou dès fin juillet (taches brunes huileuses)","Cul noir si arrosage irrégulier"],
-   structural:["Tuteurage dès maintenant.","Effeuillage des feuilles basses.","Pince les gourmands sur variétés indéterminées."],flag:null},
+   structural:["Tuteurage dès maintenant.","Effeuillage des feuilles basses.","Pince les gourmands sur variétés indéterminées."],
+   checks:[
+    {q:"Taches brunes huileuses sur feuilles/tiges (mildiou, dès fin juillet)",fix:"Effeuille le bas, arrose au pied (jamais le feuillage), aère les plants ; retire et jette les feuilles atteintes."},
+    {q:"Cul noir (tache noire sous le fruit)",fix:"Arrosage régulier (l'à-coup d'eau cause le cul noir)."},
+    {q:"Gourmands sur variétés indéterminées",fix:"Pince-les pour concentrer l'énergie sur les fruits."}
+   ],flag:null},
   {id:'courge',icon:'🎃',name:'Courges',sub:'semé ~23 mai · boutons visibles',
    stages:['Semis','Végétatif','Boutons','Floraison','Fruits','Récolte'],stage:2,recipe:'fleur',feedDays:12,sun:'plein soleil',tender:false,
    water:"Gros besoins en eau. Arrose au pied, jamais sur le feuillage (oïdium garanti sinon).",
    watch:["Oïdium : feutrage blanc sur les feuilles","Premières fleurs mâles puis femelles (petite courge à la base)"],
-   structural:["À la floraison : pollinise à la main au pinceau le matin si peu d'abeilles.","Glisse une planchette ou de la paille sous les jeunes fruits."],flag:null},
+   structural:["À la floraison : pollinise à la main au pinceau le matin si peu d'abeilles.","Glisse une planchette ou de la paille sous les jeunes fruits."],
+   checks:[
+    {q:"Feutrage blanc sur les feuilles (oïdium)",fix:"Arrose au pied jamais sur le feuillage, aère, retire les feuilles atteintes."},
+    {q:"Jeunes fruits qui jaunissent et avortent",fix:"Pollinisation incomplète : pollinise à la main au pinceau le matin (fleur mâle → femelle)."},
+    {q:"Fruit en contact avec le sol humide",fix:"Glisse une planchette ou de la paille dessous pour éviter la pourriture."}
+   ],flag:null},
   {id:'melon',icon:'🍈',name:'Melon cantaloup',sub:'semé ~23 mai · 3 feuilles',
    stages:['Semis','Végétatif','Floraison','Fruits','Maturation'],stage:1,recipe:'jeune',feedDays:14,sun:'chaleur maximale',tender:true,
    water:"Aime la chaleur, déteste les racines détrempées. Arrose régulièrement mais laisse sécher la surface.",
    watch:["Croissance qui stagne sous 15 °C la nuit"],
    structural:["Un paillage sombre réchauffe le sol et accélère tout.","Pince la tige après 4–5 feuilles pour ramifier."],
+   checks:[
+    {q:"Croissance qui stagne (nuits sous 15 °C)",fix:"Paillage sombre, coin le plus chaud, protège les nuits fraîches (<12 °C)."},
+    {q:"Racines détrempées",fix:"Laisse sécher la surface entre deux arrosages ; le melon déteste l'excès d'eau."},
+    {q:"Trous dans les feuilles / feuilles rongées",fix:"Même ravageurs que la pastèque (chrysomèle, altises, limaces) : voile anti-insectes jusqu'à la floraison, ramassage, terre de diatomée ; surveille le flétrissement bactérien."}
+   ],
    flag:{type:'cold',txt:"❄️ Cantaloup semé en pleine terre ~23 mai : ~100 j depuis le semis avant maturité, donc récolte espérée début–mi-septembre seulement si l'été reste chaud (course contre le gel du ~7 oct). Donne-lui le coin le plus chaud, paillage sombre, protège sous 12 °C la nuit."}},
   {id:'pasteque',icon:'🍉',name:'Pastèque',sub:'semé fin mai–juin · 2 feuilles',
    stages:['Semis','Végétatif','Floraison','Fruits','Maturation'],stage:1,recipe:'jeune',feedDays:14,sun:'chaleur maximale',tender:true,
    water:"Très jeune et fragile. Sol chaud et humide sans excès. Évite tout stress de froid.",
-   watch:["Sensible au froid au stade 2 feuilles — la moindre nuit fraîche la bloque"],
+   watch:["Sensible au froid au stade 2 feuilles — la moindre nuit fraîche la bloque","Trous dans les feuilles / feuilles rongées → ravageurs (voir solutions)"],
    structural:["Stade le plus vulnérable : fertilisation très diluée seulement."],
+   checks:[
+    {q:"Trous dans les feuilles / feuilles rongées (au stade 2 feuilles)",fix:"Inspecte le dessous des feuilles et le sol tôt le matin ou au crépuscule. Coupables probables au Québec : chrysomèle rayée du concombre (petit coléoptère jaune et noir), altises (criblage de petits trous <3 mm, « shot-hole »), limaces (traces luisantes, dégâts la nuit). Solutions : voile anti-insectes sur arceaux dès maintenant et jusqu'à la floraison (le retirer alors pour la pollinisation), ramassage manuel, terre de diatomée sèche autour du pied, pièges à bière contre les limaces, et garder le tour du pied propre (les ravageurs hivernent dans les débris). ⚠️ La chrysomèle transmet le flétrissement bactérien des cucurbitacées : interviens vite, les semis tolèrent peu de dégâts."},
+    {q:"Coup de froid (stade 2 feuilles, très fragile)",fix:"Maximise la chaleur : paillage sombre, mur exposé sud, protection sous 12 °C la nuit."}
+   ],
    flag:{type:'cold',txt:"❄️ La plus à risque : pastèque semée de graine fin mai/juin au Québec, ~110 j jusqu'à maturité → mûrir avant le gel (~7 oct) est incertain. Maximise la chaleur (paillage sombre, mur exposé sud, protection des nuits fraîches). Les variétés hâtives type Sugar Baby (~75–80 j depuis repiquage) sont les seules réalistes ici."}},
   {id:'persil',icon:'🌿',name:'Persil',sub:'frisé + plat · semé ~23 mai',
    stages:['Levée','Feuillage','Récolte continue'],stage:1,recipe:'jeune',feedDays:21,sun:'soleil à mi-ombre',tender:false,
    water:"Sol frais et régulièrement humide. Tolère un peu d'ombre l'après-midi.",
    watch:["Montée en graine si stress hydrique ou chaleur extrême"],
-   structural:["Récolte les tiges extérieures d'abord.","Peu gourmand : apport léger, n'en abuse pas."],flag:null},
+   structural:["Récolte les tiges extérieures d'abord.","Peu gourmand : apport léger, n'en abuse pas."],
+   checks:[
+    {q:"Montée en graine prématurée",fix:"Cause : stress hydrique ou chaleur. Sol frais et régulièrement humide, mi-ombre l'après-midi l'été."},
+    {q:"Feuillage qui jaunit",fix:"Pot trop petit ou excès d'eau : vérifie le drainage, rempote si les racines sont à l'étroit."}
+   ],flag:null},
   {id:'thym',icon:'🌿',name:'Thym',sub:'semé ~23 mai · vivace',
    stages:['Levée','Feuillage','Récolte continue'],stage:1,recipe:'jeune',feedDays:30,sun:'plein soleil',tender:false,
    water:"Méditerranéen : déteste l'excès d'eau. Sol drainant, laisse bien sécher entre deux arrosages — l'humidité stagnante le tue plus vite que la sécheresse.",
    watch:["Germination et croissance lentes au début (tout à fait normal)","Jaunissement / pourriture du collet si trop arrosé ou sol lourd"],
-   structural:["Très peu gourmand : sol pauvre, engrais léger et rare (l'excès d'azote dilue l'arôme).","Pince les tiges pour le ramifier ; vivace, il se bonifie en vieillissant."],flag:null},
-  {id:'carotte',icon:'🥕',name:'Carottes',sub:'pot · semé ~21 mai',
-   stages:['Levée','Feuillage','Grossissement','Récolte'],stage:2,recipe:'racine',feedDays:21,sun:'plein soleil',tender:false,
-   water:"Arrosage régulier et profond : l'irrégularité fait fendre les racines. En pot, surveille le dessèchement.",
+   structural:["Très peu gourmand : sol pauvre, engrais léger et rare (l'excès d'azote dilue l'arôme).","Pince les tiges pour le ramifier ; vivace, il se bonifie en vieillissant."],
+   checks:[
+    {q:"Collet qui jaunit ou pourrit",fix:"Excès d'eau / sol lourd : laisse bien sécher entre deux arrosages, sol drainant (l'humidité stagnante tue le thym plus vite que la sécheresse)."},
+    {q:"Pied qui se dégarnit (bois nu) avec l'âge",fix:"Rabats au printemps et pince régulièrement pour le ramifier."}
+   ],flag:null},
+  {id:'carotte',icon:'🥕',name:'Carottes',sub:'pot à réserve d\'eau 3 L + paillis · semé ~21 mai',
+   stages:['Levée','Feuillage','Grossissement','Récolte'],stage:2,recipe:'racine',feedDays:21,sun:'plein soleil',tender:false,selfWater:3,
+   water:"Pot à réserve d'eau (3 L) avec mèche : remplis le réservoir quand il est vide plutôt que d'arroser par le haut. La capillarité garde le sol régulièrement humide — exactement ce qu'aime la carotte (l'irrégularité fait fendre les racines). Le paillis de copeaux en surface limite l'évaporation.",
    watch:["Feuillage abondant, racine fine → trop d'azote","Racines fourchues → surtout sol caillouteux/compacté ou fumier frais"],
-   structural:["En pot, profondeur 25 cm+ pour des racines droites.","Éclaircis à 3–4 cm entre carottes."],
+   structural:["En pot, profondeur 25 cm+ pour des racines droites.","Éclaircis à 3–4 cm entre carottes.","Garde le paillis à 1–2 cm du collet (évite la pourriture)."],
+   checks:[
+    {q:"Feuillage abondant mais racine fine",fix:"Trop d'azote : passe à la recette faible azote / riche en potassium (peu ou pas d'urée ni de MAP)."},
+    {q:"Racines fourchues",fix:"Cause = sol caillouteux/compacté ou fumier frais (pas l'engrais). Terreau meuble sans cailloux, pot profond 25 cm+."},
+    {q:"Épaules vertes en haut de la racine",fix:"Recouvre le haut de la racine de terreau ou de paillis."},
+    {q:"Réservoir d'eau (3 L)",fix:"Remplis-le quand il est vide ; la mèche maintient l'humidité. N'arrose pas par le haut — les à-coups font fendre les racines."}
+   ],
    flag:{type:'',txt:"🥕 Garde l'azote au minimum (peu ou pas d'urée ni de MAP) : trop d'azote pousse le feuillage au détriment de la racine. Le doseur propose une formule faible en azote et riche en potassium."}},
   {id:'ail',icon:'🧄',name:'Ail',sub:'démarré ~mi-avril (intérieur)',
    stages:['Pousse','Feuillage','Bulbaison','Maturation'],stage:2,recipe:'racine',feedDays:21,sun:'plein soleil',tender:false,
    water:"Sol frais et régulier pendant la croissance du feuillage ; réduis nettement à l'approche de la récolte et arrête l'arrosage ~2 semaines avant (sinon le bulbe pourrit et se conserve mal).",
    watch:["Feuilles du bas qui jaunissent → bulbaison en cours ou approche de la maturité","Hampe florale (scape) sur l'ail à col dur : à couper"],
    structural:["Coupe le scape (ail à col dur) dès qu'il s'enroule : l'énergie part dans le bulbe.","Récolte quand le tiers à la moitié des feuilles du bas ont bruni — pas plus tard."],
+   checks:[
+    {q:"Feuilles du bas qui jaunissent",fix:"Bulbaison / maturité en approche : réduis l'arrosage et stoppe l'azote."},
+    {q:"Hampe florale (scape) sur l'ail à col dur",fix:"Coupe-la dès qu'elle s'enroule : l'énergie repart dans le bulbe."},
+    {q:"Quand récolter",fix:"Quand 1/3 à 1/2 des feuilles du bas ont bruni ; arrête l'arrosage ~2 semaines avant, récolte par temps sec puis fais sécher (curing) 2–3 sem. à l'ombre aérée."}
+   ],
    flag:{type:'',txt:"🧄 Planté au printemps (mi-avril), sans le froid de l'hiver : attends-toi à des bulbes plus petits, voire un bulbe non divisé (« round ») au lieu de gousses. Récolte de fin d'été. Azote utile au début, puis stoppe l'azote dès la bulbaison (sinon beaucoup de feuilles, petit bulbe). Pour de gros bulbes l'an prochain : plante des gousses dehors en octobre."}},
-  {id:'citron',icon:'🍋',name:'Citronniers (×2)',sub:'jeunes semis · 1 tige 30 cm · jamais fleuris',
-   stages:['Croissance','Floraison','Fruits','Maturation'],stage:0,recipe:'agrumes',feedDays:14,sun:'plein soleil',tender:true,
-   water:"Laisse sécher les 3–4 premiers cm, puis arrose à fond jusqu'au drainage. Jamais les pieds dans l'eau.",
+  {id:'citron',icon:'🍋',name:'Citronniers (×2)',sub:'jeunes semis · 1 tige 30 cm · pot à réserve 3 L + paillis',
+   stages:['Croissance','Floraison','Fruits','Maturation'],stage:0,recipe:'agrumes',feedDays:14,sun:'plein soleil',tender:true,selfWater:3,
+   water:"Pot à réserve d'eau (3 L) avec mèche : remplis le réservoir quand il est vide. Laisse sécher les 3–4 premiers cm en surface (paillis en place) ; jamais les pieds dans l'eau (le réservoir nourrit par capillarité, il ne doit pas noyer les racines).",
    watch:["Feuilles jaunes à nervures vertes → carence fer/magnésium (ton fer chélaté corrige ça)","Chute des feuilles → arrosage irrégulier ou coup de froid"],
    structural:["Jeunes semis (1 tige, jamais fleuris) : plusieurs années avant la 1re floraison, surtout non greffés. Vise une croissance saine et ramifiée — étête vers 40–50 cm pour forcer des branches.","Dehors au plein soleil l'été, rentrer avant 10 °C.","Magnésium apprécié : poudre Ca/Mg en arrosage séparé, 1×/mois."],
+   checks:[
+    {q:"Feuilles jaunes à nervures vertes (chlorose fer/magnésium)",fix:"Pulvérisation foliaire de fer chélaté (tôt le matin ou en soirée) ; magnésium via poudre Ca/Mg en arrosage séparé, 1×/mois. Jamais de KCl (chlore) sur agrumes."},
+    {q:"Chute des feuilles",fix:"Arrosage irrégulier ou coup de froid : stabilise l'humidité (réservoir 3 L), rentre avant 10 °C."},
+    {q:"Réservoir d'eau (3 L)",fix:"Remplis-le quand il est vide ; laisse sécher les 3–4 premiers cm de surface entre deux."}
+   ],
    flag:{type:'iron',txt:"🍋 Pas de KCl (chlore) sur agrumes. Ton fer chélaté Ferti-Lome couvre désormais le fer, le zinc, le manganèse et le cuivre — exactement ce qui manquait. Si les jeunes feuilles jaunissent à nervures vertes, fais une pulvérisation foliaire."}},
-  {id:'ananas',icon:'🍍',name:'Ananas',sub:'couronne · ~1 an · 5–10 cm',
-   stages:['Croissance lente','Floraison','Fruit'],stage:0,recipe:'ananas',feedDays:30,sun:'lumière vive',tender:true,
-   water:"Broméliacée : laisse bien sécher entre deux arrosages. Un peu d'eau au cœur de la rosette est apprécié.",
-   watch:["Pointes brunes → eau calcaire ou excès d'engrais","Croissance très lente — normal, 2 ans+ avant un fruit"],
-   structural:["Aime l'humidité de l'air : brumise par temps sec.","Apport mensuel très dilué suffit."],
+  {id:'ananas',icon:'🍍',name:'Ananas',sub:'couronne · terreau frais (transplanté) · pot à réserve 1 L',
+   stages:['Croissance lente','Floraison','Fruit'],stage:0,recipe:'ananas',feedDays:30,sun:'lumière vive',tender:true,selfWater:1,
+   water:"Pot à réserve d'eau (1 L, petit) avec mèche : vérifie souvent et remplis quand vide. Broméliacée : laisse bien sécher entre deux ; un peu d'eau au cœur de la rosette est apprécié. Terreau frais acide (l'ancien sol calcaire blanchâtre, qui brunissait les feuilles, a été remplacé).",
+   watch:["Pointes / feuilles brunes → eau calcaire, sol alcalin ou excès d'engrais","Croissance très lente — normal, 2 ans+ avant un fruit","Reprise après transplantation : surveille un éventuel stress"],
+   structural:["Aime l'humidité de l'air : brumise par temps sec.","Apport mensuel très dilué — mais attends 2–4 sem. après la transplantation avant de fertiliser.","Paillis de copeaux noirs en surface, gardé à 1–2 cm du cœur de la rosette."],
+   checks:[
+    {q:"Pointes et feuilles brunes",fix:"Causes : eau calcaire / sol alcalin (l'ancien sol blanchâtre) ou excès d'engrais. L'ananas exige un sol acide — le terreau frais corrige ça. Arrose à l'eau non calcaire (pluie) si possible ; fer chélaté en foliaire si pâleur ; doses d'engrais légères et espacées."},
+    {q:"Reprise après transplantation (terreau frais)",fix:"Garde le plant stable et lumineux, sans plein soleil brûlant les premiers jours ; n'apporte PAS d'engrais pendant 2–4 semaines (laisse les racines reprendre) ; arrose pour tasser le terreau."},
+    {q:"Réservoir d'eau (1 L)",fix:"Petit réservoir : vérifie plus souvent. Laisse bien sécher entre deux ; un peu d'eau au cœur de la rosette."}
+   ],
    flag:{type:'iron',txt:"🍍 Sensible au chlore : pas de KCl. Tu as maintenant le sulfate de potassium 0-0-53 — exactement le K propre qu'il faut, et la recette l'utilise (fini le compromis du MKP qui ajoutait trop de phosphore). Doses légères et espacées, sol acide ; le fer chélaté corrige les pointes pâles."}},
 ];
 const byId=id=>PLANTS.find(p=>p.id===id);
@@ -546,8 +635,8 @@ const WATER_EVERY={
   tomate_bac:[1,2,2,2,2,3], tomate_geo:[2,2,2,2,2,3],
   courge:[2,2,2,2,2,4],
   melon:[2,2,2,2,4], pasteque:[2,2,2,2,4],
-  persil:[1,2,2], thym:[4,6,7], carotte:[2,3,3,4], ail:[3,4,5,null],
-  citron:[4,4,4,5], ananas:[7,7,7],
+  persil:[1,2,2], thym:[4,6,7], carotte:[4,5,5,6], ail:[3,4,5,null],
+  citron:[5,6,6,7], ananas:[7,8,8],
 };
 function waterEvery(p){const a=WATER_EVERY[p.id];return a?a[curStage(p)]:null;}
 function fmtDate(d){return d.toLocaleDateString('fr-CA',{weekday:'short',day:'numeric',month:'short'});}
@@ -589,6 +678,8 @@ function waterPlan(p){
   }
   return {due,diff:Math.round((due-today)/oneDay),eff,baseEvery:e,rainDay};
 }
+/* texte d'arrosage pour un pot à réserve d'eau (sub-irrigation par mèche) */
+function reservoirWater(p){return `Pot à réserve d'eau (${p.selfWater} L) avec mèche : le substrat reste humide par capillarité. Remplis le réservoir quand il est vide plutôt que d'arroser par le haut ; laisse la surface sécher entre deux (le paillis limite l'évaporation). Pas de mouillage du feuillage = moins de maladies.`;}
 function waterFreqLine(p){
   const e=waterEvery(p);
   if(!e)return `<div class="freq">💧 Arrosage à réduire / arrêter à ce stade (voir ci-dessus)</div>`;
@@ -596,6 +687,9 @@ function waterFreqLine(p){
   let when = d<0?`<b style="color:var(--amber)">à faire (retard ${-d} j)</b>`
     : d===0?`<b style="color:var(--amber)">à faire aujourd'hui</b>`
     : `prochain ≈ <b style="color:var(--leaf-d)">${fmtDate(wp.due)}</b> (dans ${d} j)`;
+  if(p.selfWater){ // pot à réserve : on vérifie/remplit le réservoir, à toute heure
+    return `<div class="freq">🪣 Réservoir d'eau (${p.selfWater} L) · vérifie ≈ <b>tous les ${e} j</b> · ${when}${d<=0?` · <span style="color:var(--leaf-d)">remplir à tout moment</span>`:''}<br><span class="note">La mèche garde le sol humide ; remplir le réservoir n'a pas de contrainte d'heure. Laisse la surface sécher.</span></div>`;
+  }
   if(d<=0){const t=actionTiming('water');
     when+=t.good?` · <span style="color:var(--leaf-d)">✅ ${t.short}</span>`
                 :` · <span style="color:var(--amber)">⏳ ${t.short}</span>`;}
@@ -940,14 +1034,16 @@ function renderToday(){
   const w=state.wx,list=[],rainSoon=w&&(w.rainProb>=55||w.rainToday>=4),hot=w&&w.tmax>=28;
   // Arrosage proposé au MOMENT OPPORTUN de la journée (heure + chaleur du jour)
   const waterDue=PLANTS.filter(p=>{const wp=waterPlan(p);return wp&&wp.diff<=0;});
-  if(waterDue.length){
-    const t=actionTiming('water'), names=waterDue.map(p=>p.name).join(', ');
+  const topDue=waterDue.filter(p=>!p.selfWater), resDue=waterDue.filter(p=>p.selfWater);
+  if(topDue.length){
+    const t=actionTiming('water'), names=topDue.map(p=>p.name).join(', ');
     list.push([t.good?'prio':'', `${t.ic}`, `${t.verb} : ${names}`,
       `${t.advice} Valide « ✓ Arrosé » sur la plante pour fixer le prochain tour.`]);
   } else if(hot){
     const t=actionTiming('water');
     list.push(['', `${t.ic}`, 'Arrosage — meilleur moment', `Journée chaude (max ${w.tmax}°). ${t.advice}`]);
   }
+  if(resDue.length)list.push(['prio','🪣',`Réservoir à vérifier : ${resDue.map(p=>p.name+' ('+p.selfWater+' L)').join(', ')}`,"Pots à réserve d'eau : remplis le réservoir s'il est vide (la mèche garde le sol humide). À faire à tout moment — pas de contrainte d'heure. Valide « ✓ Arrosé » après remplissage."]);
   const ft=rainSoon?null:actionTiming('feed');
   PLANTS.forEach(p=>{const d=daysSince(state.feeds[p.id]),r=curRecipe(p);
     if(isNoFeed(r))return; // phase de maturation/repos : aucun rappel d'engrais
@@ -966,10 +1062,23 @@ function renderToday(){
     if(kind){const t=actionTiming(kind);
       list.push([t.good?'prio':'',t.ic,`${p.name} · ${ph} — ${t.verb}`,`${info.care[0]} ${t.advice}`]);}
     else list.push(['','🌿',`${p.name} · ${ph}`,info.care[0]]);});
-  if(season()==='culture')list.push(['','📏',"Tour d'inspection",'Mildiou (tomates/courges), jaunissement entre les nervures des jeunes feuilles (citron → fer chélaté), tiges étirées (maïs ombragé).']);
+  if(season()==='culture')list.push(['','🔎',"Tour d'inspection",'Passe en revue la liste « À vérifier · solutions » ci-dessous : pour chaque plante, les éléments à contrôler et quoi faire.']);
   const el=document.getElementById('todayList');
   el.innerHTML=list.length?list.map(([c,ic,t,d])=>`<div class="task ${c}"><div class="tk-ic">${ic}</div><div class="tk-body"><div class="tk-t">${t}</div><div class="tk-d">${d}</div></div></div>`).join(''):'<div class="empty">Rien d\'urgent. Profite du jardin.</div>';
   document.getElementById('dateLabel').textContent=new Date().toLocaleDateString('fr-CA',{day:'numeric',month:'long'});
+  renderChecks();
+}
+/* ===== À VÉRIFIER + SOLUTIONS (par plante, dans le Programme) ===== */
+function renderChecks(){
+  const el=document.getElementById('checkCard'); if(!el)return;
+  const items=PLANTS.filter(p=>p.checks&&p.checks.length);
+  if(!items.length){el.innerHTML='';return;}
+  el.innerHTML=`<div class="card-pad" style="padding-bottom:6px"><p class="eyebrow" style="margin:0">🔎 À vérifier · solutions</p>`
+    +`<p class="note" style="margin:6px 0 0">Pour chaque culture : ce qu'il faut contrôler et quoi faire. Touche une plante pour les détails complets.</p></div>`
+    +items.map(p=>`<div style="padding:11px 14px;border-top:1px solid var(--line)">
+        <div style="font-weight:800;font-size:14px;margin-bottom:6px">${p.icon} ${p.name}</div>
+        ${p.checks.map(c=>`<div style="margin-bottom:7px"><div style="font-size:13.5px;font-weight:600">▢ ${c.q}</div><div class="note" style="margin-top:1px">→ ${c.fix}</div></div>`).join('')}
+      </div>`).join('');
 }
 
 /* ===== PLAN 14 JOURS (auto-réajusté) ===== */
@@ -1017,6 +1126,7 @@ function setView(v){
   document.getElementById('segToday').classList.toggle('on',v==='today');
   document.getElementById('segPlan').classList.toggle('on',v==='plan');
   document.getElementById('todayList').style.display=v==='today'?'':'none';
+  document.getElementById('checkCard').style.display=v==='today'?'':'none';
   document.getElementById('planList').style.display=v==='plan'?'':'none';
   document.getElementById('todayNote').textContent = v==='plan'
     ? "Plan calculé sur les prévisions réelles ; il se réajuste à chaque ouverture. Les apports d'engrais sont automatiquement décalés hors des jours de pluie."
@@ -1060,14 +1170,17 @@ function plantBody(p){
       <table class="sdur"><thead><tr><th>Phase</th><th class="sd-r">temps avant la suivante</th></tr></thead><tbody>${rows}</tbody></table>
       <p class="note" style="margin-top:7px">Phase et décompte mis à jour <b>automatiquement</b> d'après ta date de semis (durées calibrées par variété ; météo et microclimat font varier). Dis-moi si une date de semis doit être ajustée.</p></div>`;
   }
+  const checksBlock=(p.checks&&p.checks.length)?`<div class="pact"><h4>🔎 À vérifier → solution</h4>
+      ${p.checks.map(c=>`<div style="margin-bottom:8px"><p style="margin:0;font-weight:600">▢ ${c.q}</p><p style="margin:1px 0 0;font-size:13.5px;color:var(--ink-soft)">→ ${c.fix}</p></div>`).join('')}</div>`:'';
   return `<div class="plant-body">
     ${durBlock}
-    <div class="pact"><h4>💧 Arrosage · ${phName}</h4><p>${info.water}</p>${waterFreqLine(p)}</div>
+    <div class="pact"><h4>💧 Arrosage · ${phName}</h4><p>${p.selfWater?reservoirWater(p):info.water}</p>${waterFreqLine(p)}</div>
     <div class="pact"><h4>⚗️ Engrais · ${r.name}</h4>
       ${noF?`<div class="recipe"><div class="r-note">${r.note}</div></div>`
-      :`<div class="recipe"><div class="r-h"><span class="r-name">≈ ${npk[0]}-${npk[1]}-${npk[2]}</span><span class="r-can">pour ${state.can} L</span></div>
+      :`<div class="recipe"><div class="r-h"><span class="r-name">≈ ${npk[0]}-${npk[1]}-${npk[2]}</span><span class="r-can">pour ${state.can} ${canLabel()}</span></div>
         <table>${rows.map(([n,g])=>`<tr><td>${n}</td><td class="amt mono">${g} g</td></tr>`).join('')}</table>
         <div class="r-note">${r.note}</div></div>`}${feedFreqLine(p,noF)}</div>
+    ${checksBlock}
     <div class="pact"><h4>👁️ À surveiller</h4><ul>${(info.watch||[]).map(x=>`<li>${x}</li>`).join('')}</ul></div>
     <div class="pact"><h4>🛠️ Entretien · ${phName}</h4><ul>${(info.care||[]).map(x=>`<li>${x}</li>`).join('')}</ul></div>
     ${p.flag?`<div class="flag ${p.flag.type}">${p.flag.txt}${p.flag.type==='iron'?(()=>{const t=actionTiming('foliar');return `<br><span class="note" style="display:block;margin-top:7px">🕑 Si pulvérisation foliaire (fer chélaté) : ${t.good?`<b style="color:var(--leaf-d)">c'est le bon moment (${t.short})</b>`:`<b style="color:var(--amber)">${t.short}</b>`} — stomates ouverts tôt le matin (&lt;9 h 30) ou en soirée (&gt;18 h 30), jamais en plein soleil.`})():''}</div>`:''}
@@ -1116,9 +1229,11 @@ function renderResow(){
 function toggle(id){document.getElementById('card_'+id).classList.toggle('open')}
 
 /* ===== DOSEUR ===== */
-function scale(g){const v=g*state.can/10;return v<1?v.toFixed(1).replace('.0',''):(Math.round(v*10)/10).toString().replace('.0','')}
+function scale(g){const v=g*canLiters()/10;return v<1?v.toFixed(1).replace('.0',''):(Math.round(v*10)/10).toString().replace('.0','')}
 function setCan(){const v=parseFloat(document.getElementById('canSize').value);
-  if(!isFinite(v)||v<=0)return; state.can=v;save();renderMix();renderPlants()}
+  const u=document.getElementById('canUnit');if(u&&UNITS[u.value])state.canUnit=u.value;
+  if(isFinite(v)&&v>0)state.can=v;
+  save();renderMix();renderPlants()}
 function fillMixSelect(){const sel=document.getElementById('mixPlant');
   sel.innerHTML=PLANTS.map(p=>`<option value="plant:${p.id}">${p.icon} ${p.name}</option>`).join('')
     +'<optgroup label="Objectifs génériques">'+Object.entries(RECIPES).map(([k,r])=>`<option value="recipe:${k}">${r.name}</option>`).join('')+'</optgroup>'}
@@ -1132,7 +1247,7 @@ function renderMix(){
     <div class="npk-badges"><div class="npk-b n"><div class="v mono">${npk[0]}</div><div class="k">Azote N</div></div>
       <div class="npk-b p"><div class="v mono">${npk[1]}</div><div class="k">Phosphore P</div></div>
       <div class="npk-b k2"><div class="v mono">${npk[2]}</div><div class="k">Potassium K</div></div></div>
-    <div class="recipe" style="margin-top:14px"><div class="r-h"><span class="r-name">À dissoudre dans ${state.can} L d'eau</span></div>
+    <div class="recipe" style="margin-top:14px"><div class="r-h"><span class="r-name">À dissoudre dans ${state.can} ${canLabel()}${state.canUnit!=='L'?` (${Math.round(canLiters()*10)/10} L)`:''} d'eau</span></div>
       <table>${rows.map(([n,g])=>`<tr><td>${n}</td><td class="amt mono">${g} g</td></tr>`).join('')}</table>
       <div class="r-note">${r.note}</div></div>
     <p class="note" style="margin-top:10px">💡 Repère : une cuillère à café rase ≈ 4–5 g. Dissous bien (l'eau tiède aide) avant d'arroser au pied, sur sol déjà humide.</p></div>`}
@@ -1149,6 +1264,36 @@ function renderLog(){const el=document.getElementById('logList');
     const chip=l.type==='feed'?'<span class="chip f">engrais</span>':'<span class="chip w">arrosage</span>';
     return `<div class="log-row"><span class="lg-d mono">${d.toLocaleDateString('fr-CA',{day:'2-digit',month:'2-digit'})}</span><span style="flex:1">${p?p.icon+' '+p.name:l.plant}</span>${chip}</div>`}).join('')}
 function clearLog(){if(confirm('Effacer tout le journal et les rappels ?')){state.logs=[];state.feeds={};state.waters={};save();renderLog();renderToday();renderPlan();renderPlants()}}
+/* sauvegarde / restauration : permet de conserver l'état des données (entre appareils,
+   réinstallations ou mises à jour). localStorage persiste déjà, ceci en est l'export portable. */
+function exportData(){
+  const data={app:'jardin',v:1,exportedAt:new Date().toISOString(),
+    can:state.can,canUnit:state.canUnit,coords:state.coords,
+    feeds:state.feeds,waters:state.waters,logs:state.logs,catFold:state.catFold};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='jardin-sauvegarde-'+new Date().toISOString().slice(0,10)+'.json';
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+function importData(ev){
+  const f=ev.target.files&&ev.target.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{try{const d=JSON.parse(r.result);
+    if(d.can!=null)state.can=d.can;
+    if(d.canUnit&&UNITS[d.canUnit])state.canUnit=d.canUnit;
+    if(d.coords)state.coords=d.coords;
+    if(d.feeds&&typeof d.feeds==='object')state.feeds=d.feeds;
+    if(d.waters&&typeof d.waters==='object')state.waters=d.waters;
+    if(Array.isArray(d.logs))state.logs=d.logs;
+    if(d.catFold&&typeof d.catFold==='object')state.catFold=d.catFold;
+    save();
+    document.getElementById('canSize').value=state.can;
+    const cu=document.getElementById('canUnit');if(cu)cu.value=state.canUnit;
+    renderMix();renderPlants();renderLog();renderToday();
+    alert('Sauvegarde importée.');
+  }catch(e){alert('Fichier de sauvegarde invalide.');}};
+  r.readAsText(f); ev.target.value='';
+}
 
 /* ===== NAV ===== */
 function go(s){document.querySelectorAll('section').forEach(x=>x.classList.toggle('active',x.id===s));
@@ -1158,6 +1303,7 @@ function registerSW(){ // service worker : met l'app en cache pour un fonctionne
 
 /* INIT */
 document.getElementById('canSize').value=state.can;
+{const cu=document.getElementById('canUnit');if(cu)cu.value=state.canUnit;}
 fillMixSelect();renderMix();renderPlants();renderLog();renderToday();renderSeeds();
 registerSW();loadWeather();
 // l'arrosage est proposé au bon moment de la journée : on réévalue régulièrement et au retour sur l'app

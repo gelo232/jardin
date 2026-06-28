@@ -35,11 +35,15 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
 2. **Plantes** — **13 cultures** suivies, regroupées en **catégories repliables**
    (`CATEGORIES`, état d'ouverture mémorisé dans `localStorage` clé `catFold`). Chaque
    fiche : jauge de stade, temps par phase, arrosage, recette d'engrais calculée,
-   surveillance, entretien, boutons « Fertilisé / Arrosé ».
+   **« À vérifier → solution »** (champ `checks` par plante), surveillance, entretien,
+   boutons « Fertilisé / Arrosé ».
 3. **Semis** — bascule « En pleine terre » (`SOW`) / « En intérieur » (`INDOOR`),
    calées sur le gel + section « pourquoi les poivrons n'ont pas germé ».
-4. **Doseur** — volume d'arrosoir libre → grammes exacts de chaque sel + NPK résultant.
+4. **Doseur** — volume d'arrosoir libre **+ unité sélectionnable** (L / gal US / gal imp.,
+   `state.canUnit`, table `UNITS`, converti en litres via `canLiters()`) → grammes exacts
+   de chaque sel + NPK résultant.
 5. **Journal** — historique `localStorage` des arrosages/fertilisations, base des rappels.
+   Section **Sauvegarde** : `exportData()` / `importData()` (JSON portable des données).
 
 ## 4. Logique métier (datasets clés)
 
@@ -57,6 +61,20 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
 - **Arrosage météo-adaptatif** (`waterPlan`) : intervalle par phase (`WATER_EVERY`) ;
   pluie ≥ 5 mm / ≥ 60 % **reporte** le tour, ≥ 2 jours chauds le **resserrent**. Date du
   prochain tour recalculée quand l'utilisateur valide « ✓ Arrosé / Fertilisé ».
+- **Pots à réserve d'eau** (sub-irrigation par mèche) : champ `selfWater` = litres du
+  réservoir (carotte 3, citron 3, ananas 1). Pour ces plantes : `reservoirWater()` remplace
+  le texte d'arrosage, `waterFreqLine` affiche « réservoir à remplir, à tout moment »
+  (pas de fenêtre horaire), et `renderToday` sépare ces plantes (tâche 🪣 « Réservoir à
+  vérifier ») des plantes arrosées par le haut.
+- **À vérifier → solution** (`checks` par plante = liste `{q, fix}`, factuel) : affiché
+  dans chaque fiche plante **et** dans le Programme via `renderChecks()` (carte
+  `#checkCard`, visible seulement en vue « Aujourd'hui »). Sources clés : trous feuilles
+  cucurbitacées = chrysomèle rayée / altises / limaces, voile anti-insectes jusqu'à la
+  floraison (UMN, USU, U. Illinois Ext.) ; tige tomate cassée mais reliée = attelle +
+  tuteur, cicatrise 2–4 sem. ; tête tomate cassée/séchée = couper dans le sain + laisser un
+  gourmand sous la cassure reprendre la dominance apicale (sources Ext. tomato). Ananas =
+  sol acide impératif (l'ancien sol calcaire blanchâtre brunissait les feuilles), pas
+  d'engrais 2–4 sem. après transplantation.
 - **Moment opportun de la journée** (`actionTiming(kind)`, `careTimingKind`) : **toute**
   recommandation est proposée à l'heure factuellement optimale, selon l'heure locale + la
   chaleur du jour. Types : `water`, `feed`, `foliar`, `pollinate` (cucurbitacées), `corn`,
@@ -73,15 +91,17 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
   **~7 oct** (`daysToFrost()`). Repiquage des cultures fragiles après le 20–25 mai.
 - Tout a été semé par l'utilisateur fin mai–juin 2026 → melon/pastèque/maïs tardif en
   course contre le gel. Citronniers = **jeunes semis** (pas des fruitiers de 2 ans).
-- **Persistance `localStorage`** (helper `store`) : `can`, `coords`, `feeds`, `waters`,
-  `logs`, `wxCache`, `catFold`.
+- **Persistance `localStorage`** (helper `store`) : `can`, `canUnit`, `coords`, `feeds`,
+  `waters`, `logs`, `wxCache`, `catFold`. Les données **survivent aux mises à jour** (le
+  SW ne touche pas `localStorage` ; le chargement utilise des défauts → ajouter une clé ne
+  réinitialise rien). Export/import JSON dans le Journal pour transfert/sauvegarde.
 - **Météo** : `fetch` open-meteo (sans clé), position par défaut Montréal
   (45.5019, -73.5674) ; `askLocation()` utilise la géoloc.
 
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v12`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v13`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.
