@@ -347,11 +347,10 @@ let state={
   can:store.get('can',10),
   coords:store.get('coords',{lat:45.5019,lon:-73.5674,name:'Montréal'}),
   feeds:store.get('feeds',{}), waters:store.get('waters',{}), logs:store.get('logs',[]),
-  stage:store.get('stage',{}), // {plantId:{i:index de phase, t:date d'entrée ISO}}
   wx:null, view:'today'
 };
 function save(){store.set('can',state.can);store.set('coords',state.coords);
-  store.set('feeds',state.feeds);store.set('waters',state.waters);store.set('logs',state.logs);store.set('stage',state.stage)}
+  store.set('feeds',state.feeds);store.set('waters',state.waters);store.set('logs',state.logs)}
 
 /* ===== RECETTES ===== */
 const RECIPES={
@@ -517,12 +516,9 @@ function autoPhase(p){const dur=STAGE_DUR[p.id],sow=SOW_DATE[p.id];if(!dur||!sow
   let acc=0,i=0;for(;i<dur.length;i++){if(days<acc+dur[i])break;acc+=dur[i];}
   if(i>=dur.length){i=dur.length-1;acc=dur.slice(0,i).reduce((a,b)=>a+b,0);}
   return {i,since:new Date(t0+acc*864e5).toISOString(),days};}
-function curStage(p){const s=state.stage[p.id];if(s&&typeof s.i==='number')return Math.max(0,Math.min(p.stages.length-1,s.i));const a=autoPhase(p);return a?a.i:p.stage;}
-function stageSince(p){const s=state.stage[p.id];if(s&&s.t)return s.t;const a=autoPhase(p);return a?a.since:null;}
-function stageManual(p){return !!state.stage[p.id];}
-function setStage(id,delta){const p=byId(id);const i=Math.max(0,Math.min(p.stages.length-1,curStage(p)+delta));
-  state.stage[id]={i,t:new Date().toISOString()};save();renderPlants();
-  const c=document.getElementById('card_'+id);if(c)c.classList.add('open');}
+/* phase et début de phase : 100 % automatiques d'après la date de semis + STAGE_DUR (aucun marquage manuel) */
+function curStage(p){const a=autoPhase(p);return a?a.i:p.stage;}
+function stageSince(p){const a=autoPhase(p);return a?a.since:null;}
 
 /* ===== SEMIS (Québec, mois 1–12) ===== */
 const SOW=[
@@ -768,19 +764,13 @@ function plantBody(p){
     const head=next
       ? `Phase « <b style="color:var(--leaf-d)">${p.stages[ci]}</b> » : il reste ≈ <b style="color:var(--leaf-d)">${fmtDur(remInPhase)}</b> avant « <b>${next}</b> »`
       : `Dernière phase « <b style="color:var(--leaf-d)">${p.stages[ci]}</b> » : dure ≈ <b style="color:var(--leaf-d)">${fmtDur(phaseDur)}</b>`;
-    const manual=stageManual(p);
     const sinceTxt = peren
       ? `<b style="color:var(--amber)">estimation indicative</b> (vivace, années avant fruit)`
-      : manual
-        ? `phase marquée il y a ${elapsed} j`
-        : `≈ ${elapsed} j dans cette phase · estimé depuis ton semis (~${frDate(SOW_DATE[p.id])})`;
+      : `≈ ${elapsed} j dans cette phase · calculé depuis ton semis (~${frDate(SOW_DATE[p.id])})`;
     durBlock=`<div class="pact"><h4>⏱️ Temps par phase</h4>
       <div class="note" style="margin-bottom:7px">${head}.<br>${sinceTxt}. Cycle complet ≈ <b style="color:var(--ink)">${fmtDur(total)}</b>${peren?' <b style="color:var(--amber)">(vivace — indicatif)</b>':''}</div>
       <table class="sdur"><thead><tr><th>Phase</th><th class="sd-r">temps avant la suivante</th></tr></thead><tbody>${rows}</tbody></table>
-      <div style="display:flex;gap:8px;margin-top:9px">
-        <button class="btn sm ghost" style="flex:1" onclick="event.stopPropagation();setStage('${p.id}',-1)">◂ Phase précédente</button>
-        <button class="btn sm" style="flex:1" onclick="event.stopPropagation();setStage('${p.id}',1)">Phase suivante ▸</button></div>
-      <p class="note" style="margin-top:7px">Calculé depuis ta date de semis + durées de phase calibrées par variété (variété et météo font varier). Ajuste avec ◂ / ▸ si la réalité diffère.</p></div>`;
+      <p class="note" style="margin-top:7px">Phase et décompte mis à jour <b>automatiquement</b> d'après ta date de semis (durées calibrées par variété ; météo et microclimat font varier). Dis-moi si une date de semis doit être ajustée.</p></div>`;
   }
   return `<div class="plant-body">
     ${durBlock}
