@@ -71,6 +71,12 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
 - **Arrosage météo-adaptatif** (`waterPlan`) : intervalle par phase (`WATER_EVERY`) ;
   pluie ≥ 5 mm / ≥ 60 % **reporte** le tour, ≥ 2 jours chauds le **resserrent**. Date du
   prochain tour recalculée quand l'utilisateur valide « ✓ Arrosé / Fertilisé ».
+- **Volume de liquide par plante** : champ `vol` (str) = quantité d'eau par arrosage,
+  factuel (capacités exactes des réservoirs ; ailleurs règle 2,5 cm/sem ≈ 25 L/m² et
+  « jusqu'à écoulement », en ranges approx.). Affiché par `waterVolLine()` (section
+  Arrosage) et `feedVolLine()` (section Engrais : volume de solution = un arrosage, ou
+  demi-dose au réservoir pour les pots `selfWater`). Le Doseur ajoute aussi une note
+  « À appliquer sur <plante> : … ».
 - **Pots à réserve d'eau** (sub-irrigation par mèche) : champ `selfWater` = litres du
   réservoir (carotte 3, citron 3, ananas 1). Pour ces plantes : la fiche garde le texte
   d'arrosage **spécifique** de la plante (`p.water`) **plus** une note `reservoirWater()`
@@ -123,7 +129,7 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v17`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v18`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.
