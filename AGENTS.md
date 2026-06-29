@@ -106,14 +106,15 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
 - **Persistance `localStorage`** (helper `store`) : `can`, `canUnit`, `coords`, `feeds`,
   `waters`, `logs`, `wxCache`, `catFold`, `progFold`. Les données **survivent aux mises à jour** (le
   SW ne touche pas `localStorage` ; le chargement utilise des défauts → ajouter une clé ne
-  réinitialise rien). Export/import JSON dans le Journal pour transfert/sauvegarde.
+  réinitialise rien). Export/import JSON dans le Journal pour transfert/sauvegarde
+  (inclut `catFold` **et** `progFold` ; l'import rafraîchit aussi le plan 14 j).
 - **Météo** : `fetch` open-meteo (sans clé), position par défaut Montréal
   (45.5019, -73.5674) ; `askLocation()` utilise la géoloc.
 
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v14`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v15`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.
