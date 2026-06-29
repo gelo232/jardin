@@ -67,10 +67,14 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
   pluie ≥ 5 mm / ≥ 60 % **reporte** le tour, ≥ 2 jours chauds le **resserrent**. Date du
   prochain tour recalculée quand l'utilisateur valide « ✓ Arrosé / Fertilisé ».
 - **Pots à réserve d'eau** (sub-irrigation par mèche) : champ `selfWater` = litres du
-  réservoir (carotte 3, citron 3, ananas 1). Pour ces plantes : `reservoirWater()` remplace
-  le texte d'arrosage, `waterFreqLine` affiche « réservoir à remplir, à tout moment »
-  (pas de fenêtre horaire), et `renderToday` sépare ces plantes (tâche 🪣 « Réservoir à
-  vérifier ») des plantes arrosées par le haut.
+  réservoir (carotte 3, citron 3, ananas 1). Pour ces plantes : la fiche garde le texte
+  d'arrosage **spécifique** de la plante (`p.water`) **plus** une note `reservoirWater()`
+  qui précise le **mode** : verser dans le **réservoir** (tube de remplissage), **jamais sur
+  les feuilles ni les copeaux** ; 2 exceptions par le haut = amorçage initial de la mèche +
+  rinçage mensuel des sels (la sub-irrigation concentre les sels en surface → pointes brunes).
+  Engrais possible dans l'eau du réservoir mais à **demi-dose** (+ rinçage). `waterFreqLine`
+  affiche « réservoir à remplir, à tout moment » (pas de fenêtre horaire), et `renderToday`
+  sépare ces plantes (tâche 🪣 « Réservoir à vérifier ») des plantes arrosées par le haut.
 - **À vérifier → solution** (`checks` par plante = liste `{q, fix}`, factuel) : affiché
   dans chaque fiche plante **et** dans le Programme via `renderChecks()` (carte
   `#checkCard`, visible seulement en vue « Aujourd'hui »). Sources clés : trous feuilles
@@ -114,7 +118,7 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v15`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v16`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.
