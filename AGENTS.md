@@ -34,9 +34,14 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
    réutilise le style `.cat` des catégories Plantes) : 💧 Arrosage, ⚗️ Fertilisation,
    🌿 Soins & phases, 🔎 Inspection, + 🔎 À vérifier · solutions. Bascule « 2 semaines »
    (agenda 14 j sur prévisions réelles, recalculé à chaque ouverture, décale les
-   fertilisations hors des jours de pluie).
+   fertilisations hors des jours de pluie). **Liens Programme → fiche plante** :
+   `focusPlant(id)` (ligne mono-plante cliquable + `plantLink()` sur chaque nom dans les
+   listes multi-plantes) ouvre l'onglet Plantes, déplie la catégorie parente, ouvre la fiche
+   (accordéon), centre la page dessus (`scrollIntoView` block:center) et la surligne
+   (`.card.flash`).
 2. **Plantes** — **13 cultures + arbustes déco** suivis, regroupés en **catégories
    repliables** (`CATEGORIES`, état d'ouverture mémorisé dans `localStorage` clé `catFold`).
+   Fiches en **accordéon** : une seule ouverte à la fois (`toggle`/`openPlant`).
    Chaque fiche : jauge de stade, temps par phase, arrosage, recette d'engrais calculée,
    **« À vérifier → solution »** (champ `checks` par plante), surveillance, entretien,
    boutons « Fertilisé / Arrosé ». **Plantes ornementales** (`ornamental:true`, ex. `buis`) :
@@ -118,7 +123,7 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v16`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v17`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.

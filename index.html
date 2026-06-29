@@ -220,7 +220,24 @@
   .pill{font-size:11px;background:var(--card-2);border:1px solid var(--line);border-radius:20px;padding:4px 10px;color:var(--ink-soft)}
   a{color:var(--salt)}
   /* accessibilité clavier : indicateur de focus sur les éléments interactifs */
-  .plant:focus-visible,.sow:focus-visible,.cat-h:focus-visible,nav.tabs button:focus-visible{outline:2px solid var(--leaf);outline-offset:2px}
+  .plant:focus-visible,.sow:focus-visible,.cat-h:focus-visible,nav.tabs button:focus-visible,.task.clickable:focus-visible,.plink:focus-visible{outline:2px solid var(--leaf);outline-offset:2px}
+
+  /* liens Programme → fiche plante */
+  .plink{color:var(--leaf-d);text-decoration:underline dotted;text-underline-offset:2px;cursor:pointer;font-weight:600}
+  .task.clickable{cursor:pointer}
+  .task .tk-chev{align-self:center;color:var(--ink-soft);font-size:16px;flex:none;margin-left:6px}
+  /* surlignage de la fiche atteinte depuis le Programme */
+  @keyframes cardflash{0%{box-shadow:0 0 0 0 rgba(110,198,216,0)}18%{box-shadow:0 0 0 2px var(--leaf),0 0 20px 2px rgba(110,198,216,.55)}100%{box-shadow:var(--shadow)}}
+  .card.flash{animation:cardflash 1.5s ease}
+  /* retour visuel au clic (pressed state) */
+  .btn,nav.tabs button,.seg-ctrl button,.cat-h,.plant,.sow,.task.clickable,.plink{transition:transform .08s ease,filter .1s ease,background .12s ease}
+  .btn:active{transform:scale(.97);filter:brightness(.9)}
+  .seg-ctrl button:active{transform:scale(.96)}
+  nav.tabs button:active{transform:scale(.9)}
+  .cat-h:active{transform:scale(.99);filter:brightness(1.12)}
+  .plant:active,.sow:active{transform:scale(.992)}
+  .task.clickable:active{background:var(--card-2);transform:scale(.992)}
+  .plink:active{opacity:.55}
 </style>
 </head>
 <body>
@@ -1054,41 +1071,43 @@ function careTimingKind(p,ph){
   if((p.id==='persil'||p.id==='thym')&&ph==='Récolte continue')return 'harvest';
   return null;
 }
+/* lien cliquable d'un nom de plante dans le Programme → ouvre sa fiche */
+function plantLink(p){return `<span class="plink" role="button" tabindex="0" onclick="event.stopPropagation();focusPlant('${p.id}')">${p.name}</span>`;}
 function renderToday(){
   const w=state.wx,rainSoon=w&&(w.rainProb>=55||w.rainToday>=4),hot=w&&w.tmax>=28;
   const G={Arrosage:[],Fertilisation:[],'Soins & phases':[],Inspection:[]};
-  const add=(g,c,ic,t,d)=>G[g].push([c,ic,t,d]);
+  const add=(g,c,ic,t,d,pid)=>G[g].push([c,ic,t,d,pid]); // pid = plante liée (rend la ligne cliquable)
   // ARROSAGE — proposé au MOMENT OPPORTUN de la journée (heure + chaleur du jour)
   const waterDue=PLANTS.filter(p=>{const wp=waterPlan(p);return wp&&wp.diff<=0;});
   const topDue=waterDue.filter(p=>!p.selfWater), resDue=waterDue.filter(p=>p.selfWater);
   if(topDue.length){const t=actionTiming('water');
-    add('Arrosage',t.good?'prio':'',t.ic,`${t.verb} : ${topDue.map(p=>p.name).join(', ')}`,`${t.advice} Valide « ✓ Arrosé » sur la plante pour fixer le prochain tour.`);
+    add('Arrosage',t.good?'prio':'',t.ic,`${t.verb} : ${topDue.map(plantLink).join(', ')}`,`${t.advice} Valide « ✓ Arrosé » sur la plante pour fixer le prochain tour.`,topDue.length===1?topDue[0].id:null);
   } else if(hot){const t=actionTiming('water');
     add('Arrosage','',t.ic,'Arrosage — meilleur moment',`Journée chaude (max ${w.tmax}°). ${t.advice}`);}
-  if(resDue.length)add('Arrosage','prio','🪣',`Réservoir à vérifier : ${resDue.map(p=>p.name+' ('+p.selfWater+' L)').join(', ')}`,"Pots à réserve d'eau : remplis le réservoir s'il est vide, en versant dans le tube de remplissage — pas sur les feuilles ni sur les copeaux (la mèche garde le sol humide). À faire à tout moment — pas de contrainte d'heure. Valide « ✓ Arrosé » après remplissage.");
+  if(resDue.length)add('Arrosage','prio','🪣',`Réservoir à vérifier : ${resDue.map(p=>plantLink(p)+' ('+p.selfWater+' L)').join(', ')}`,"Pots à réserve d'eau : remplis le réservoir s'il est vide, en versant dans le tube de remplissage — pas sur les feuilles ni sur les copeaux (la mèche garde le sol humide). À faire à tout moment — pas de contrainte d'heure. Valide « ✓ Arrosé » après remplissage.",resDue.length===1?resDue[0].id:null);
   // FERTILISATION
   const ft=rainSoon?null:actionTiming('feed');
   PLANTS.forEach(p=>{const d=daysSince(state.feeds[p.id]),r=curRecipe(p);
     if(isNoFeed(r))return; // phase de maturation/repos (ou arbuste en reprise) : aucun rappel d'engrais
     if(d>=p.feedDays){const ph=p.stages[curStage(p)];
-      if(rainSoon)add('Fertilisation','feed','⏸️',`Fertiliser ${p.name} — à reporter`,`Dû depuis ${isFinite(d)?d+' j':'le début'}, mais la pluie le lessiverait (l'engrais a besoin d'heures pour pénétrer). Attends une journée sèche.`);
-      else add('Fertilisation',ft.good?'feed':'',ft.ic,`${ft.good?'Nourrir':'À fertiliser ('+ft.short+') :'} ${p.name}`,`Phase « ${ph} » → apport « ${r.name} » (jamais fertilisé depuis ${isFinite(d)?d+' jours':'le début'}). ${ft.advice} Voir le doseur.`);
+      if(rainSoon)add('Fertilisation','feed','⏸️',`Fertiliser ${p.name} — à reporter`,`Dû depuis ${isFinite(d)?d+' j':'le début'}, mais la pluie le lessiverait (l'engrais a besoin d'heures pour pénétrer). Attends une journée sèche.`,p.id);
+      else add('Fertilisation',ft.good?'feed':'',ft.ic,`${ft.good?'Nourrir':'À fertiliser ('+ft.short+') :'} ${p.name}`,`Phase « ${ph} » → apport « ${r.name} » (jamais fertilisé depuis ${isFinite(d)?d+' jours':'le début'}). ${ft.advice} Voir le doseur.`,p.id);
     }});
   const resowNow=PLANTS.filter(p=>{const r=RESOW[p.id];if(!r||r.kind!=='frais')return false;const s=nextSow(p);return s&&s.now;});
-  if(resowNow.length)add('Fertilisation','feed','🌱',`Ressemer possible : ${resowNow.map(p=>p.name).join(', ')}`,"Il reste assez de temps avant le gel pour une récolte d'automne — détails dans l'onglet Semis.");
+  if(resowNow.length)add('Fertilisation','feed','🌱',`Ressemer possible : ${resowNow.map(plantLink).join(', ')}`,"Il reste assez de temps avant le gel pour une récolte d'automne — détails dans l'onglet Semis.",resowNow.length===1?resowNow[0].id:null);
   // SOINS & PHASES — dérivés de la PHASE de chaque plante (seulement les phases « action »)
   const ACTION=new Set(['Boutons','Floraison','Fruits','Récolte','Récolte continue','Maturation','Bulbaison','Soies','Épis','Grossissement']);
   PLANTS.forEach(p=>{const ph=p.stages[curStage(p)],info=phaseInfo(p);
     if(!(ACTION.has(ph)&&info.care&&info.care.length))return;
     const kind=careTimingKind(p,ph);
-    if(kind){const t=actionTiming(kind);add('Soins & phases',t.good?'prio':'',t.ic,`${p.name} · ${ph} — ${t.verb}`,`${info.care[0]} ${t.advice}`);}
-    else add('Soins & phases','','🌿',`${p.name} · ${ph}`,info.care[0]);});
+    if(kind){const t=actionTiming(kind);add('Soins & phases',t.good?'prio':'',t.ic,`${p.name} · ${ph} — ${t.verb}`,`${info.care[0]} ${t.advice}`,p.id);}
+    else add('Soins & phases','','🌿',`${p.name} · ${ph}`,info.care[0],p.id);});
   // INSPECTION
   if(season()==='culture')add('Inspection','','🔎',"Tour d'inspection",'Passe en revue la section « À vérifier · solutions » plus bas : pour chaque plante, les éléments à contrôler et quoi faire.');
 
   const ICON={Arrosage:'💧',Fertilisation:'⚗️','Soins & phases':'🌿',Inspection:'🔎'};
   const order=['Arrosage','Fertilisation','Soins & phases','Inspection'];
-  const blocks=order.filter(g=>G[g].length).map(g=>progBlock(g.replace(/[^a-zA-Z]/g,''),ICON[g],g,G[g].map(([c,ic,t,d])=>`<div class="task ${c}"><div class="tk-ic">${ic}</div><div class="tk-body"><div class="tk-t">${t}</div><div class="tk-d">${d}</div></div></div>`).join(''),G[g].length)).join('');
+  const blocks=order.filter(g=>G[g].length).map(g=>progBlock(g.replace(/[^a-zA-Z]/g,''),ICON[g],g,G[g].map(([c,ic,t,d,pid])=>`<div class="task ${c}${pid?' clickable':''}"${pid?` role="button" tabindex="0" onclick="focusPlant('${pid}')"`:''}><div class="tk-ic">${ic}</div><div class="tk-body"><div class="tk-t">${t}</div><div class="tk-d">${d}</div></div>${pid?'<i class="bi bi-chevron-right tk-chev"></i>':''}</div>`).join(''),G[g].length)).join('');
   document.getElementById('todayList').innerHTML=blocks||'<div class="card"><div class="empty">Rien d\'urgent. Profite du jardin.</div></div>';
   document.getElementById('dateLabel').textContent=new Date().toLocaleDateString('fr-CA',{day:'numeric',month:'long'});
   renderChecks();
@@ -1284,7 +1303,30 @@ function renderResow(){
      <div class="tk-ic">${p.icon}</div>
      <div class="tk-body"><div class="tk-t">${p.name}</div><div class="tk-d">${s.txt}</div></div></div>`).join('');
 }
-function toggle(id){document.getElementById('card_'+id).classList.toggle('open')}
+/* accordéon : une seule fiche plante ouverte à la fois */
+function openPlant(id){
+  document.querySelectorAll('.plant.open').forEach(el=>{if(el.id!=='card_'+id)el.classList.remove('open');});
+  const c=document.getElementById('card_'+id);if(c)c.classList.add('open');
+}
+function toggle(id){const c=document.getElementById('card_'+id);if(!c)return;
+  if(c.classList.contains('open')){c.classList.remove('open');return;}
+  openPlant(id); // ouvrir = fermer les autres (accordéon)
+}
+function flashHighlight(el){el.classList.remove('flash');void el.offsetWidth;el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),1500);}
+/* depuis le Programme : aller à l'onglet Plantes, déplier la catégorie parente,
+   ouvrir la fiche (accordéon), centrer la page dessus et la surligner brièvement */
+function focusPlant(id){
+  if(!byId(id))return;
+  go('plants');
+  let key=null;
+  CATEGORIES.forEach((cat,i)=>{if(cat.ids.includes(id))key='c'+i;});
+  if(key===null){const used=new Set();CATEGORIES.forEach(c=>c.ids.forEach(x=>used.add(x)));if(!used.has(id))key='others';}
+  if(key){const catEl=document.getElementById('cat_'+key);
+    if(catEl&&!catEl.classList.contains('open')){catEl.classList.add('open');state.catFold[key]=true;store.set('catFold',state.catFold);}}
+  openPlant(id);
+  setTimeout(()=>{const card=document.getElementById('card_'+id);
+    if(card){card.scrollIntoView({behavior:'smooth',block:'center'});flashHighlight(card);}},70);
+}
 
 /* ===== DOSEUR ===== */
 function scale(g){const v=g*canLiters()/10;return v<1?v.toFixed(1).replace('.0',''):(Math.round(v*10)/10).toString().replace('.0','')}
@@ -1372,8 +1414,8 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)renderToda
 // accessibilité clavier : Entrée/Espace déplie une carte plante/semis focalisée (boutons internes gérés nativement)
 document.addEventListener('keydown',e=>{
   if(e.key!=='Enter'&&e.key!==' ')return;
-  const el=e.target;
-  if(el&&el.classList&&(el.classList.contains('plant')||el.classList.contains('sow'))){e.preventDefault();el.click();}
+  const el=e.target,cl=el&&el.classList;
+  if(cl&&(cl.contains('plant')||cl.contains('sow')||cl.contains('plink')||(cl.contains('task')&&cl.contains('clickable')))){e.preventDefault();el.click();}
 });
 </script>
 </body>
