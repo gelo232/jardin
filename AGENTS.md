@@ -29,14 +29,19 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
 
 ## 3. Onglets (barre du bas)
 
-1. **Programme** — « Aujourd'hui » (tâches priorisées météo + journal) et bascule
-   « 2 semaines » (agenda 14 j sur prévisions réelles, recalculé à chaque ouverture,
-   décale les fertilisations hors des jours de pluie).
-2. **Plantes** — **13 cultures** suivies, regroupées en **catégories repliables**
-   (`CATEGORIES`, état d'ouverture mémorisé dans `localStorage` clé `catFold`). Chaque
-   fiche : jauge de stade, temps par phase, arrosage, recette d'engrais calculée,
+1. **Programme** — « Aujourd'hui » : tâches priorisées météo + journal, **groupées en
+   sections repliables** (`progBlock`/`toggleProg`, état dans `localStorage` clé `progFold`,
+   réutilise le style `.cat` des catégories Plantes) : 💧 Arrosage, ⚗️ Fertilisation,
+   🌿 Soins & phases, 🔎 Inspection, + 🔎 À vérifier · solutions. Bascule « 2 semaines »
+   (agenda 14 j sur prévisions réelles, recalculé à chaque ouverture, décale les
+   fertilisations hors des jours de pluie).
+2. **Plantes** — **13 cultures + arbustes déco** suivis, regroupés en **catégories
+   repliables** (`CATEGORIES`, état d'ouverture mémorisé dans `localStorage` clé `catFold`).
+   Chaque fiche : jauge de stade, temps par phase, arrosage, recette d'engrais calculée,
    **« À vérifier → solution »** (champ `checks` par plante), surveillance, entretien,
-   boutons « Fertilisé / Arrosé ».
+   boutons « Fertilisé / Arrosé ». **Plantes ornementales** (`ornamental:true`, ex. `buis`) :
+   fiche dédiée `ornamentalBody()` sans jauge ni recette, axée reprise/choc de
+   transplantation ; exclues du Doseur (`fillMixSelect`) et des rappels d'engrais.
 3. **Semis** — bascule « En pleine terre » (`SOW`) / « En intérieur » (`INDOOR`),
    calées sur le gel + section « pourquoi les poivrons n'ont pas germé ».
 4. **Doseur** — volume d'arrosoir libre **+ unité sélectionnable** (L / gal US / gal imp.,
@@ -91,8 +96,15 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
   **~7 oct** (`daysToFrost()`). Repiquage des cultures fragiles après le 20–25 mai.
 - Tout a été semé par l'utilisateur fin mai–juin 2026 → melon/pastèque/maïs tardif en
   course contre le gel. Citronniers = **jeunes semis** (pas des fruitiers de 2 ans).
+- **Arbustes déco (buis) — choc de transplantation** : sujets déterrés ~2 sem. à l'automne
+  + redéplacés en été + 20-20-20 appliqué (contre-indiqué). Contenu factuel/sourcé : ne
+  PAS fertiliser un arbuste stressé/transplanté (l'azote force un feuillage que les racines
+  abîmées ne nourrissent pas, prolonge le choc, brûle les racines — U. Maryland, U. Kentucky,
+  Morton Arb., UGA) ; test de l'ongle (cambium vert = vivant) ; eau profonde ≈ 2,5 cm/sem.
+  sans détremper ; paillis ; récup ≈ 1 an/pouce de tronc ; seuil remplacement > 50 % de
+  bois mort (replanter à l'automne).
 - **Persistance `localStorage`** (helper `store`) : `can`, `canUnit`, `coords`, `feeds`,
-  `waters`, `logs`, `wxCache`, `catFold`. Les données **survivent aux mises à jour** (le
+  `waters`, `logs`, `wxCache`, `catFold`, `progFold`. Les données **survivent aux mises à jour** (le
   SW ne touche pas `localStorage` ; le chargement utilise des défauts → ajouter une clé ne
   réinitialise rien). Export/import JSON dans le Journal pour transfert/sauvegarde.
 - **Météo** : `fetch` open-meteo (sans clé), position par défaut Montréal
@@ -101,7 +113,7 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v13`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v14`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.

@@ -245,15 +245,15 @@
       <button class="on" id="segToday" onclick="setView('today')">Aujourd'hui</button>
       <button id="segPlan" onclick="setView('plan')">2 semaines</button>
     </div>
-    <div class="card" id="todayList"></div>
-    <div class="card" id="checkCard" style="margin-top:12px"></div>
+    <div id="todayList"></div>
+    <div id="checkCard"></div>
     <div id="planList" style="display:none"></div>
     <p class="note" id="todayNote" style="margin-top:10px">Les priorités s'ajustent à la météo et à ton journal. Coche une action dans l'onglet d'une plante pour mettre à jour les rappels.</p>
   </section>
 
   <!-- PLANTES -->
   <section id="plants">
-    <p class="eyebrow">13 cultures suivies</p>
+    <p class="eyebrow">13 cultures + arbustes déco</p>
     <h2 class="title">Mes plantes</h2>
     <div id="plantList"></div>
   </section>
@@ -380,6 +380,7 @@ let state={
   coords:store.get('coords',{lat:45.5019,lon:-73.5674,name:'Montréal'}),
   feeds:store.get('feeds',{}), waters:store.get('waters',{}), logs:store.get('logs',[]),
   catFold:store.get('catFold',{}),
+  progFold:store.get('progFold',{}),
   wx:null, view:'today'
 };
 /* Persistance : toutes les données utilisateur vivent dans localStorage et survivent aux
@@ -387,7 +388,7 @@ let state={
    à chaque changement ; le chargement utilise des valeurs par défaut, donc l'ajout de
    nouvelles clés ne réinitialise jamais les données existantes. */
 function save(){store.set('can',state.can);store.set('canUnit',state.canUnit);store.set('coords',state.coords);
-  store.set('feeds',state.feeds);store.set('waters',state.waters);store.set('logs',state.logs);store.set('catFold',state.catFold)}
+  store.set('feeds',state.feeds);store.set('waters',state.waters);store.set('logs',state.logs);store.set('catFold',state.catFold);store.set('progFold',state.progFold)}
 /* unités de volume sélectionnables pour le doseur (converties en litres pour le calcul) */
 const UNITS={L:{f:1,lab:'L'},galUS:{f:3.785411784,lab:'gal US'},galImp:{f:4.54609,lab:'gal imp.'}};
 function unitInfo(){return UNITS[state.canUnit]||UNITS.L;}
@@ -548,6 +549,19 @@ const PLANTS=[
     {q:"Réservoir d'eau (1 L)",fix:"Petit réservoir : vérifie plus souvent. Laisse bien sécher entre deux ; un peu d'eau au cœur de la rosette."}
    ],
    flag:{type:'iron',txt:"🍍 Sensible au chlore : pas de KCl. Tu as maintenant le sulfate de potassium 0-0-53 — exactement le K propre qu'il faut, et la recette l'utilise (fini le compromis du MKP qui ajoutait trop de phosphore). Doses légères et espacées, sol acide ; le fer chélaté corrige les pointes pâles."}},
+  {id:'buis',icon:'🌳',name:'Buis en boule',sub:'persistant · plusieurs années · transplantés (2 en choc de reprise)',
+   stages:['Reprise'],stage:0,recipe:'aucun',feedDays:0,sun:'mi-ombre à soleil',tender:false,ornamental:true,
+   water:"Priorité nº 1 pour la reprise : arrosage profond et régulier, l'équivalent d'≈ 2,5 cm/semaine. Garde la motte humide sans la détremper (laisse respirer entre deux — des racines noyées suffoquent, surtout en sol lourd). Paillis 5–8 cm autour, à quelques cm du tronc.",
+   watch:["2 sujets sans nouvelles feuilles, vert jaunâtre foncé → choc de transplantation","Déterrés ~2 sem. à l'automne (grosse perte de racines) + redéplacés en été (pire période)","20-20-20 appliqué au dernier déplacement → contre-indiqué sur arbuste stressé"],
+   structural:["Aucun nouveau déplacement.","Taille minimale : seulement le bois confirmé mort au test de l'ongle.","Ombrage temporaire l'après-midi (déplacés en pleine chaleur)."],
+   checks:[
+    {q:"Sont-ils encore vivants ? (test de l'ongle / scratch test)",fix:"Gratte un peu d'écorce sur plusieurs rameaux, à différentes hauteurs ET près du collet : vert et humide dessous = vivant ; brun, sec, cassant = mort. Test de flexion : rameau souple = vivant, casse net = mort. Tant qu'il y a du cambium vert (surtout bas), garde espoir."},
+    {q:"Faut-il remettre de l'engrais ?",fix:"NON. Toutes les extensions horticoles sont unanimes : on ne fertilise pas un arbuste fraîchement transplanté ou stressé — l'azote force un feuillage que les racines abîmées ne peuvent pas nourrir, ça prolonge le choc et peut brûler les racines. Pas d'engrais avant au moins 1 an / la reprise active."},
+    {q:"Le 20-20-20 déjà appliqué",fix:"Arrose abondamment pour diluer/lessiver l'excès de sels hors de la zone racinaire. Ne rien rajouter."},
+    {q:"Arrosage",fix:"≈ 2,5 cm/semaine, profond et espacé ; motte humide mais jamais détrempée. C'est le facteur nº 1 de récupération."},
+    {q:"Quand décider de remplacer ?",fix:"Si > 50 % de bois mort ou aucun cambium vert nulle part d'ici le milieu de l'été → envisager le remplacement, à replanter à l'automne (bonne fenêtre pour les persistants). Sinon : patience, la reprise peut être tardive/partielle."}
+   ],
+   flag:{type:'',txt:"🌳 Choc de transplantation. Récupération ≈ 1 an par pouce (2,5 cm) de diamètre de tronc (Morton Arboretum). Les 2 sujets sans feuilles ne sont pas forcément morts : fais le test de l'ongle avant toute conclusion. Priorités : eau profonde régulière, paillis, ombre, AUCUN engrais. Ne taille que le bois mort confirmé."}},
 ];
 const byId=id=>PLANTS.find(p=>p.id===id);
 
@@ -637,6 +651,7 @@ const WATER_EVERY={
   melon:[2,2,2,2,4], pasteque:[2,2,2,2,4],
   persil:[1,2,2], thym:[4,6,7], carotte:[4,5,5,6], ail:[3,4,5,null],
   citron:[5,6,6,7], ananas:[7,8,8],
+  buis:[7],
 };
 function waterEvery(p){const a=WATER_EVERY[p.id];return a?a[curStage(p)]:null;}
 function fmtDate(d){return d.toLocaleDateString('fr-CA',{weekday:'short',day:'numeric',month:'short'});}
@@ -735,6 +750,7 @@ const CATEGORIES=[
   {label:'Racines & bulbes',icon:'🥕',ids:['carotte','ail']},
   {label:'Fines herbes',icon:'🌿',ids:['persil','thym']},
   {label:'Plantes en pot',icon:'🪴',ids:['citron','ananas']},
+  {label:'Arbustes déco',icon:'🌳',ids:['buis']},
 ];
 
 /* ===== RESSEMIS : quand ressemer chaque culture, au plus tôt ===== */
@@ -1031,54 +1047,65 @@ function careTimingKind(p,ph){
   return null;
 }
 function renderToday(){
-  const w=state.wx,list=[],rainSoon=w&&(w.rainProb>=55||w.rainToday>=4),hot=w&&w.tmax>=28;
-  // Arrosage proposé au MOMENT OPPORTUN de la journée (heure + chaleur du jour)
+  const w=state.wx,rainSoon=w&&(w.rainProb>=55||w.rainToday>=4),hot=w&&w.tmax>=28;
+  const G={Arrosage:[],Fertilisation:[],'Soins & phases':[],Inspection:[]};
+  const add=(g,c,ic,t,d)=>G[g].push([c,ic,t,d]);
+  // ARROSAGE — proposé au MOMENT OPPORTUN de la journée (heure + chaleur du jour)
   const waterDue=PLANTS.filter(p=>{const wp=waterPlan(p);return wp&&wp.diff<=0;});
   const topDue=waterDue.filter(p=>!p.selfWater), resDue=waterDue.filter(p=>p.selfWater);
-  if(topDue.length){
-    const t=actionTiming('water'), names=topDue.map(p=>p.name).join(', ');
-    list.push([t.good?'prio':'', `${t.ic}`, `${t.verb} : ${names}`,
-      `${t.advice} Valide « ✓ Arrosé » sur la plante pour fixer le prochain tour.`]);
-  } else if(hot){
-    const t=actionTiming('water');
-    list.push(['', `${t.ic}`, 'Arrosage — meilleur moment', `Journée chaude (max ${w.tmax}°). ${t.advice}`]);
-  }
-  if(resDue.length)list.push(['prio','🪣',`Réservoir à vérifier : ${resDue.map(p=>p.name+' ('+p.selfWater+' L)').join(', ')}`,"Pots à réserve d'eau : remplis le réservoir s'il est vide (la mèche garde le sol humide). À faire à tout moment — pas de contrainte d'heure. Valide « ✓ Arrosé » après remplissage."]);
+  if(topDue.length){const t=actionTiming('water');
+    add('Arrosage',t.good?'prio':'',t.ic,`${t.verb} : ${topDue.map(p=>p.name).join(', ')}`,`${t.advice} Valide « ✓ Arrosé » sur la plante pour fixer le prochain tour.`);
+  } else if(hot){const t=actionTiming('water');
+    add('Arrosage','',t.ic,'Arrosage — meilleur moment',`Journée chaude (max ${w.tmax}°). ${t.advice}`);}
+  if(resDue.length)add('Arrosage','prio','🪣',`Réservoir à vérifier : ${resDue.map(p=>p.name+' ('+p.selfWater+' L)').join(', ')}`,"Pots à réserve d'eau : remplis le réservoir s'il est vide (la mèche garde le sol humide). À faire à tout moment — pas de contrainte d'heure. Valide « ✓ Arrosé » après remplissage.");
+  // FERTILISATION
   const ft=rainSoon?null:actionTiming('feed');
   PLANTS.forEach(p=>{const d=daysSince(state.feeds[p.id]),r=curRecipe(p);
-    if(isNoFeed(r))return; // phase de maturation/repos : aucun rappel d'engrais
-    if(d>=p.feedDays){
-      const ph=p.stages[curStage(p)];
-      if(rainSoon)list.push(['feed','⏸️',`Fertiliser ${p.name} — à reporter`,`Dû depuis ${isFinite(d)?d+' j':'le début'}, mais la pluie le lessiverait (l'engrais a besoin d'heures pour pénétrer). Attends une journée sèche.`]);
-      else list.push([ft.good?'feed':'', ft.ic, `${ft.good?'Nourrir':'À fertiliser ('+ft.short+') :'} ${p.name}`,`Phase « ${ph} » → apport « ${r.name} » (jamais fertilisé depuis ${isFinite(d)?d+' jours':'le début'}). ${ft.advice} Voir le doseur.`]);
+    if(isNoFeed(r))return; // phase de maturation/repos (ou arbuste en reprise) : aucun rappel d'engrais
+    if(d>=p.feedDays){const ph=p.stages[curStage(p)];
+      if(rainSoon)add('Fertilisation','feed','⏸️',`Fertiliser ${p.name} — à reporter`,`Dû depuis ${isFinite(d)?d+' j':'le début'}, mais la pluie le lessiverait (l'engrais a besoin d'heures pour pénétrer). Attends une journée sèche.`);
+      else add('Fertilisation',ft.good?'feed':'',ft.ic,`${ft.good?'Nourrir':'À fertiliser ('+ft.short+') :'} ${p.name}`,`Phase « ${ph} » → apport « ${r.name} » (jamais fertilisé depuis ${isFinite(d)?d+' jours':'le début'}). ${ft.advice} Voir le doseur.`);
     }});
   const resowNow=PLANTS.filter(p=>{const r=RESOW[p.id];if(!r||r.kind!=='frais')return false;const s=nextSow(p);return s&&s.now;});
-  if(resowNow.length)list.push(['feed','🌱',`Ressemer possible : ${resowNow.map(p=>p.name).join(', ')}`,"Il reste assez de temps avant le gel pour une récolte d'automne — détails dans l'onglet Semis."]);
-  // actions du jour dérivées de la PHASE de chaque plante (seulement les phases « action »)
+  if(resowNow.length)add('Fertilisation','feed','🌱',`Ressemer possible : ${resowNow.map(p=>p.name).join(', ')}`,"Il reste assez de temps avant le gel pour une récolte d'automne — détails dans l'onglet Semis.");
+  // SOINS & PHASES — dérivés de la PHASE de chaque plante (seulement les phases « action »)
   const ACTION=new Set(['Boutons','Floraison','Fruits','Récolte','Récolte continue','Maturation','Bulbaison','Soies','Épis','Grossissement']);
   PLANTS.forEach(p=>{const ph=p.stages[curStage(p)],info=phaseInfo(p);
     if(!(ACTION.has(ph)&&info.care&&info.care.length))return;
     const kind=careTimingKind(p,ph);
-    if(kind){const t=actionTiming(kind);
-      list.push([t.good?'prio':'',t.ic,`${p.name} · ${ph} — ${t.verb}`,`${info.care[0]} ${t.advice}`]);}
-    else list.push(['','🌿',`${p.name} · ${ph}`,info.care[0]]);});
-  if(season()==='culture')list.push(['','🔎',"Tour d'inspection",'Passe en revue la liste « À vérifier · solutions » ci-dessous : pour chaque plante, les éléments à contrôler et quoi faire.']);
-  const el=document.getElementById('todayList');
-  el.innerHTML=list.length?list.map(([c,ic,t,d])=>`<div class="task ${c}"><div class="tk-ic">${ic}</div><div class="tk-body"><div class="tk-t">${t}</div><div class="tk-d">${d}</div></div></div>`).join(''):'<div class="empty">Rien d\'urgent. Profite du jardin.</div>';
+    if(kind){const t=actionTiming(kind);add('Soins & phases',t.good?'prio':'',t.ic,`${p.name} · ${ph} — ${t.verb}`,`${info.care[0]} ${t.advice}`);}
+    else add('Soins & phases','','🌿',`${p.name} · ${ph}`,info.care[0]);});
+  // INSPECTION
+  if(season()==='culture')add('Inspection','','🔎',"Tour d'inspection",'Passe en revue la section « À vérifier · solutions » plus bas : pour chaque plante, les éléments à contrôler et quoi faire.');
+
+  const ICON={Arrosage:'💧',Fertilisation:'⚗️','Soins & phases':'🌿',Inspection:'🔎'};
+  const order=['Arrosage','Fertilisation','Soins & phases','Inspection'];
+  const blocks=order.filter(g=>G[g].length).map(g=>progBlock(g.replace(/[^a-zA-Z]/g,''),ICON[g],g,G[g].map(([c,ic,t,d])=>`<div class="task ${c}"><div class="tk-ic">${ic}</div><div class="tk-body"><div class="tk-t">${t}</div><div class="tk-d">${d}</div></div></div>`).join(''),G[g].length)).join('');
+  document.getElementById('todayList').innerHTML=blocks||'<div class="card"><div class="empty">Rien d\'urgent. Profite du jardin.</div></div>';
   document.getElementById('dateLabel').textContent=new Date().toLocaleDateString('fr-CA',{day:'numeric',month:'long'});
   renderChecks();
 }
-/* ===== À VÉRIFIER + SOLUTIONS (par plante, dans le Programme) ===== */
+/* bloc repliable du Programme (réutilise le style des catégories de l'onglet Plantes) */
+function progBlock(key,icon,label,inner,count){
+  const open=state.progFold[key]!==false;
+  return `<div class="cat ${open?'open':''}" id="prog_${key}" style="margin-bottom:10px">
+    <button class="cat-h" type="button" onclick="toggleProg('${key}')">
+      <span class="cat-l">${icon} ${label}</span>
+      <span class="cat-count">${count}</span>
+      <i class="bi bi-chevron-right cat-chev"></i></button>
+    <div class="cat-items"><div class="card">${inner}</div></div></div>`;
+}
+/* ===== À VÉRIFIER + SOLUTIONS (par plante, dans le Programme — repliable) ===== */
 function renderChecks(){
   const el=document.getElementById('checkCard'); if(!el)return;
   const items=PLANTS.filter(p=>p.checks&&p.checks.length);
   if(!items.length){el.innerHTML='';return;}
-  el.innerHTML=`<div class="card-pad" style="padding-bottom:6px"><p class="eyebrow" style="margin:0">🔎 À vérifier · solutions</p>`
-    +`<p class="note" style="margin:6px 0 0">Pour chaque culture : ce qu'il faut contrôler et quoi faire. Touche une plante pour les détails complets.</p></div>`
-    +items.map(p=>`<div style="padding:11px 14px;border-top:1px solid var(--line)">
+  const inner=`<div class="card-pad"><p class="note" style="margin:0 0 8px">Pour chaque culture : ce qu'il faut contrôler et quoi faire. Touche une plante pour les détails complets.</p>`
+    +items.map(p=>`<div style="padding:9px 0;border-top:1px solid var(--line)">
         <div style="font-weight:800;font-size:14px;margin-bottom:6px">${p.icon} ${p.name}</div>
         ${p.checks.map(c=>`<div style="margin-bottom:7px"><div style="font-size:13.5px;font-weight:600">▢ ${c.q}</div><div class="note" style="margin-top:1px">→ ${c.fix}</div></div>`).join('')}
-      </div>`).join('');
+      </div>`).join('')+`</div>`;
+  el.innerHTML=progBlock('Verifs','🔎','À vérifier · solutions',inner,items.length);
 }
 
 /* ===== PLAN 14 JOURS (auto-réajusté) ===== */
@@ -1134,10 +1161,28 @@ function setView(v){
 }
 
 /* ===== PLANTES ===== */
-function gauge(p){const cs=curStage(p);const segs=p.stages.map((s,i)=>`<div class="seg ${i<cs?'done':i===cs?'now':''}"></div>`).join('');
+function gauge(p){if(p.ornamental)return '';const cs=curStage(p);const segs=p.stages.map((s,i)=>`<div class="seg ${i<cs?'done':i===cs?'now':''}"></div>`).join('');
   const labels=p.stages.map((s,i)=>`<span class="${i===cs?'cur':''}">${s}</span>`).join('');
   return `<div class="gauge"><div class="track">${segs}</div><div class="stages">${labels}</div></div>`}
+function ornamentalBody(p){
+  const wat=daysSince(state.waters[p.id]);
+  const checksBlock=(p.checks&&p.checks.length)?`<div class="pact"><h4>🔎 À vérifier → solution</h4>
+      ${p.checks.map(c=>`<div style="margin-bottom:8px"><p style="margin:0;font-weight:600">▢ ${c.q}</p><p style="margin:1px 0 0;font-size:13.5px;color:var(--ink-soft)">→ ${c.fix}</p></div>`).join('')}</div>`:'';
+  return `<div class="plant-body">
+    <div class="pact"><h4>🌳 Situation</h4><ul>${(p.watch||[]).map(x=>`<li>${x}</li>`).join('')}</ul></div>
+    <div class="pact"><h4>💧 Arrosage (priorité reprise)</h4><p>${p.water}</p>${waterFreqLine(p)}</div>
+    <div class="pact"><h4>⚗️ Engrais</h4><div class="recipe"><div class="r-note">Aucun apport pendant la reprise (≥ 1ʳᵉ année). Fertiliser un arbuste stressé aggrave le choc et brûle les racines.</div></div></div>
+    ${checksBlock}
+    <div class="pact"><h4>🛠️ Entretien</h4><ul>${(p.structural||[]).map(x=>`<li>${x}</li>`).join('')}</ul></div>
+    ${p.flag?`<div class="flag ${p.flag.type}">${p.flag.txt}</div>`:''}
+    <div class="pill-row"><span class="pill">Soleil : ${p.sun}</span>
+      <span class="pill">Dernier arrosage : ${isFinite(wat)?wat+' j':'—'}</span></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn sm ghost" style="flex:1" onclick="event.stopPropagation();logAction('${p.id}','water')">✓ Arrosé</button></div>
+  </div>`;
+}
 function plantBody(p){
+  if(p.ornamental)return ornamentalBody(p);
   const info=phaseInfo(p),r=RECIPES[info.r]||RECIPES.aucun,npk=recipeNPK(r),rows=recipeRows(r);
   const phName=p.stages[curStage(p)],noF=isNoFeed(r);
   const fed=daysSince(state.feeds[p.id]),wat=daysSince(state.waters[p.id]);
@@ -1219,6 +1264,11 @@ function toggleCat(key){
   state.catFold[key]=el.classList.toggle('open');
   store.set('catFold',state.catFold);
 }
+function toggleProg(key){
+  const el=document.getElementById('prog_'+key); if(!el)return;
+  state.progFold[key]=el.classList.toggle('open');
+  store.set('progFold',state.progFold);
+}
 function renderResow(){
   const el=document.getElementById('resowList'); if(!el)return;
   const items=PLANTS.map(p=>({p,s:nextSow(p)})).filter(x=>x.s).sort((a,b)=>(b.s.now?1:0)-(a.s.now?1:0));
@@ -1235,7 +1285,7 @@ function setCan(){const v=parseFloat(document.getElementById('canSize').value);
   if(isFinite(v)&&v>0)state.can=v;
   save();renderMix();renderPlants()}
 function fillMixSelect(){const sel=document.getElementById('mixPlant');
-  sel.innerHTML=PLANTS.map(p=>`<option value="plant:${p.id}">${p.icon} ${p.name}</option>`).join('')
+  sel.innerHTML=PLANTS.filter(p=>!p.ornamental).map(p=>`<option value="plant:${p.id}">${p.icon} ${p.name}</option>`).join('')
     +'<optgroup label="Objectifs génériques">'+Object.entries(RECIPES).map(([k,r])=>`<option value="recipe:${k}">${r.name}</option>`).join('')+'</optgroup>'}
 function renderMix(){
   const val=document.getElementById('mixPlant').value;let r,title;
