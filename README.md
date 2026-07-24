@@ -2,7 +2,7 @@
 
 Application web installable (PWA) d'aide à l'entretien du jardin selon la météo et la
 saison, pour Montréal (zone 5b). Un seul écran, 6 onglets : Programme, Plantes,
-Inspection, Semis, Doseur d'engrais, Journal. Fonctionne hors-ligne après la première
+Inspection, Saison, Doseur d'engrais, Journal. Fonctionne hors-ligne après la première
 ouverture.
 
 L'onglet **Inspection** permet de saisir l'état réel d'une plante (hauteur, stade observé,
@@ -25,3 +25,10 @@ Ouvrir l'URL dans Chrome → menu ⋮ → **Ajouter à l'écran d'accueil**.
 - `make-icons.js` — script Node qui régénère les icônes (`node make-icons.js`)
 
 Météo : API open-meteo (sans clé). Données utilisateur : `localStorage`.
+
+L'onglet **Saison** regroupe les semis, le **sol** (température du sol, pH par parcelle avec
+diagnostic et correctifs, calendrier d'amendements) et la **rotation** des familles
+botaniques. Le Programme intègre les alertes de gel calculées sur les prévisions réelles,
+un indice de risque de maladie foliaire, et le besoin en eau chiffré par évapotranspiration
+(ET₀). Le Journal tient le registre de **récolte**, et chaque plante suit son **budget
+azote** de la saison.

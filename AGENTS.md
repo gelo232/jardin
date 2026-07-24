@@ -50,8 +50,11 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
 3. **Inspection** — saisie de l'état réel d'une plante (`INSP_FIELDS`) → moteur de
    diagnostic (`DIAG`, `diagnose()`) → **réajustement automatique du programme**. Voir §4bis.
    Contient aussi la **corbeille** (plants retirés, restauration).
-4. **Semis** — bascule « En pleine terre » (`SOW`) / « En intérieur » (`INDOOR`),
-   calées sur le gel + section « pourquoi les poivrons n'ont pas germé ».
+4. **Saison** (ex-Semis) — 3 volets (`setSeasonPane`, état `seasonPane`) :
+   🌱 **Semis** (contenu d'origine : `SOW` / `INDOOR`, gel, poivrons) ·
+   🧪 **Sol** (température du sol à 6 cm, parcelles avec pH + date de test + matière
+   organique, diagnostic pH `phVerdict`, calendrier `AMEND`, principes du sol vivant) ·
+   🔄 **Rotation** (historique par parcelle, alerte `rotWarnings`, familles `FAM`).
 5. **Doseur** — volume d'arrosoir libre **+ unité sélectionnable** (L / gal US / gal imp.,
    `state.canUnit`, table `UNITS`, converti en litres via `canLiters()`) → grammes exacts
    de chaque sel + NPK résultant.
@@ -83,6 +86,35 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
   **Réversible et non destructive** — le plant sort du Programme / plan / Doseur / Plantes,
   mais `byId()` continue de le résoudre et son journal + ses inspections sont conservés
   (restauration depuis l'onglet Inspection).
+
+## 4ter. Sol, nutrition saisonnière et météo dérivée
+
+- **Parcelles** (`state.beds`) : `{id,name,ph,phDate,om,history[]}` ; rattachement
+  `state.plantBed[plantId]`. `phVerdict(ph)` = diagnostic + correctifs ; `PH_OPT` = plage
+  idéale par culture, `phFitFor()` croise les deux (affiché fiche plante + Doseur).
+- **Rotation** : `FAM` (familles botaniques + risques + gourmandise), `PLANT_FAM`,
+  `rotWarnings(bed)` alerte si une famille revient à moins de 3 ans.
+- **Amendements** : `AMEND` (test de sol, compost, paillis, engrais verts, feuilles,
+  chaulage, planification) ; `state.amend[clé+année]` = fait/pas fait.
+- **Budget azote** : `N_TARGET` (fourchette **indicative** g N/saison par entrée, dérivée
+  de recommandations en g N/m² ramenées à l'emprise au sol), `nGramsPerFeed()` calcule
+  l'azote réel de l'arrosoir, `addN()` cumule à chaque « ✓ Fertilisé » (`state.nlog`),
+  `nBudgetLine()` affiche la jauge. But : détecter la dérive, pas prescrire.
+- **Ca/Mg** (`CAMG`, `state.camg`, 30 j) : devient une tâche planifiée du Programme.
+  ⚠️ Nuance factuelle codée dans les textes : le cul noir est un défaut de **transport**
+  du calcium (arrosage irrégulier), pas un sol pauvre — l'apport ne remplace pas la régularité.
+- **Météo dérivée** (champs open-meteo ajoutés : `soil_temperature_6cm`,
+  `et0_fao_evapotranspiration`, humidité, vent) :
+  `frostAlert()` (prévision réelle, seuil 2 °C car la station mesure à 1,5 m),
+  `diseaseRisk()` (indice **indicatif** mildiou/oïdium, annoncé comme tel),
+  `waterBalance()` (ET₀ − pluie = déficit en L/m²), `soilTempInfo()` (levée des semis),
+  `windOK()` (pas de foliaire > 12 km/h). Le groupe **🚨 Urgent** du Programme les porte.
+- **Pollinisation** : `POLLEN` par culture ; règles `polli_vent` (maïs hors bloc → épis
+  mal remplis) et `polli_insectes` (cucurbitacées sans pollinisateurs → pollinisation
+  manuelle 6–10 h).
+- **Récolte** (`state.harvest`) : boucle de rétroaction, dans le Journal.
+- **Photos** : IndexedDB `jardin-photos` (`PDB`), redimensionnées 1024 px / JPEG 0,72
+  avant stockage. **Hors export JSON** (volume) — c'est dit à l'utilisateur.
 
 ## 4. Logique métier (datasets clés)
 
@@ -158,7 +190,7 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v19`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v20`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.
