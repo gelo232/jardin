@@ -1,8 +1,15 @@
 # Jardin — assistant de terrain (PWA)
 
 Application web installable (PWA) d'aide à l'entretien du jardin selon la météo et la
-saison, pour Montréal (zone 5b). Un seul écran, 5 onglets : Programme, Plantes, Semis,
-Doseur d'engrais, Journal. Fonctionne hors-ligne après la première ouverture.
+saison, pour Montréal (zone 5b). Un seul écran, 6 onglets : Programme, Plantes,
+Inspection, Semis, Doseur d'engrais, Journal. Fonctionne hors-ligne après la première
+ouverture.
+
+L'onglet **Inspection** permet de saisir l'état réel d'une plante (hauteur, stade observé,
+couleur du feuillage, signes visibles, sol, racines…). L'app en déduit les causes probables
+— chacune avec sa source — et **recale automatiquement le programme** de cette plante :
+phase, recette d'engrais, intervalle d'arrosage, fréquence des apports. L'observation de
+terrain prime toujours sur le calendrier de semis.
 
 Thème recalé sur [kgw.afronim.com](https://kgw.afronim.com) : navy `#1c2341` + cyan
 `#6ec6d8`, police Montserrat, icônes Bootstrap Icons.

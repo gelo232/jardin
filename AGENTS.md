@@ -47,13 +47,42 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
    boutons « Fertilisé / Arrosé ». **Plantes ornementales** (`ornamental:true`, ex. `buis`) :
    fiche dédiée `ornamentalBody()` sans jauge ni recette, axée reprise/choc de
    transplantation ; exclues du Doseur (`fillMixSelect`) et des rappels d'engrais.
-3. **Semis** — bascule « En pleine terre » (`SOW`) / « En intérieur » (`INDOOR`),
+3. **Inspection** — saisie de l'état réel d'une plante (`INSP_FIELDS`) → moteur de
+   diagnostic (`DIAG`, `diagnose()`) → **réajustement automatique du programme**. Voir §4bis.
+   Contient aussi la **corbeille** (plants retirés, restauration).
+4. **Semis** — bascule « En pleine terre » (`SOW`) / « En intérieur » (`INDOOR`),
    calées sur le gel + section « pourquoi les poivrons n'ont pas germé ».
-4. **Doseur** — volume d'arrosoir libre **+ unité sélectionnable** (L / gal US / gal imp.,
+5. **Doseur** — volume d'arrosoir libre **+ unité sélectionnable** (L / gal US / gal imp.,
    `state.canUnit`, table `UNITS`, converti en litres via `canLiters()`) → grammes exacts
    de chaque sel + NPK résultant.
-5. **Journal** — historique `localStorage` des arrosages/fertilisations, base des rappels.
+6. **Journal** — historique `localStorage` des arrosages/fertilisations, base des rappels.
    Section **Sauvegarde** : `exportData()` / `importData()` (JSON portable des données).
+
+## 4bis. Inspection → diagnostic → réajustement (⚠️ prime sur le calendrier)
+
+- **Saisie** (`INSP_FIELDS`) : date, hauteur, **stade observé**, vigueur, couleur du feuillage,
+  signes visibles (multi-choix), sol à 3–5 cm, **racines**, origine (semis direct / repiqué),
+  heures de soleil mesurées, ravageurs, notes. Stockée dans `state.insp[id]` (dernière) et
+  `state.inspLog` (historique, sert à calculer `growthRate()` = cm/semaine mesurés).
+- **Moteur** (`DIAG` → `diagnose()` → `dg()` mémoïsé → `adj()`) : chaque règle porte
+  `sev` (3 bloquant / 2 à corriger / 1 bénin), `cause`, `why` (explication factuelle),
+  `fix[]`, `src` (**source obligatoire**) et `adj` (effet sur le programme).
+  **Règle de rigueur : un symptôme bénin est annoncé comme bénin et ne change RIEN**
+  (ex. `fentes_vent` : fentes longitudinales = vent/sénescence, surtout pas une carence).
+  Fusion des effets : la cause la plus grave impose la recette ; `waterDelta` retient la
+  **magnitude maximale** (pas la somme — deux causes corrélées doubleraient la correction) ;
+  `feedDelta` s'additionne, borné ±6 ; `feedHold` = suspension d'engrais en jours.
+- **Points d'application** (tout le reste en découle) : `curStage()` (stade observé >
+  calendrier), `stageSince()` (daté de l'observation), `curRecipe()` vs `baseRecipe()`,
+  `waterEvery()` vs `baseWaterEvery()`, `feedDaysOf()`, `feedHoldUntil()`. Le Programme,
+  le plan 14 j, la fiche plante et le Doseur lisent ces fonctions → un enregistrement
+  d'inspection met à jour l'app entière.
+- **`frostOutlook()`** : jours de cycle restants vs `daysToFrost()` → dit franchement si la
+  culture peut encore aboutir. Sert à ne pas entretenir de faux espoirs.
+- **Suppression de plant** : `state.removed` + `isRemoved()` / `activePlants()`.
+  **Réversible et non destructive** — le plant sort du Programme / plan / Doseur / Plantes,
+  mais `byId()` continue de le résoudre et son journal + ses inspections sont conservés
+  (restauration depuis l'onglet Inspection).
 
 ## 4. Logique métier (datasets clés)
 
@@ -129,7 +158,7 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v18`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v19`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.
