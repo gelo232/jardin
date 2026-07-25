@@ -63,15 +63,35 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
 
 ## 4bis. Inspection → diagnostic → réajustement (⚠️ prime sur le calendrier)
 
-- **Saisie** (`INSP_FIELDS`) : date, hauteur, **stade observé**, vigueur, couleur du feuillage,
-  signes visibles (multi-choix), sol à 3–5 cm, **racines**, origine (semis direct / repiqué),
-  heures de soleil mesurées, ravageurs, notes. Stockée dans `state.insp[id]` (dernière) et
-  `state.inspLog` (historique, sert à calculer `growthRate()` = cm/semaine mesurés).
+- ⚠️ **Le formulaire est ADAPTÉ À LA PLANTE** — `inspFields(p)`, pas une liste figée.
+  Chaque plante a un **archétype** (`ARCH` / `PLANT_ARCH` / `archOf()`) : `grass`, `fruit`,
+  `vine`, `root`, `bulb`, `herb`, `potTree`, `potRosette`, `shrub`. L'archétype décide :
+  le libellé de la mesure (`hLab` — « hauteur du plant » vs « diamètre de la rosette » vs
+  « longueur de la liane »), le **motif de carence azotée** (`nColor` : le V le long de la
+  nervure n'existe QUE chez les graminées ; ailleurs jaunissement uniforme des vieilles
+  feuilles), les **signes proposés** (`signs`, fusionnés avec les signes universels), les
+  **champs pertinents** (`fields` : `nb`/`rows`/`space`/`polli`) et l'espacement visé
+  (`spaceMin`/`spaceTxt`). Ne JAMAIS réintroduire de champ global sans se demander s'il a
+  un sens pour un ail, une carotte ou un citronnier en pot.
+- Clés stockées : `INSP_KEYS` (toutes archétypes confondus) dans `state.insp[id]`
+  (dernière) et `state.inspLog` (historique → `growthRate()` = cm/semaine mesurés).
+  Chaque enregistrement porte son `arch`.
 - **Moteur** (`DIAG` → `diagnose()` → `dg()` mémoïsé → `adj()`) : chaque règle porte
   `sev` (3 bloquant / 2 à corriger / 1 bénin), `cause`, `why` (explication factuelle),
   `fix[]`, `src` (**source obligatoire**) et `adj` (effet sur le programme).
   **Règle de rigueur : un symptôme bénin est annoncé comme bénin et ne change RIEN**
-  (ex. `fentes_vent` : fentes longitudinales = vent/sénescence, surtout pas une carence).
+  (ex. `fentes_vent` : fentes longitudinales = vent/sénescence, surtout pas une carence ;
+  `senescence_bulbe` : chez l'ail en fin de cycle, le jaunissement des feuilles basses EST
+  le signal de récolte — fertiliser là nuirait à la conservation).
+  **Règles cadrées par archétype** : `choc_transplant` ne se déclenche que sur les cultures
+  qui supportent mal le repiquage (`ARCH.resent`) — la tomate se repique très bien ;
+  `fentes_vent` et `polli_vent` sont propres aux graminées ; `racine_repiquee`, `fourchue`,
+  `collet_vert` aux racines ; `scape`, `moisi_blanc` aux alliacées ; `culnoir`,
+  `chute_fleurs`, `fentes_fruit` aux légumes-fruits ; `avorte`, `fletri_tige`, `oidium` aux
+  cucurbitacées ; `montaison`, `ligneux` aux aromatiques ; `chute_feuilles`, `collant` aux
+  pots ; `coeur_mou` à la rosette ; `bois_mort` à l'ornemental ; `espacement` partout où
+  `spaceMin` est défini. Les règles génériques (`mildiou`, `ravageurs`, `sels`) ont un
+  `why` **fonction de l'archétype** : jamais de texte de tomate servi à un ail.
   Fusion des effets : la cause la plus grave impose la recette ; `waterDelta` retient la
   **magnitude maximale** (pas la somme — deux causes corrélées doubleraient la correction) ;
   `feedDelta` s'additionne, borné ±6 ; `feedHold` = suspension d'engrais en jours.
@@ -90,7 +110,10 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
 ## 4ter. Sol, nutrition saisonnière et météo dérivée
 
 - **Parcelles** (`state.beds`) : `{id,name,ph,phDate,om,history[]}` ; rattachement
-  `state.plantBed[plantId]`. `phVerdict(ph)` = diagnostic + correctifs ; `PH_OPT` = plage
+  `state.plantBed[plantId]`. **Éditables** (`renameBed`, `delBed`, `assignPlant` avec
+  détachement) et **repliables** : la carte de parcelle est un `<details>` (repli mémorisé
+  dans `state.bedFold`), avec 3 sous-sections repliables — Analyse du sol, Plantes,
+  Historique & rotation — et un résumé en pastilles toujours visible. `phVerdict(ph)` = diagnostic + correctifs ; `PH_OPT` = plage
   idéale par culture, `phFitFor()` croise les deux (affiché fiche plante + Doseur).
 - **Rotation** : `FAM` (familles botaniques + risques + gourmandise), `PLANT_FAM`,
   `rotWarnings(bed)` alerte si une famille revient à moins de 3 ans.
@@ -190,7 +213,7 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v20`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v21`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.

@@ -5,8 +5,10 @@ saison, pour Montréal (zone 5b). Un seul écran, 6 onglets : Programme, Plantes
 Inspection, Saison, Doseur d'engrais, Journal. Fonctionne hors-ligne après la première
 ouverture.
 
-L'onglet **Inspection** permet de saisir l'état réel d'une plante (hauteur, stade observé,
-couleur du feuillage, signes visibles, sol, racines…). L'app en déduit les causes probables
+L'onglet **Inspection** permet de saisir l'état réel d'une plante. Le formulaire s'adapte
+à la culture inspectée : on ne demande pas la même chose à un maïs, à une tête d'ail ou à
+un citronnier en pot — libellé de la mesure, vocabulaire des symptômes et champs
+pertinents changent selon le type de plante. L'app en déduit les causes probables
 — chacune avec sa source — et **recale automatiquement le programme** de cette plante :
 phase, recette d'engrais, intervalle d'arrosage, fréquence des apports. L'observation de
 terrain prime toujours sur le calendrier de semis.

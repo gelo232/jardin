@@ -527,6 +527,7 @@ let state={
   amend:store.get('amend',{}),      // amendements réalisés {clé tâche: date}
   nlog:store.get('nlog',{}),        // azote cumulé par plante et par saison
   camg:store.get('camg',{}),        // dernier apport calcium/magnésium par plante        // azote cumulé par plante et par saison {id:{annee:grammes}}
+  bedFold:store.get('bedFold',{}),  // repli des parcelles et de leurs sections
   seasonPane:store.get('seasonPane','semis'),
   wx:null, view:'today'
 };
@@ -538,7 +539,7 @@ function save(){store.set('can',state.can);store.set('canUnit',state.canUnit);st
   store.set('feeds',state.feeds);store.set('waters',state.waters);store.set('logs',state.logs);store.set('catFold',state.catFold);store.set('progFold',state.progFold);
   store.set('insp',state.insp);store.set('inspLog',state.inspLog);store.set('removed',state.removed);
   store.set('beds',state.beds);store.set('plantBed',state.plantBed);store.set('harvest',state.harvest);
-  store.set('amend',state.amend);store.set('nlog',state.nlog);store.set('camg',state.camg);store.set('seasonPane',state.seasonPane)}
+  store.set('amend',state.amend);store.set('nlog',state.nlog);store.set('camg',state.camg);store.set('bedFold',state.bedFold);store.set('seasonPane',state.seasonPane)}
 /* petit retour visuel non bloquant, à la place des alert() qui coupent l'usage */
 let toastT=null;
 function toast(msg){
@@ -1016,6 +1017,113 @@ function growthRate(p){
   if(d<=0)return null;
   return{cm:+b.h-+a.h,days:d,perWeek:Math.round((+b.h-+a.h)/d*7*10)/10};
 }
+/* ===== ARCHÉTYPES DE CULTURE =====
+   Une inspection ne peut pas poser les mêmes questions à un maïs et à une tête d'ail.
+   Le jaunissement « en V le long de la nervure centrale » n'existe que chez les graminées
+   (nervures parallèles) ; chez un dicotylédone la carence d'azote donne un jaunissement
+   uniforme des feuilles les plus anciennes. De même « bloc de 3 rangs » n'a de sens que
+   pour une culture pollinisée par le vent, et « racine fourchue » que pour une racine.
+   Chaque plante appartient donc à un ARCHÉTYPE qui décide : le libellé de la mesure, le
+   vocabulaire des symptômes, les champs pertinents et les règles de diagnostic activées. */
+const ARCH={
+ grass:{lab:'graminée (nervures parallèles)',
+  hLab:'Hauteur du plant (cm)',
+  hHint:"Du sol à la pointe de la feuille la plus haute déployée, sur le plant le plus représentatif.",
+  nColor:['v_bas','Feuilles BASSES jaunes en V (de la pointe le long de la nervure centrale)'],
+  colorHint:"Chez une graminée, la carence d'azote dessine un V jaune caractéristique depuis la pointe de la feuille.",
+  signs:[['fentes',"Fentes sèches dans la longueur, parallèles aux nervures"]],
+  fields:['nb','rows','space'],spaceMin:2,spaceTxt:"25–30 cm entre plants",
+  originLab:'Origine du plant',resent:true},
+
+ fruit:{lab:'légume-fruit tuteuré',
+  hLab:'Hauteur du plant (cm)',
+  hHint:"Du sol au sommet de la tige principale.",
+  nColor:['bas_pale','Feuilles les plus BASSES / anciennes jaunes uniformément'],
+  colorHint:"Chez un dicotylédone, la carence d'azote décolore d'abord les feuilles les plus anciennes, du bas vers le haut, sans motif en V.",
+  signs:[['culnoir',"Tache noire et cuirée SOUS le fruit (cul noir)"],
+   ['chute_fleurs',"Fleurs qui tombent sans nouer"],
+   ['fentes_fruit',"Fruits fendus / éclatés"],
+   ['enroule_cuillere',"Feuilles enroulées en cuillère (bas du plant)"]],
+  fields:['nb'],originLab:'Origine du plant',resent:false},
+
+ vine:{lab:'cucurbitacée coureuse',
+  hLab:'Longueur de la tige principale (cm)',
+  hHint:"Mesure la liane la plus longue, du collet à son extrémité.",
+  nColor:['bas_pale','Feuilles les plus ANCIENNES (près du collet) jaunes uniformément'],
+  colorHint:"La carence d'azote décolore d'abord les vieilles feuilles près du collet, sans motif en V.",
+  signs:[['feutrage',"Feutrage blanc poudreux sur le dessus des feuilles"],
+   ['avorte',"Jeunes fruits qui jaunissent et tombent"],
+   ['fletri_tige',"Flétrissement brutal d'une tige entière"],
+   ['culnoir',"Extrémité du fruit noire et molle"]],
+  fields:['nb','polli','space'],spaceMin:3,spaceTxt:"60–90 cm entre plants (elles s'étalent)",
+  originLab:'Origine du plant',resent:true},
+
+ root:{lab:'racine comestible',
+  hLab:'Hauteur du feuillage (cm)',
+  hHint:"Hauteur des fanes. La racine ne se juge qu'en arrachant un sujet témoin.",
+  nColor:['bas_pale','Fanes extérieures (les plus anciennes) jaunes uniformément'],
+  colorHint:"Attention : un EXCÈS d'azote donne au contraire des fanes magnifiques et une racine grêle.",
+  signs:[['fourchue',"Racine fourchue ou difforme (sur un sujet arraché)"],
+   ['collet_vert',"Collet vert au sommet de la racine"],
+   ['fendue',"Racine fendue"]],
+  fields:['nb','space'],spaceMin:1,spaceTxt:"3–5 cm après éclaircissage",
+  originLab:'Origine du plant',resent:true},
+
+ bulb:{lab:'bulbe (alliacée)',
+  hLab:'Hauteur du feuillage (cm)',
+  hHint:"Du sol à la pointe de la plus haute feuille dressée.",
+  nColor:['bas_pale','Feuilles du BAS jaunes / sèches, de la pointe vers la base'],
+  colorHint:"⚠️ En fin de cycle, le jaunissement des feuilles basses est NORMAL chez l'ail : c'est le signal de récolte, pas une carence. Renseigne le stade observé pour que l'app fasse la différence.",
+  signs:[['scape',"Tige florale rigide au centre (montaison)"],
+   ['col_mou',"Collet mou, bulbe qui se détache"],
+   ['moisi_blanc',"Feutrage blanc à la base du bulbe"]],
+  fields:['nb','space'],spaceMin:1,spaceTxt:"10–15 cm entre caïeux",
+  originLab:'Mise en terre',resent:false},
+
+ herb:{lab:'aromatique à feuillage',
+  hLab:'Hauteur de la touffe (cm)',
+  hHint:"Hauteur moyenne du feuillage récoltable.",
+  nColor:['bas_pale','Feuilles les plus anciennes jaunes uniformément'],
+  colorHint:"Les aromatiques sont peu gourmandes : un excès d'azote dilue l'arôme.",
+  signs:[['montaison',"Montée en graine (tige florale)"],
+   ['ligneux',"Base dégarnie et ligneuse"]],
+  fields:[],originLab:'Origine du plant',resent:true},
+
+ potTree:{lab:'arbuste en pot',
+  hLab:'Hauteur du sujet (cm)',hHint:"Du substrat à la pousse la plus haute.",
+  nColor:['bas_pale','Vieilles feuilles jaunes uniformément'],
+  colorHint:"Sur agrume, le motif le plus fréquent est le jaunissement des JEUNES feuilles à nervures vertes : c'est le fer ou le magnésium, pas l'azote.",
+  signs:[['chute_feuilles',"Chute des feuilles"],
+   ['collant',"Feuilles collantes / dépôt noir (fumagine)"]],
+  fields:[],rootsLab:'Racines (visibles en dépotant)',
+  originLab:'Origine du sujet',resent:false},
+
+ potRosette:{lab:'rosette (broméliacée)',
+  hLab:'Diamètre de la rosette (cm)',hHint:"D'une extrémité de feuille à l'autre, en travers de la rosette.",
+  nColor:['bas_pale','Feuilles extérieures jaunes uniformément'],
+  colorHint:"L'ananas exige un substrat ACIDE : sur sol calcaire, les feuilles brunissent quoi qu'on apporte.",
+  signs:[['coeur_mou',"Cœur de la rosette mou ou brun"]],
+  fields:[],rootsLab:'Racines (visibles en dépotant)',
+  originLab:'Origine du sujet',resent:false},
+
+ shrub:{lab:'arbuste ornemental',
+  hLab:'Hauteur du sujet (cm)',hHint:"Hauteur hors sol.",
+  nColor:['bas_pale','Feuilles anciennes jaunes uniformément'],
+  colorHint:"Sur un sujet en reprise, la couleur compte moins que la présence de bois vivant : test de l'ongle, cambium vert = vivant.",
+  signs:[['bois_mort',"Rameaux secs et cassants"],
+   ['brunissement',"Feuillage bronzé / brun"]],
+  fields:[],rootsLab:'Racines (si accessibles)',
+  originLab:'Origine du sujet',resent:true}
+};
+const PLANT_ARCH={mais_ombre:'grass',mais_geo:'grass',
+  tomate_bac:'fruit',tomate_geo:'fruit',
+  courge:'vine',melon:'vine',pasteque:'vine',
+  carotte:'root',ail:'bulb',persil:'herb',thym:'herb',
+  citron:'potTree',ananas:'potRosette',buis:'shrub'};
+function archOf(p){return ARCH[PLANT_ARCH[p&&p.id]||'fruit'];}
+function archKey(p){return PLANT_ARCH[p&&p.id]||'fruit';}
+/* échelle d'espacement commune, interprétée par archétype (spaceMin) */
+const SPACE_OPTS=[['','—'],['0','Moins de 5 cm'],['1','5 à 15 cm'],['2','15 à 30 cm'],['3','30 à 60 cm'],['4','Plus de 60 cm']];
 /* Mode de pollinisation : décide de ce qu'une mauvaise disposition coûte réellement. */
 const POLLEN={mais_ombre:'vent',mais_geo:'vent',
   courge:'insectes',melon:'insectes',pasteque:'insectes',
@@ -1025,8 +1133,10 @@ const POLLEN={mais_ombre:'vent',mais_geo:'vent',
    on(c) : condition de déclenchement. adj : effet sur le programme. */
 const DIAG=[
  {id:'carence_n',sev:3,cause:"Carence en azote",
-  on:c=>c.i.color==='v_bas'||c.i.color==='pale',
-  why:"L'azote est mobile dans la plante : elle le retire des vieilles feuilles pour nourrir les jeunes. D'où un jaunissement qui commence par les feuilles BASSES, en V depuis la pointe le long de la nervure centrale, et un plant globalement pâle et grêle. En carence sévère, ces zones en V se dessèchent.",
+  on:c=>(['v_bas','bas_pale','pale'].indexOf(c.i.color)>=0)&&!c.senesc,
+  why:c=>c.arch==='grass'
+    ? "L'azote est mobile : la plante le retire des vieilles feuilles pour nourrir les jeunes. Chez une graminée, cela dessine un V jaune depuis la pointe de la feuille le long de la nervure centrale, sur les feuilles BASSES d'abord, et le plant reste pâle et grêle."
+    : "L'azote est mobile : la plante le retire des vieilles feuilles pour nourrir les jeunes. Chez cette culture, le jaunissement est UNIFORME et commence par les feuilles les plus anciennes (les plus basses), sans motif en V — ce motif-là n'existe que chez les graminées.",
   fix:["Passer à la recette « Croissance végétative » (riche en azote) — appliqué automatiquement.","Apports rapprochés tant que la couleur ne revient pas.","Toujours sur sol déjà humide, jamais en pleine chaleur."],
   src:"Univ. of Delaware Weekly Crop Update ; Bayer Crop Science (symptômes foliaires du maïs) ; Iowa State Univ. Extension.",
   adj:{recipe:'vegetatif',feedDelta:-3}},
@@ -1044,7 +1154,7 @@ const DIAG=[
   src:"Contenu déjà sourcé dans l'app (correctif fer chélaté, fiche agrumes)."},
 
  {id:'choc_transplant',sev:3,cause:"Choc de transplantation (perturbation racinaire)",
-  on:c=>c.i.origin==='repique'&&(c.i.vigor==='lente'||c.i.vigor==='nulle')&&(!c.i.color||c.i.color==='vert'),
+  on:c=>archOf(c.p).resent&&c.i.origin==='repique'&&(c.i.vigor==='lente'||c.i.vigor==='nulle')&&(!c.i.color||c.i.color==='vert'),
   why:"Un plant VERT (donc correctement nourri) mais bloqué en croissance signe une limitation RACINAIRE, pas une carence du sol : les racines n'explorent pas la terre. Les espèces à pivot (maïs, cucurbitacées, aneth) supportent très mal le dérangement racinaire ; démarrées en contenant trop petit ou gardées trop longtemps, elles restent rabougries — l'issue classique et documentée du maïs repiqué.",
   fix:["Ne PAS augmenter l'azote : un plant vert n'a pas faim, et forcer le feuillage sur des racines abîmées prolonge le choc.","Apport léger (demi-force) seulement — appliqué automatiquement.","Arrosage régulier et profond sans détremper : c'est le premier facteur de reprise.","L'an prochain : semis DIRECT en place, ou godets biodégradables repiqués très jeunes (5–7 cm) sans casser la motte, en sol réchauffé."],
   src:"Southern Exposure Seed Exchange & Home for the Harvest (cultures à semer en place) ; Sustainable Market Farming (maïs repiqué → plants rabougris) ; principe « ne pas fertiliser un sujet stressé » — U. Maryland, U. Kentucky (déjà dans l'app).",
@@ -1099,25 +1209,43 @@ const DIAG=[
 
  {id:'mildiou',sev:3,cause:"Maladie foliaire (taches brunes huileuses — mildiou probable)",
   on:c=>c.signs.includes('taches'),
-  why:"Des taches brunes d'aspect huileux qui s'étendent depuis le bas du plant, par temps humide, correspondent au tableau du mildiou. L'humidité stagnant sur le feuillage est le facteur déclenchant : les éclaboussures d'arrosage propagent les spores.",
-  fix:["Retirer et JETER (pas au compost) les feuilles atteintes.","Effeuiller le bas, aérer les plants.","Arroser strictement au pied, jamais sur le feuillage, le matin pour que tout sèche vite."],
+  why:c=>{const m={fruit:"Sur tomate, des taches brunes huileuses qui progressent depuis le bas du plant signent le mildiou.",
+      vine:"Sur cucurbitacée, des taches anguleuses limitées par les nervures évoquent le mildiou ; des taches rondes à halo jaune, l'anthracnose ou l'alternariose.",
+      grass:"Sur maïs, des lésions allongées en fuseau le long des nervures évoquent l'helminthosporiose ; des pustules brun-rouille qui tachent les doigts, la rouille.",
+      bulb:"Sur alliacée, des taches blanchâtres qui s'étendent puis grisonnent évoquent le mildiou de l'oignon, favorisé par les feuillages humides.",
+      root:"Sur fanes de carotte, des taches brunes bordées de jaune évoquent l'alternariose, fréquente en fin de saison.",
+      potTree:"Sur agrume, des taches localisées relèvent plus souvent d'une brûlure (soleil, sel, produit) que d'un pathogène."}[c.arch]
+      ||"Des taches brunes qui s'étendent sur le feuillage indiquent une maladie foliaire.";
+    return m+" Dans tous les cas, le facteur déclenchant est le même : de l'eau qui stagne sur les feuilles, et des éclaboussures d'arrosage qui transportent les spores depuis le sol.";},
+  fix:["Retirer et JETER les feuilles atteintes — jamais au composteur.","Aérer : éclaircir le feuillage bas, espacer, ne pas travailler dans les plants mouillés.","Arroser strictement au pied, jamais sur le feuillage, et le matin pour que tout sèche vite.","Pailler : le paillis empêche les éclaboussures qui remontent les spores du sol sur les feuilles."],
   src:"Contenu déjà sourcé dans l'app (fiches tomate)."},
 
  {id:'oidium',sev:2,cause:"Oïdium (feutrage blanc poudreux)",
-  on:c=>c.signs.includes('feutrage'),
+  on:c=>c.signs.includes('feutrage')&&c.arch==='vine',
   why:"Feutrage blanc farineux sur le dessus des feuilles, typique des cucurbitacées en fin d'été. Contrairement au mildiou, il se développe aussi par temps sec, favorisé par l'air confiné et les écarts de température.",
   fix:["Retirer les feuilles les plus atteintes, aérer.","Arroser au pied, jamais sur le feuillage.","Ne pas fertiliser fortement en azote : un feuillage tendre et dense aggrave l'infection."],
   src:"Contenu déjà sourcé dans l'app (fiches courge / cucurbitacées)."},
 
  {id:'ravageurs',sev:2,cause:"Ravageurs (dégâts de morsure)",
   on:c=>c.signs.includes('trous')||c.i.pests==='insectes'||c.i.pests==='limaces',
-  why:"Trous et morsures dans les feuilles : sur cucurbitacées, chrysomèle rayée, altises ou limaces sont les suspects habituels. Les jeunes plants sont les plus vulnérables ; la chrysomèle transmet en outre le flétrissement bactérien.",
+  why:c=>({vine:"Sur cucurbitacée, les suspects sont la chrysomèle rayée (qui transmet en plus le flétrissement bactérien), les altises et les limaces.",
+      grass:"Sur maïs, morsures dans le cornet et sciure fine évoquent la pyrale ou la légionnaire ; les dégâts sur épi sont l'œuvre de la noctuelle.",
+      root:"Sur carotte, des galeries brunes dans la racine signent la mouche de la carotte ; les trous dans les fanes viennent plutôt des limaces.",
+      bulb:"Sur alliacée, les dégâts foliaires sont rares : vérifier plutôt le thrips (feuilles argentées) et la mouche de l'oignon.",
+      fruit:"Sur tomate, de larges morsures avec crottes noires trahissent la sphinx du tabac ; les petits trous, les altises sur jeunes plants.",
+      herb:"Sur aromatique, limaces et escargots sont les principaux responsables des trous, surtout au printemps."}[c.arch]
+      ||"Trous et morsures dans le feuillage : insectes broyeurs ou gastéropodes.")
+      +" Les jeunes plants sont toujours les plus vulnérables.",
   fix:["Voile anti-insectes jusqu'à la floraison (à retirer ensuite pour laisser passer les pollinisateurs).","Inspection matinale ; ramassage manuel des limaces, piège à bière.","Paillage sec et arrosage matinal : limite les limaces (elles aiment l'humidité nocturne)."],
   src:"Univ. of Minnesota Extension, Utah State Univ. Extension, Univ. of Illinois Extension (déjà cités dans l'app)."},
 
  {id:'sels',sev:2,cause:"Accumulation de sels (pointes brunes / croûte blanchâtre)",
   on:c=>c.signs.includes('pointes')||c.signs.includes('croute'),
-  why:"Pointes de feuilles brunes et sèches, ou dépôt blanchâtre en surface : les sels d'engrais se concentrent dans le substrat. Fréquent en pot, et systématique en sub-irrigation (pot à réserve), où l'eau remonte par capillarité et dépose ses sels en surface sans jamais les lessiver.",
+  why:c=>c.p.selfWater
+    ? "Pointes brunes et dépôt blanchâtre en surface : en sub-irrigation, l'eau monte par capillarité et dépose ses sels en surface sans jamais les lessiver. L'accumulation est systématique avec ce type de pot, ce n'est pas une erreur de dosage."
+    : (c.arch==='potTree'||c.arch==='potRosette'
+      ? "Pointes brunes et croûte blanchâtre : en pot, le volume de substrat est limité et les sels d'engrais s'y concentrent à chaque apport, faute d'être lessivés vers le sol."
+      : "Pointes de feuilles brunes et sèches en pleine terre : le plus souvent un stress hydrique répété plutôt qu'un excès de sels — mais une croûte blanchâtre en surface, elle, signe bien une accumulation (engrais trop concentré, ou eau très minéralisée)."),
   fix:["Rinçage abondant PAR LE HAUT (≈ 2–3 fois le volume du pot), à laisser s'écouler.","Suspendre l'engrais quelques semaines — appliqué automatiquement.","Ensuite : demi-dose au réservoir + rinçage mensuel."],
   src:"Contenu déjà sourcé dans l'app (pots à réserve d'eau / sub-irrigation).",
   adj:{feedHold:14}},
@@ -1134,19 +1262,141 @@ const DIAG=[
   fix:["Polliniser à la main tôt le matin (6–10 h, quand les fleurs sont ouvertes) : prélever une fleur mâle, retirer les pétales, frotter l'étamine sur le pistil de la fleur femelle (celle qui a un petit fruit à sa base).","Semer des fleurs mellifères à proximité (bourrache, souci, cosmos).","Ne pas traiter en journée, et retirer les voiles anti-insectes dès la floraison — sinon on exclut aussi les pollinisateurs."],
   src:"Fenêtre 6–10 h pour les cucurbitacées déjà sourcée dans l'app (UF IFAS, ISHS) ; voile à retirer à la floraison (UMN Extension)."},
 
+ /* ===== RÈGLES PROPRES À CHAQUE TYPE DE CULTURE ===== */
+ {id:'racine_repiquee',sev:3,cause:"Racine repiquée — déformation acquise",
+  on:c=>c.arch==='root'&&c.i.origin==='repique',
+  why:"Une racine comestible ne se repique JAMAIS. Le pivot, une fois touché ou replié dans un godet, ne repart pas droit : il fourche, se tord ou reste court. Le feuillage peut être superbe et la racine inutilisable.",
+  fix:["Cette saison : rien à corriger, la déformation est acquise. Récolte quand même, les racines fourchues sont comestibles.","L'an prochain : semer DIRECTEMENT en place, jamais en godet, et éclaircir plutôt que transplanter.","Semer clair pour limiter l'éclaircissage, qui dérange aussi les voisines."],
+  src:"Règle générale des Apiacées à racine pivotante ; « supporte mal le repiquage : semer en place » figure déjà dans les fiches semis de l'app."},
+
+ {id:'fourchue',sev:2,cause:"Racines fourchues ou difformes",
+  on:c=>c.arch==='root'&&c.signs.includes('fourchue'),
+  why:"Le pivot bute sur un obstacle et se divise. Trois causes classiques, dans cet ordre : un sol caillouteux ou motteux, du fumier frais ou mal décomposé, et le repiquage. Ce n'est presque jamais un problème d'engrais.",
+  fix:["Ameublir en profondeur et retirer cailloux et mottes avant tout semis de racines.","Jamais de fumier frais sur une planche de racines : composté seulement, et de préférence l'année précédente.","Semer en place, éclaircir tôt."],
+  src:"Cause déjà documentée dans la fiche carotte de l'app (sol caillouteux / fumier frais, pas l'engrais)."},
+
+ {id:'collet_vert',sev:1,cause:"Collet verdi (bénin)",
+  on:c=>c.arch==='root'&&c.signs.includes('collet_vert'),
+  why:"Le haut de la racine dépasse du sol et verdit à la lumière, comme une pomme de terre. Sans gravité : la partie verte est simplement plus amère.",
+  fix:["Butter légèrement de terre ou pailler pour couvrir les collets.","À la récolte, il suffit de retirer la partie verdie."],
+  src:"Phénomène de photosynthèse superficielle, sans toxicité chez la carotte."},
+
+ {id:'scape',sev:2,cause:"Montaison — tige florale à retirer",
+  on:c=>c.arch==='bulb'&&c.signs.includes('scape'),
+  why:"La tige florale (« scape ») que produit l'ail détourne vers la fleur l'énergie qui devrait grossir le bulbe. Laissée en place, elle réduit sensiblement le calibre final.",
+  fix:["Couper la tige florale dès qu'elle s'enroule, au-dessus de la dernière feuille.","Elle se mange : sautée, elle a un goût d'ail doux.","Ce n'est PAS un signe de maladie ni de carence."],
+  src:"Pratique standard de culture de l'ail à col dur, documentée par les services d'extension."},
+
+ {id:'moisi_blanc',sev:3,cause:"Pourriture blanche possible (alliacées)",
+  on:c=>c.arch==='bulb'&&(c.signs.includes('moisi_blanc')||c.signs.includes('col_mou')),
+  why:"Un feutrage blanc à la base du bulbe et un collet mou évoquent la pourriture blanche des alliacées. C'est le pathogène de sol le plus tenace de cette famille : ses sclérotes survivent une quinzaine d'années et se déplacent avec la terre et les outils.",
+  fix:["Arracher et JETER les sujets atteints — jamais au compost.","Ne plus cultiver d'alliacée (ail, oignon, poireau, échalote) sur cette parcelle pendant plusieurs années : note-le dans l'historique de la parcelle.","Nettoyer les outils ; éviter de déplacer la terre de cette zone vers le reste du potager."],
+  src:"Persistance des sclérotes documentée par les services d'extension ; cohérent avec la fiche « Alliacées » de la rotation."},
+
+ {id:'culnoir',sev:2,cause:"Cul noir — défaut de TRANSPORT du calcium",
+  on:c=>c.signs.includes('culnoir'),
+  why:"La tache noire et cuirée sous le fruit n'est presque jamais due à un sol pauvre en calcium : le calcium circule avec l'eau, et ce sont les à-coups d'arrosage qui l'empêchent d'atteindre l'extrémité du fruit, en pleine croissance. Ajouter du calcium sans corriger l'arrosage ne change rien.",
+  fix:["Régulariser l'arrosage avant tout : c'est la cause, et le seul vrai remède.","Pailler pour amortir les variations d'humidité du sol.","Éviter l'excès d'azote, qui pousse un feuillage qui capte l'eau au détriment des fruits.","Retirer les fruits atteints : ils ne se soignent pas, mais les suivants seront sains."],
+  src:"Mécanisme du blossom-end rot (transport du calcium lié à la régularité hydrique), documenté par les services d'extension ; déjà signalé dans la fiche tomate de l'app.",
+  adj:{waterDelta:-1}},
+
+ {id:'chute_fleurs',sev:2,cause:"Fleurs qui tombent sans nouer",
+  on:c=>c.signs.includes('chute_fleurs'),
+  why:c=>{const w=state.wx;const t=w&&w.tmax;
+    return "La tomate est autogame, mais son pollen devient non viable en dehors d'une plage de température : au-dessus d'environ 32 °C le jour, ou en dessous de 10 °C la nuit, les fleurs tombent sans former de fruit."
+      +(t?` Aujourd'hui : maximale de ${t} °C.`:'')+" Un excès d'azote produit le même effet en poussant la plante à faire des feuilles plutôt que des fruits.";},
+  fix:["Ombrer aux heures les plus chaudes pendant un épisode de canicule.","Maintenir l'arrosage régulier : un plant stressé avorte ses fleurs en premier.","Secouer doucement les tiges en milieu de matinée pour libérer le pollen.","Ne pas augmenter l'azote — vérifie le budget azote de la plante."],
+  src:"Plage de viabilité du pollen de tomate documentée par les services d'extension ; déjà mentionnée dans la fiche tomate de l'app."},
+
+ {id:'fentes_fruit',sev:1,cause:"Fruits fendus (bénin)",
+  on:c=>c.signs.includes('fentes_fruit'),
+  why:"Le fruit éclate quand une pluie ou un gros arrosage suit une période sèche : l'intérieur grossit plus vite que la peau, déjà durcie. C'est mécanique, pas pathologique.",
+  fix:["Régulariser l'arrosage et pailler : c'est le seul levier.","Récolter un peu avant la maturité complète en période de pluies annoncées.","Les fruits fendus se mangent — simplement, ils ne se conservent pas."],
+  src:"Mécanisme du fendillement (croissance différentielle chair/épiderme), documenté par les services d'extension."},
+
+ {id:'fletri_tige',sev:3,cause:"Flétrissement brutal d'une tige entière",
+  on:c=>c.arch==='vine'&&c.signs.includes('fletri_tige'),
+  why:"Une tige qui flétrit d'un coup, alors que le sol est humide et que le reste du plant va bien, évoque le flétrissement bactérien — transmis par la chrysomèle rayée du concombre. La bactérie bouche les vaisseaux : l'eau ne monte plus.",
+  fix:["Test simple : couper une tige atteinte, presser les deux moitiés l'une contre l'autre puis les écarter lentement. Un fil visqueux qui s'étire signe la bactérie.","Arracher et jeter le plant atteint : il n'existe pas de traitement curatif.","Le levier est PRÉVENTIF : voile anti-insectes sur les jeunes plants jusqu'à la floraison, pour bloquer la chrysomèle."],
+  src:"Transmission du flétrissement bactérien par la chrysomèle et voile préventif : Univ. of Minnesota Extension, Utah State Univ. Extension (déjà cités dans l'app)."},
+
+ {id:'avorte',sev:2,cause:"Jeunes fruits qui jaunissent et tombent",
+  on:c=>c.arch==='vine'&&c.signs.includes('avorte'),
+  why:"Chez les cucurbitacées, le petit fruit visible à la base de la fleur femelle n'est qu'une promesse : sans pollinisation complète, il jaunit et tombe au bout de quelques jours. Il faut de nombreuses visites d'insectes pour féconder tous les ovules.",
+  fix:["Polliniser à la main tôt le matin (6–10 h) : prélever une fleur mâle, retirer les pétales, frotter l'étamine sur le pistil de la fleur femelle.","Attirer les pollinisateurs (bourrache, souci, cosmos) et retirer tout voile dès la floraison.","En début de saison, seules des fleurs mâles apparaissent : c'est normal, ce n'est pas un problème."],
+  src:"Fenêtre de pollinisation 6–10 h pour cucurbitacées : UF IFAS, ISHS (déjà cités dans l'app)."},
+
+ {id:'montaison',sev:2,cause:"Montée en graine",
+  on:c=>c.arch==='herb'&&c.signs.includes('montaison'),
+  why:"La chaleur et le stress hydrique déclenchent la floraison : la plante bascule de la production de feuilles à celle de graines. Les feuilles deviennent alors amères et coriaces, et le phénomène est irréversible pour la tige concernée.",
+  fix:["Couper les tiges florales dès leur apparition pour prolonger la récolte de feuilles.","Mi-ombre et arrosage régulier l'été : c'est le stress qui déclenche la montaison.","Ressemer en échelonné plutôt que de vouloir sauver une touffe montée."],
+  src:"Contenu déjà présent dans les fiches semis de l'app (laitue, coriandre, persil)."},
+
+ {id:'ligneux',sev:1,cause:"Base dégarnie et ligneuse (normal avec l'âge)",
+  on:c=>c.arch==='herb'&&c.signs.includes('ligneux'),
+  why:"Les aromatiques ligneuses comme le thym se dégarnissent naturellement du bas en vieillissant : le vieux bois ne produit plus de pousses. Ce n'est ni une maladie ni une carence.",
+  fix:["Rabattre d'un tiers au printemps, en restant TOUJOURS dans la partie encore feuillée : le vieux bois nu ne repart pas.","Bouturer pour renouveler la touffe tous les 3–4 ans.","Surtout pas d'azote pour « relancer » : il dilue l'arôme sans rajeunir la base."],
+  src:"Conduite standard des sous-arbrisseaux méditerranéens ; cohérent avec la fiche thym de l'app."},
+
+ {id:'chute_feuilles',sev:2,cause:"Chute des feuilles (agrume)",
+  on:c=>c.arch==='potTree'&&c.signs.includes('chute_feuilles'),
+  why:"Un agrume est persistant : il ne perd ses feuilles que sous l'effet d'un stress. Les causes habituelles, par fréquence : arrosage irrégulier (excès autant que manque), courant d'air froid, choc de température à l'entrée ou à la sortie, et manque de lumière en hiver.",
+  fix:["Vérifier d'abord le drainage et la régularité de l'arrosage — laisser sécher 3–4 cm en surface, jamais les pieds dans l'eau.","Rentrer avant 10 °C, sortir progressivement au printemps pour éviter le choc.","Lumière maximale en hiver ; ne pas fertiliser un sujet en train de perdre ses feuilles."],
+  src:"Cohérent avec la fiche citron de l'app (« chute des feuilles → eau irrégulière ou froid »).",
+  adj:{feedHold:21}},
+
+ {id:'collant',sev:2,cause:"Insectes suceurs (miellat et fumagine)",
+  on:c=>c.signs.includes('collant'),
+  why:"Le dépôt collant est du miellat : l'excrétion sucrée de pucerons, cochenilles ou aleurodes. Le voile noir qui s'installe dessus est la fumagine, un champignon qui vit du miellat — il ne pénètre pas la feuille mais bloque la lumière.",
+  fix:["Chercher les insectes sous les feuilles et aux aisselles : c'est eux qu'il faut traiter, pas le noir.","Savon insecticide ou savon noir dilué, sur les deux faces, en insistant sur les foyers ; renouveler à une semaine.","Laver ensuite le feuillage à l'eau claire : la fumagine part mécaniquement.","Éviter l'excès d'azote : un feuillage tendre attire les suceurs."],
+  src:"Relation miellat/fumagine documentée par les services d'extension horticole."},
+
+ {id:'coeur_mou',sev:3,cause:"Pourriture du cœur (broméliacée)",
+  on:c=>c.arch==='potRosette'&&c.signs.includes('coeur_mou'),
+  why:"Un cœur mou ou brun qui se détache quand on tire signe une pourriture du cœur, causée par de l'eau stagnante au centre de la rosette combinée au froid, ou par un substrat trop humide.",
+  fix:["Cesser immédiatement d'arroser par le haut ; vider l'eau du cœur en penchant la plante.","Substrat très drainant et acide, jamais détrempé, et pas d'eau au cœur en dessous de 18 °C.","Si le cœur est perdu, la plante émet souvent des rejets à la base : ce sont eux qu'il faut conserver."],
+  src:"Cohérent avec la fiche ananas de l'app (excès d'eau mal supporté, sol acide impératif).",
+  adj:{waterDelta:2,feedHold:21}},
+
+ {id:'bois_mort',sev:2,cause:"Rameaux secs — évaluer ce qui est encore vivant",
+  on:c=>c.arch==='shrub'&&(c.signs.includes('bois_mort')||c.signs.includes('brunissement')),
+  why:"Sur un arbuste en reprise, du bois sec ne signe pas forcément la mort du sujet : les racines abîmées n'alimentent plus qu'une partie de la ramure, et l'arbuste sacrifie le reste. Ce qui compte, c'est la proportion encore vivante.",
+  fix:["Test de l'ongle : gratter légèrement l'écorce. Cambium VERT dessous = vivant, brun = mort.","Tailler le bois mort jusqu'au vivant ; ne rien fertiliser pendant la reprise (l'azote force un feuillage que les racines ne peuvent pas nourrir).","Arrosage profond ≈ 2,5 cm/semaine et paillis : c'est le facteur n° 1 de récupération.","Au-delà de 50 % de bois mort, envisager le remplacement — à l'automne de préférence."],
+  src:"Contenu déjà sourcé dans l'app pour le buis : U. Maryland, U. Kentucky, Morton Arboretum, UGA."},
+
+ {id:'espacement',sev:2,cause:"Plants trop serrés",
+  on:c=>{const A=archOf(c.p);return A.spaceMin!=null&&c.i.space!==''&&c.i.space!=null&&isFinite(+c.i.space)&&+c.i.space<A.spaceMin;},
+  why:c=>`Des plants trop rapprochés se concurrencent pour l'eau, la lumière et les éléments : aucun n'atteint sa taille normale, et l'air circule mal entre eux, ce qui favorise les maladies foliaires. Pour cette culture, l'espacement visé est de ${archOf(c.p).spaceTxt}.`,
+  fix:c=>c.arch==='root'||c.arch==='bulb'
+    ? ["Éclaircir sans attendre : garder le sujet le plus vigoureux et couper les autres AU RAS DU SOL (arracher déchirerait les racines voisines).","Mieux vaut peu de beaux sujets que beaucoup de petits — le rendement total est supérieur.","L'an prochain : semer plus clair pour limiter l'éclaircissage."]
+    : ["Éclaircir : garder le plus vigoureux de chaque groupe, couper les autres au ras du sol plutôt que de les arracher.","Des trous distants de quelques centimètres reviennent à un seul emplacement : les racines occupent le même volume de sol.","L'an prochain : respecter l'espacement dès le semis, c'est gratuit et déterminant."],
+  src:"Espacements usuels publiés par les services d'extension horticole pour chaque culture."},
+
  /* ===== BÉNIN — annoncé comme tel, ne modifie RIEN ===== */
  {id:'fentes_vent',sev:1,cause:"Fentes sèches dans la longueur — vent ou vieillissement (bénin)",
-  on:c=>c.signs.includes('fentes')&&c.i.color!=='bords',
+  on:c=>c.arch==='grass'&&c.signs.includes('fentes')&&c.i.color!=='bords',
   why:"Les feuilles à nervures parallèles (maïs, graminées) se fendent dans le SENS DE LA LONGUEUR sous l'effet du vent — fréquent en ville, entre les bâtiments. Les feuilles les plus basses sèchent par ailleurs naturellement avec l'âge. Tant que les BORDS ne jaunissent pas en marge, ce n'est ni une carence ni une maladie.",
   fix:["Aucune action. Surtout ne pas fertiliser en réaction à ce symptôme.","À surveiller quand même : si les bords deviennent jaunes puis bruns EN MARGE, relire la piste potassium."],
   src:"Distinction limbe/marge : Iowa State Univ. Extension (symptômes foliaires du maïs)."}
 ];
+ /* bénin, propre aux alliacées : le jaunissement de fin de cycle EST le signal de récolte */
+const _SEN=[{id:'senescence_bulbe',sev:1,cause:"Jaunissement de fin de cycle — signal de récolte (bénin)",
+  on:c=>c.senesc,
+  why:"Chez l'ail et l'oignon, les feuilles basses jaunissent puis sèchent naturellement à l'approche de la maturité : chaque feuille correspond à une tunique du bulbe, et la plante les sacrifie une à une. Ce n'est PAS une carence d'azote — en fertiliser à ce stade retarderait la maturation et nuirait à la conservation.",
+  fix:["Ne pas fertiliser : l'azote tardif donne des bulbes qui se conservent mal.","Récolter quand environ un tiers à la moitié des feuilles ont bruni, par temps sec.","Réduire puis arrêter l'arrosage à l'approche de la récolte.","Faire sécher les bulbes à l'ombre, ventilés, avant de les stocker."],
+  src:"Repère de récolte de l'ail (proportion de feuilles sénescentes) publié par les services d'extension.",
+  adj:{recipe:'aucun'}}];
+DIAG.push.apply(DIAG,_SEN);
 /* ===== MOTEUR ===== */
 function diagnose(p){
   const i=lastInsp(p);
   if(!i)return{findings:[],adj:{},none:true};
   const model=modelStage(p),obs=inspStage(p);
-  const c={p,i,model,obs:(obs==null?model:obs),lag:(obs==null?0:Math.max(0,model-obs)),
+  const ak=archKey(p),st=(obs==null?model:obs),stName=(p.stages[st]||'').toLowerCase();
+  // sénescence normale : bulbe en fin de cycle dont les feuilles basses jaunissent
+  const senesc=(ak==='bulb')&&(['bas_pale','pale'].indexOf(i.color)>=0)
+    &&(stName.indexOf('bulbaison')>=0||stName.indexOf('maturation')>=0||st>=p.stages.length-2);
+  const c={p,i,arch:ak,senesc,model,obs:st,lag:(obs==null?0:Math.max(0,model-obs)),
     signs:inspSigns(p),growth:growthRate(p)};
   const findings=DIAG.filter(r=>{try{return !!r.on(c)}catch(e){return false}})
     .map(r=>({id:r.id,sev:r.sev,cause:r.cause,
@@ -1401,49 +1651,92 @@ function renderBeds(){
   const el=document.getElementById('bedList');if(!el)return;
   if(!state.beds.length){
     el.innerHTML=`<div class="card"><div class="empty">Aucune parcelle. Crée-en une par zone de culture (un bac, une plate-bande, un coin du potager) pour y noter le pH et suivre la rotation.</div></div>`;return;}
+  const today=new Date().toISOString().slice(0,10);
   const unassigned=activePlants().filter(p=>!state.plantBed[p.id]&&!p.selfWater&&!p.ornamental);
   el.innerHTML=state.beds.map(b=>{
     const v=phVerdict(b.ph), ps=plantsOfBed(b.id), warns=rotWarnings(b);
     const age=b.phDate?daysSince(b.phDate+'T00:00'):null;
     const stale=age!=null&&age>400;
-    return `<div class="card card-pad" style="margin-bottom:12px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-        <div style="font-weight:800;font-size:15px;flex:1">🧱 ${b.name}</div>
-        <button class="btn ghost sm" onclick="delBed('${b.id}')">🗑️</button></div>
-      <div class="field" style="margin-bottom:10px"><label>pH mesuré</label>
-        <input type="number" step="0.1" min="3" max="10" inputmode="decimal" value="${b.ph||''}" placeholder="ex. 6,5"
-          onchange="setBedField('${b.id}','ph',this.value)"></div>
-      <div class="field" style="margin-bottom:10px"><label>Date du test</label>
-        <input type="date" value="${b.phDate||''}" max="${new Date().toISOString().slice(0,10)}"
-          onchange="setBedField('${b.id}','phDate',this.value)"></div>
-      <div class="field" style="margin-bottom:10px"><label>Matière organique</label>
-        <select onchange="setBedField('${b.id}','om',this.value)">
-          ${[['','— non évaluée —'],['faible','Faible : terre pâle, dure, se compacte'],['moyenne','Moyenne : terre brune, s\'émiette'],['bonne','Bonne : terre foncée, souple, vers de terre']]
-            .map(([k,l])=>`<option value="${k}"${(b.om||'')===k?' selected':''}>${l}</option>`).join('')}</select></div>
-      ${v?`<div class="dg s${v.lvl==='bon'?1:3}" style="margin-bottom:10px">
-        <div class="dg-t">${v.ic} ${v.t}</div><p class="dg-w">${v.txt}</p>
-        <ul>${v.fix.map(x=>`<li>${x}</li>`).join('')}</ul></div>`
-       :`<p class="note" style="margin:0 0 10px">Renseigne le pH pour obtenir un diagnostic. Un test de sol de jardinerie (≈ 15 $) ou un envoi en laboratoire suffit — c'est la mesure la plus rentable du potager.</p>`}
-      ${stale?`<div class="flag" style="margin-bottom:10px">⏳ Test vieux de ${Math.round(age/365*10)/10} an(s) — le pH dérive lentement, un contrôle tous les 2–3 ans suffit.</div>`:''}
-      ${b.om==='faible'?`<div class="flag" style="margin-bottom:10px">🪱 <b>Matière organique faible</b> — c'est la cause profonde des sols qui se compactent, retiennent mal l'eau et bloquent les racines. Compost généreux chaque printemps, paillis permanent, et jamais de sol nu.</div>`:''}
-      ${warns.length?warns.map(w=>`<div class="flag" style="margin-bottom:10px">🔄 <b>Rotation non respectée</b> — ${FAM[w.fam].lab} déjà cultivée ici en ${w.last} (il y a ${w.gap} an${w.gap>1?'s':''}). ${FAM[w.fam].risk} Vise 3 ans d'écart.</div>`).join(''):''}
-      <p class="eyebrow" style="margin:12px 0 6px">Plantes de cette parcelle (${ps.length})</p>
-      ${ps.length?ps.map(p=>{
-        const fit=phFitFor(p,b.ph);
-        return `<div class="diff"><span class="d-k">${p.icon} ${p.name}</span><span class="d-v" style="font-weight:400;font-size:12.5px;color:${fit?(fit.ok?'var(--leaf-d)':'var(--amber)'):'var(--ink-soft)'}">${fit?fit.txt:'—'}</span></div>`;
-      }).join(''):'<p class="note" style="margin:0">Aucune plante rattachée.</p>'}
-      ${unassigned.length?`<div class="field" style="margin:10px 0 0"><label>Rattacher une plante</label>
-        <select onchange="if(this.value){assignPlant(this.value,'${b.id}');this.value=''}">
-          <option value="">— choisir —</option>
-          ${unassigned.map(p=>`<option value="${p.id}">${p.icon} ${p.name}</option>`).join('')}</select></div>`:''}
-      <p class="eyebrow" style="margin:14px 0 6px">Historique des cultures</p>
-      ${(b.history&&b.history.length)?b.history.sort((x,y)=>y.year-x.year).map((h,i)=>
-        `<div class="diff"><span class="d-k">${h.year}</span><span class="d-v">${FAM[h.fam].ic} ${FAM[h.fam].lab}
-         <button class="btn ghost sm" style="padding:2px 8px;margin-left:6px" onclick="delHistory('${b.id}',${i})">✕</button></span></div>`).join('')
-       :'<p class="note" style="margin:0">Aucun historique. Note les années passées pour activer l\'alerte de rotation.</p>'}
-      <button class="btn ghost sm" style="width:100%;margin-top:10px" onclick="addHistory('${b.id}')">＋ Ajouter une année passée</button>
-    </div>`;
+    const open=state.bedFold[b.id]!==false;   // repli mémorisé, ouvert par défaut
+    // résumé toujours visible : l'essentiel sans déplier
+    const chips=[
+      v?`<span class="chip ${v.lvl==='bon'?'f':'w'}">${v.ic} pH ${b.ph}</span>`:`<span class="chip w">pH non mesuré</span>`,
+      `<span class="chip f">${ps.length} plante${ps.length>1?'s':''}</span>`,
+      warns.length?`<span class="chip w">⚠️ rotation</span>`:''
+    ].filter(Boolean).join(' ');
+    return `<details class="fgrp" ${open?'open':''} ontoggle="setBedFold('${b.id}',this.open)">
+      <summary><span>🧱 ${b.name}</span></summary>
+      <div class="fgrp-b">
+        <div style="margin-bottom:10px">${chips}</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <button class="btn ghost sm" style="flex:1" onclick="renameBed('${b.id}')">✏️ Renommer</button>
+          <button class="btn ghost sm" style="flex:1" onclick="delBed('${b.id}')">🗑️ Supprimer</button>
+        </div>
+
+        <details class="fgrp" ${(v||b.om)?'':'open'}>
+          <summary>🧪 Analyse du sol <span class="fg-n">${v?v.t:'pH à renseigner'}</span></summary>
+          <div class="fgrp-b">
+            <div class="field" style="margin-bottom:10px"><label>pH mesuré</label>
+              <input type="number" step="0.1" min="3" max="10" inputmode="decimal" value="${b.ph||''}" placeholder="ex. 6,5"
+                onchange="setBedField('${b.id}','ph',this.value)"></div>
+            <div class="field" style="margin-bottom:10px"><label>Date du test</label>
+              <input type="date" value="${b.phDate||''}" max="${today}"
+                onchange="setBedField('${b.id}','phDate',this.value)"></div>
+            <div class="field" style="margin-bottom:10px"><label>Matière organique</label>
+              <select onchange="setBedField('${b.id}','om',this.value)">
+                ${[['','— non évaluée —'],['faible','Faible : terre pâle, dure, se compacte'],['moyenne',"Moyenne : terre brune, s'émiette"],['bonne','Bonne : terre foncée, souple, vers de terre']]
+                  .map(([k,l])=>`<option value="${k}"${(b.om||'')===k?' selected':''}>${l}</option>`).join('')}</select></div>
+            ${v?`<div class="dg s${v.lvl==='bon'?1:3}">
+              <div class="dg-t">${v.ic} ${v.t}</div><p class="dg-w">${v.txt}</p>
+              <ul>${v.fix.map(x=>`<li>${x}</li>`).join('')}</ul></div>`
+             :`<p class="note" style="margin:0">Renseigne le pH pour obtenir un diagnostic. Un test de jardinerie (≈ 15 $) suffit — c'est la mesure la plus rentable du potager.</p>`}
+            ${stale?`<div class="flag" style="margin-top:10px">⏳ Test vieux de ${Math.round(age/365*10)/10} an(s) — un contrôle tous les 2–3 ans suffit.</div>`:''}
+            ${b.om==='faible'?`<div class="flag" style="margin-top:10px">🪱 <b>Matière organique faible</b> — c'est la cause profonde des sols qui se compactent, retiennent mal l'eau et bloquent les racines. Compost généreux chaque printemps, paillis permanent, jamais de sol nu.</div>`:''}
+          </div>
+        </details>
+
+        <details class="fgrp">
+          <summary>🌿 Plantes de la parcelle <span class="fg-n">${ps.length||'aucune'}</span></summary>
+          <div class="fgrp-b">
+            ${ps.length?ps.map(p=>{
+              const fit=phFitFor(p,b.ph),fam=famOf(p);
+              return `<div style="padding:8px 0;border-bottom:1px solid var(--line)">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="flex:1;font-weight:600;font-size:13.5px">${p.icon} ${p.name}</span>
+                  <button class="btn ghost sm" style="padding:3px 9px" onclick="assignPlant('${p.id}','')">Détacher</button></div>
+                <div class="note" style="margin-top:3px">${fam.ic} ${fam.lab}${fit?` · <span style="color:${fit.ok?'var(--leaf-d)':'var(--amber)'}">${fit.txt}</span>`:''}</div>
+              </div>`;}).join('')
+            :'<p class="note" style="margin:0 0 8px">Aucune plante rattachée. Sans rattachement, ni le pH ni la rotation ne peuvent être vérifiés pour cette zone.</p>'}
+            ${unassigned.length?`<div class="field" style="margin:10px 0 0"><label>Rattacher une plante</label>
+              <select onchange="if(this.value){assignPlant(this.value,'${b.id}');this.value=''}">
+                <option value="">— choisir —</option>
+                ${unassigned.map(p=>`<option value="${p.id}">${p.icon} ${p.name}</option>`).join('')}</select></div>`
+              :'<p class="note" style="margin:8px 0 0">Toutes les cultures de pleine terre sont déjà rattachées.</p>'}
+          </div>
+        </details>
+
+        <details class="fgrp" ${warns.length?'open':''}>
+          <summary>🔄 Historique & rotation <span class="fg-n">${(b.history||[]).length} année${(b.history||[]).length>1?'s':''}${warns.length?' · alerte':''}</span></summary>
+          <div class="fgrp-b">
+            ${warns.length?warns.map(w=>`<div class="flag" style="margin-bottom:10px">🔄 <b>Rotation non respectée</b> — ${FAM[w.fam].lab} déjà cultivée ici en ${w.last} (il y a ${w.gap} an${w.gap>1?'s':''}). ${FAM[w.fam].risk} Vise 3 ans d'écart.</div>`).join(''):''}
+            ${(b.history&&b.history.length)?b.history.slice().sort((x,y)=>y.year-x.year).map((h,i)=>
+              `<div class="diff"><span class="d-k">${h.year}</span><span class="d-v">${FAM[h.fam].ic} ${FAM[h.fam].lab}
+               <button class="btn ghost sm" style="padding:2px 8px;margin-left:6px" onclick="delHistory('${b.id}',${i})">✕</button></span></div>`).join('')
+             :'<p class="note" style="margin:0">Aucun historique. Note les années passées pour activer l\'alerte de rotation.</p>'}
+            <button class="btn ghost sm" style="width:100%;margin-top:10px" onclick="addHistory('${b.id}')">＋ Ajouter une année passée</button>
+          </div>
+        </details>
+      </div>
+    </details>`;
   }).join('');
+}
+function setBedFold(id,open){state.bedFold[id]=open;store.set('bedFold',state.bedFold);}
+function renameBed(id){
+  const b=bedById(id);if(!b)return;
+  const n=prompt("Nouveau nom de la parcelle :",b.name);
+  if(n==null)return;
+  const t=n.trim();if(!t){toast('Nom vide — inchangé.');return;}
+  b.name=t;save();renderBeds();renderRot();renderPlants();toast('Parcelle renommée.');
 }
 /* Calendrier des amendements : ce qui construit le sol, saison par saison. */
 const AMEND=[
@@ -2258,7 +2551,7 @@ function exportData(){
     catFold:state.catFold,progFold:state.progFold,
     insp:state.insp,inspLog:state.inspLog,removed:state.removed,
     beds:state.beds,plantBed:state.plantBed,harvest:state.harvest,
-    amend:state.amend,nlog:state.nlog,camg:state.camg,seasonPane:state.seasonPane};
+    amend:state.amend,nlog:state.nlog,camg:state.camg,bedFold:state.bedFold,seasonPane:state.seasonPane};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='jardin-sauvegarde-'+new Date().toISOString().slice(0,10)+'.json';
@@ -2288,6 +2581,7 @@ function importData(ev){
     if(d.amend&&typeof d.amend==='object')state.amend=d.amend;
     if(d.nlog&&typeof d.nlog==='object')state.nlog=d.nlog;
     if(d.camg&&typeof d.camg==='object')state.camg=d.camg;
+    if(d.bedFold&&typeof d.bedFold==='object')state.bedFold=d.bedFold;
     clearDG();save();
     document.getElementById('canSize').value=state.can;
     const cu=document.getElementById('canUnit');if(cu)cu.value=state.canUnit;
@@ -2300,52 +2594,69 @@ function importData(ev){
 }
 
 /* ===== ONGLET INSPECTION : saisie → diagnostic → réajustement ===== */
-const INSP_FIELDS=[
- {k:'date',g:'m',t:'date',lab:"Date de l'inspection"},
- {k:'h',g:'m',t:'num',lab:'Hauteur du plant (cm)',ph:'ex. 60',
-  hint:"Mesure le plant le plus représentatif, du sol à la feuille la plus haute déployée. Deux mesures successives donnent la vitesse de croissance réelle."},
- {k:'stage',g:'m',t:'stage',lab:'Stade réellement observé',
-  hint:"Ce que tu VOIS, pas ce que le calendrier prévoit. C'est ce champ qui recale la phase et tout le programme."},
- {k:'vigor',g:'m',t:'sel',lab:'Croissance depuis ~2 semaines',
-  opts:[['','—'],['normale','Normale'],['lente','Lente'],['nulle',"Nulle / à l'arrêt"]]},
- {k:'color',g:'s',t:'sel',lab:'Couleur du feuillage',
-  hint:"L'endroit du jaunissement distingue les carences : basses = azote/potassium (mobiles), jeunes = fer (immobile).",
-  opts:[['','—'],['vert','Vert normal'],['pale','Vert pâle uniforme'],
-   ['v_bas','Feuilles BASSES jaunes en V (pointe → nervure centrale)'],
-   ['bords','Jaunissement / brunissement des BORDS (marges)'],
-   ['nervures','JEUNES feuilles jaunes à nervures restées vertes'],
-   ['violace','Teinte violacée / pourpre']]},
- {k:'signs',g:'s',t:'multi',lab:'Signes visibles',
-  opts:[['fentes','Fentes sèches dans la longueur (parallèles aux nervures)'],
-   ['taches','Taches brunes huileuses'],['feutrage','Feutrage blanc poudreux'],
-   ['trous','Trous / morsures'],['pointes','Pointes de feuilles brunes et sèches'],
-   ['enroule','Feuilles enroulées'],['fletri','Flétrissement en journée'],
-   ['etirees','Tiges étirées, penchées vers la lumière'],
-   ['croute','Croûte blanchâtre sur le sol']]},
- {k:'soil',g:'c',t:'sel',lab:'Sol à 3–5 cm de profondeur',
-  opts:[['','—'],['frais','Frais et humide'],['sec','Sec'],['detrempe','Détrempé / boueux']]},
- {k:'roots',g:'c',t:'sel',lab:'Racines (si un plant faible a été arraché)',
-  hint:"Le test décisif quand un plant reste vert mais ne pousse pas : le blocage est souvent racinaire, pas nutritionnel.",
-  opts:[['','Non observé'],['ok','Normales : blanches, étalées'],
-   ['spirale','Enroulées en spirale / en J (forme du godet)'],
-   ['courtes','Courtes et plates, butant à 10–15 cm'],
-   ['brunes','Brunes, molles, odeur désagréable']]},
- {k:'origin',g:'c',t:'sel',lab:'Origine du plant',
-  opts:[['','—'],['direct','Semis direct en place'],['repique','Démarré en contenant puis repiqué']]},
- {k:'nb',g:'c',t:'num',lab:'Nombre de plants de cette culture',ph:'ex. 8',
-  hint:"Le nombre et la disposition décident de la pollinisation, donc du remplissage des fruits et des épis."},
- {k:'rows',g:'c',t:'sel',lab:'Disposition au sol',
-  opts:[['','—'],['bloc','Bloc compact de 3 rangs ou plus'],['2rangs','Deux rangs'],
-   ['ligne','Une seule ligne'],['disperse','Plants dispersés, isolés']]},
- {k:'polli',g:'c',t:'sel',lab:'Pollinisateurs observés (abeilles, bourdons)',
-  opts:[['','—'],['oui','Oui, réguliers'],['peu','Rares'],['non','Aucun']]},
- {k:'sun',g:'c',t:'num',lab:'Heures de soleil direct (mesurées)',ph:'ex. 5',
-  hint:"Compté sur une journée dégagée, pas estimé de mémoire."},
- {k:'pests',g:'s',t:'sel',lab:'Ravageurs visibles',
-  opts:[['','—'],['aucun','Aucun'],['insectes','Insectes (chrysomèles, pucerons, altises…)'],
-   ['limaces','Limaces / traces de bave'],['inconnu','Dégâts sans coupable identifié']]},
- {k:'note',g:'c',t:'txt',lab:'Notes libres'}
-];
+/* Champs d'inspection ADAPTÉS à la plante : libellés, vocabulaire des symptômes et
+   champs pertinents viennent de l'archétype. On ne demande jamais l'espacement des rangs
+   à un citronnier en pot, ni un « V le long de la nervure » à une tomate. */
+function inspFields(p){
+  const A=archOf(p),today=new Date().toISOString().slice(0,10);
+  const has=k=>(A.fields||[]).indexOf(k)>=0;
+  const F=[
+   {k:'date',g:'m',t:'date',lab:"Date de l'inspection",max:today},
+   {k:'h',g:'m',t:'num',lab:A.hLab,ph:'ex. 60',
+    hint:A.hHint+" Deux mesures successives donnent la vitesse de croissance réelle."},
+   {k:'stage',g:'m',t:'stage',lab:'Stade réellement observé',
+    hint:"Ce que tu VOIS, pas ce que le calendrier prévoit. C'est ce champ qui recale la phase et tout le programme."},
+   {k:'vigor',g:'m',t:'sel',lab:'Croissance depuis ~2 semaines',
+    opts:[['','—'],['normale','Normale'],['lente','Lente'],['nulle',"Nulle / à l'arrêt"]]},
+   {k:'color',g:'s',t:'sel',lab:'Couleur du feuillage',hint:A.colorHint,
+    opts:[['','—'],['vert','Vert normal'],['pale','Vert pâle uniforme'],
+     A.nColor,
+     ['bords','Jaunissement / brunissement des BORDS (marges)'],
+     ['nervures','JEUNES feuilles jaunes à nervures restées vertes'],
+     ['violace','Teinte violacée / pourpre']]},
+   {k:'signs',g:'s',t:'multi',lab:'Signes visibles',
+    hint:"Propres à cette culture — coche seulement ce que tu constates vraiment.",
+    opts:(A.signs||[]).concat([
+     ['taches','Taches brunes / lésions sur les feuilles'],
+     ['trous','Trous / morsures'],
+     ['pointes','Pointes de feuilles brunes et sèches'],
+     ['fletri','Flétrissement en journée'],
+     ['enroule','Feuilles enroulées sur elles-mêmes'],
+     ['etirees','Tiges étirées, penchées vers la lumière'],
+     ['croute','Croûte blanchâtre à la surface du substrat']])},
+   {k:'pests',g:'s',t:'sel',lab:'Ravageurs visibles',
+    opts:[['','—'],['aucun','Aucun'],['insectes','Insectes (pucerons, chrysomèles, altises…)'],
+     ['limaces','Limaces / traces de bave'],['inconnu','Dégâts sans coupable identifié']]},
+   {k:'soil',g:'c',t:'sel',lab:p.selfWater?'Substrat en surface':'Sol à 3–5 cm de profondeur',
+    hint:p.selfWater?"Pot à réserve : la surface doit sécher entre deux remplissages, la mèche fait monter l'eau par le bas.":'',
+    opts:[['','—'],['frais','Frais et humide'],['sec','Sec'],['detrempe','Détrempé / gorgé d\'eau']]},
+   {k:'roots',g:'c',t:'sel',lab:A.rootsLab||'Racines (si un sujet faible a été arraché)',
+    hint:"Le test décisif quand la plante reste verte sans pousser : le blocage est souvent racinaire, pas nutritionnel.",
+    opts:[['','Non observé'],['ok','Normales : blanches, étalées'],
+     ['spirale','Enroulées en spirale / en J (forme du contenant)'],
+     ['courtes','Courtes et plates, butant à 10–15 cm'],
+     ['brunes','Brunes, molles, odeur désagréable']]},
+   {k:'origin',g:'c',t:'sel',lab:A.originLab,
+    opts:[['','—'],['direct','Semé / planté directement en place'],['repique','Démarré en contenant puis repiqué']]}
+  ];
+  if(has('nb'))F.push({k:'nb',g:'c',t:'num',lab:'Nombre de plants de cette culture',ph:'ex. 8'});
+  if(has('space'))F.push({k:'space',g:'c',t:'sel',lab:'Espacement entre plants',
+    hint:`Pour cette culture, vise ${A.spaceTxt}. Trop serré, les plants se concurrencent et aucun n'atteint sa taille.`,
+    opts:SPACE_OPTS});
+  if(has('rows'))F.push({k:'rows',g:'c',t:'sel',lab:'Disposition au sol',
+    hint:"Cette culture est pollinisée par le VENT : la forme de la plantation décide du remplissage des épis.",
+    opts:[['','—'],['bloc','Bloc compact de 3 rangs ou plus'],['2rangs','Deux rangs'],
+     ['ligne','Une seule ligne'],['disperse','Plants dispersés, isolés']]});
+  if(has('polli'))F.push({k:'polli',g:'c',t:'sel',lab:'Pollinisateurs observés (abeilles, bourdons)',
+    hint:"Fleurs mâles et femelles séparées : sans insecte, la fleur femelle avorte.",
+    opts:[['','—'],['oui','Oui, réguliers'],['peu','Rares'],['non','Aucun']]});
+  F.push({k:'sun',g:'c',t:'num',lab:'Heures de soleil direct (mesurées)',ph:'ex. 5',
+    hint:"Compté sur une journée dégagée, pas estimé de mémoire."});
+  F.push({k:'note',g:'c',t:'txt',lab:'Notes libres'});
+  return F;
+}
+/* clés possibles, tous archétypes confondus — sert à la sauvegarde et à la remise à zéro */
+const INSP_KEYS=['date','h','stage','vigor','color','signs','soil','roots','origin','nb','space','rows','polli','sun','pests','note'];
 function inspTarget(){const s=document.getElementById('inspPlant');return s?byId(s.value):null;}
 function fillInspSelect(){
   const sel=document.getElementById('inspPlant');if(!sel)return;
@@ -2357,9 +2668,10 @@ function renderInspForm(){
   const p=inspTarget(),el=document.getElementById('inspForm');if(!p||!el)return;
   const i=lastInsp(p)||{},signs=Array.isArray(i.signs)?i.signs:[];
   const today=new Date().toISOString().slice(0,10);
+  const A=archOf(p),FIELDS=inspFields(p);
   const GRP=[['m','📏 Mesures','hauteur, stade, vigueur'],
              ['s','🍃 Symptômes','couleur, signes visibles, ravageurs'],
-             ['c','🌱 Contexte','sol, racines, disposition, lumière']];
+             ['c','🌱 Contexte','sol, racines, lumière']];
   const fieldHTML=f=>{
     const hint=f.hint?`<div class="hint">${f.hint}</div>`:'';
     if(f.t==='stage'){
@@ -2377,13 +2689,15 @@ function renderInspForm(){
       <input type="number" id="if_${f.k}" inputmode="decimal" step="any" min="0" placeholder="${f.ph||''}" value="${i[f.k]!=null?i[f.k]:''}"></div>`;
     if(f.t==='date')return `<div class="field"><label>${f.lab}</label>${hint}
       <input type="date" id="if_${f.k}" value="${i.date||today}" max="${today}"></div>`;
+    if(f.t==='multi'&&!f.opts.length)return '';
     return `<div class="field"><label>${f.lab}</label>${hint}
       <textarea id="if_${f.k}" placeholder="Ce que tu remarques et qui n'entre dans aucune case.">${i[f.k]||''}</textarea></div>`;
   };
   // formulaire découpé en 3 sections repliables : on ne voit jamais 15 champs d'un coup,
   // et la première (les mesures) est ouverte par défaut car c'est celle qui recale le programme
-  el.innerHTML=GRP.map(([g,lab,sub],n)=>{
-    const fs=INSP_FIELDS.filter(f=>f.g===g);
+  el.innerHTML=`<div class="flag" style="margin-bottom:12px">${p.icon} <b>${p.name}</b> — traité comme <b>${A.lab}</b>. Les questions ci-dessous sont celles qui ont un sens pour ce type de culture.</div>`
+   +GRP.map(([g,lab,sub],n)=>{
+    const fs=FIELDS.filter(f=>f.g===g);
     const filled=fs.filter(f=>g==='s'&&f.k==='signs'?signs.length:(i[f.k]!=null&&i[f.k]!=='')).length;
     return `<details class="fgrp"${n===0?' open':''}>
       <summary>${lab} <span class="fg-n">${filled?filled+' renseigné'+(filled>1?'s':''):sub}</span></summary>
@@ -2398,6 +2712,7 @@ function markHealthy(){
   const set=(k,v)=>{const el=document.getElementById('if_'+k);if(el)el.value=v};
   set('date',new Date().toISOString().slice(0,10));
   set('vigor','normale');set('color','vert');set('soil','frais');set('pests','aucun');
+  const r=document.getElementById('if_roots');if(r&&!r.value)r.value='';
   document.querySelectorAll('#inspForm .chk input:checked').forEach(x=>{x.checked=false;x.parentNode.classList.remove('on')});
   toast("Plant marqué sain — complète la hauteur et le stade, puis enregistre.");
 }
@@ -2405,9 +2720,9 @@ function saveInsp(){
   const p=inspTarget();if(!p)return;
   const g=k=>{const el=document.getElementById('if_'+k);return el?el.value:''};
   const signs=Array.from(document.querySelectorAll('#inspForm .chk input:checked')).map(x=>x.value);
-  const rec={date:g('date')||new Date().toISOString().slice(0,10),ts:new Date().toISOString(),
-    h:g('h'),stage:g('stage'),vigor:g('vigor'),color:g('color'),signs,soil:g('soil'),
-    roots:g('roots'),origin:g('origin'),sun:g('sun'),pests:g('pests'),note:g('note')};
+  const rec={ts:new Date().toISOString(),signs,arch:archKey(p)};
+  INSP_KEYS.forEach(k=>{if(k!=='signs')rec[k]=g(k);});
+  if(!rec.date)rec.date=new Date().toISOString().slice(0,10);
   state.insp[p.id]=rec;
   state.inspLog.unshift(Object.assign({plant:p.id},rec));
   if(state.inspLog.length>400)state.inspLog.length=400;
@@ -2426,7 +2741,7 @@ function renderInspResult(){
   const sevLab={3:'bloquant',2:'à corriger',1:'bénin'};
   // 1) mesures
   let meas=`<div class="pact"><h4>📏 Mesures</h4><div class="diff"><span class="d-k">Inspection</span><span class="d-v">${frDate(i.date)} (il y a ${daysSince(i.date+'T00:00')} j)</span></div>`;
-  if(i.h)meas+=`<div class="diff"><span class="d-k">Hauteur</span><span class="d-v">${i.h} cm</span></div>`;
+  if(i.h)meas+=`<div class="diff"><span class="d-k">${archOf(p).hLab.replace(' (cm)','')}</span><span class="d-v">${i.h} cm</span></div>`;
   if(gr)meas+=`<div class="diff"><span class="d-k">Croissance mesurée</span><span class="d-v">${gr.cm>=0?'+':''}${gr.cm} cm en ${gr.days} j <span class="note">(${gr.perWeek>=0?'+':''}${gr.perWeek} cm/sem.)</span></span></div>`;
   meas+=`</div>`;
   // 2) diagnostic
