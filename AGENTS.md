@@ -109,63 +109,42 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
 
 ## 4-0. MODÈLE DE DONNÉES (⚠️ lire en premier)
 
-L'app n'a plus de plantes codées en dur. Deux concepts distincts :
+    JARDIN
+      └── PARCELLE (state.beds[])           ← porte la CONFIGURATION PHYSIQUE
+            ├── medium    : terre (m²) | bac (L) | pot (L)
+            ├── cover     : aucune | paillis | geotextile
+            ├── watering  : drainage | reservoir (+ reservoirL)
+            ├── pH, date de test, matière organique, historique de rotation
+            └── CULTURE (state.plantings[]) ← ce qui pousse dedans
+                  ├── species  → state.species[] (agronomie, une seule fois)
+                  ├── count, volL, label
+                  ├── sowing   : direct | repique
+                  ├── sowDate
+                  └── PHASE : jamais stockée, toujours CALCULÉE
 
-- **ESPÈCE** (`state.species[id]`) — l'agronomie, une seule fois : `stages`, `dur`,
-  `phases`, `waterEvery`, `feedDays`, `recipe`, `arch`, `fam`, `phOpt`, `nTarget`,
-  `resow`, `pollen`, `camg`, `dtm`, `sun`, `tender`, `ornamental`, `peren`.
-- **PLANTATION** (`state.plantings[]`) — une mise en terre : `species`, `label`, `bed`,
-  `sowDate`, `origin`, `count`, `area`, `volL`, `selfWater`, plus les textes propres à
-  l'emplacement (`water`, `watch`, `structural`, `checks`, `flag`).
-  **Une même culture peut avoir plusieurs plantations dans plusieurs parcelles.**
+**Une culture appartient toujours à une parcelle.** La configuration physique n'est JAMAIS
+portée par la culture : plusieurs cultures d'une même parcelle partagent forcément son
+medium, sa couverture et son arrosage. Modifier la parcelle propage à toutes ses cultures.
+Accesseurs : `mediumOf(p)`, `coverOf(p)`, `wateringOf(p)`, `reservoirL(p)`, `sowingOf(p)`,
+`rainReaches(p)`, `coverProtects(p)`, `inGround(p)` — tous passent par `bedOf(p)`.
 
-`resolvePlanting(pl)` fusionne les deux en un objet « plante » de la forme attendue par
-tout le reste ; `rebuildPlants()` reconstruit `PLANTS` (variable, plus une constante).
-**Ne plus jamais lire `STAGE_DUR[p.id]`, `PH[p.id]`, `WATER_EVERY[p.id]`, `PLANT_FAM`,
-`PLANT_ARCH`, `PH_OPT`, `N_TARGET`, `RESOW`, `POLLEN`, `CAMG`, `SOW_DATE`, `PEREN`** :
-ces tables ne servent qu'à `buildSeedSpecies()` au premier lancement. Utiliser `p.dur`,
-`p.phases`, `p.waterEvery`, `p.fam`, `p.arch`, `p.phOpt`, `p.nTarget`, `p.resow`,
-`p.pollen`, `p.camg`, `p.sowDate`, `p.peren`.
+**Une même espèce peut être cultivée dans plusieurs parcelles** : autant de cultures
+pointant vers la même espèce, sans dupliquer l'agronomie.
 
-**Migration sans perte** : `migrateModel()` conserve les identifiants d'origine
-(`mais_ombre`, `tomate_bac`…), car journal, inspections, budget azote, Ca/Mg, corbeille
-et rattachement aux parcelles sont indexés dessus. `SEED_PLANTINGS` (ex-`PLANTS`) n'est
-plus lu après la migration.
+### La phase ne se saisit JAMAIS
+`MARKERS[archétype]` = liste ordonnée de marqueurs phénologiques observables (« un plumet
+est sorti au sommet », « des soies sortent des épis »). L'inspection ne demande QUE des
+faits visibles ; `observedStage(p)` retient le stade le plus avancé dont le marqueur est
+coché. `curStage(p)` = `observedStage(p)` ?? `modelStage(p)` (calendrier, annoncé comme tel).
+`previewStage()` montre la déduction en direct pendant la saisie.
+⚠️ **Ne jamais réintroduire de champ « stade » saisissable.** Pour couvrir une nouvelle
+phase, ajouter un marqueur observable dans `MARKERS`.
 
-**CRUD** : `openPlantForm` / `savePlanting` / `duplicatePlanting` / `deletePlanting`.
-La date de mise en terre est modifiable — c'est elle qui pilote tout le moteur de phase.
+`stateComparison(p)` / `stateBlock(p)` : état ATTENDU (calendrier + ce qui devrait être
+visible) vs état RÉEL (phase déduite, hauteur, croissance mesurée) + écart en phases.
 
-## 4sexies. Contenant & couverture (deux axes INDÉPENDANTS)
-
-`CONTAINER` (terre · planche · bac · reserve) et `COVER` (nue · paillis · geotextile · film)
-sont deux propriétés physiques distinctes, portées par la PLANTATION. On peut pailler une
-planche surélevée ou poser un film sur de la pleine terre.
-
-- `rainReaches(p)` — **pleine** (sol en place + couverture perméable), **partielle**
-  (contenant : interception du feuillage, faible emprise), **nulle** (film imperméable, ou
-  pot à réserve). Pilote le report d'arrosage après une pluie : report complet / de moitié /
-  aucun.
-- `coverProtects(p)` — toute couverture fait barrière aux éclaboussures qui transportent les
-  spores du sol vers les feuilles basses. `diseaseRisk()` abaisse le score de façon
-  **graduée** (−1 si une partie est couverte, −2 si tout l'est), jamais jusqu'à zéro : le
-  mildiou circule aussi par voie aérienne.
-- `inGround(p)` — rotation et pH de parcelle ne s'appliquent QU'au sol en place. Un contenant
-  est exclu de `bedFamiliesThisYear()`, de `phFitFor()` et de la liste de rattachement.
-- `containerOf(p).basis` — **surface** (L/m² × surface de parcelle) ou **volume** (pas de
-  calcul au m² : consigne d'extension « arroser jusqu'à écoulement par le fond »).
-
-⚠️ **On code la direction documentée, jamais un coefficient inventé.** Aucune source
-d'extension ne chiffre la captation de pluie par type de contenant ; les ordres de grandeur
-qui circulent (pots séchant 3–4× plus vite, bacs 40–60 %) viennent de blogs horticoles et ne
-sont **pas** utilisés dans les calculs.
-
-⚠️ **Géotextile ≠ film plastique.** Le géotextile (polypropylène tissé/non tissé, structure
-poreuse) est PERMÉABLE : il ne bloque que la lumière (Illinois Extension). Le film de
-paillage polyéthylène est IMPERMÉABLE : l'eau ruisselle, les planches sont bombées pour
-l'évacuer, et le goutte-à-goutte est posé sous le film (Alabama Coop. Ext., NC State Ext.,
-NMSU). Les fiches `mais_geo` / `tomate_geo` affirmaient à tort que « l'eau ne pénètre qu'au
-trou » : corrigé, avec un test pratique proposé au jardinier pour lever le doute.
-Réduction des éclaboussures par le sol couvert : Iowa State Ext., NC State Ext., CSU Ext.
+`newBedId()` compte les identifiants existants — `Date.now()` produisait des doublons pour
+des parcelles créées dans la même milliseconde, et rattachait toutes les cultures à la première.
 
 ## 4quinquies. Volumes, saison, hivernage
 
@@ -313,7 +292,7 @@ Réduction des éclaboussures par le sol couvert : Iowa State Ext., NC State Ext
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v24`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v25`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.

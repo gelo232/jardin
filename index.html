@@ -764,40 +764,50 @@ const SEED_PLANTINGS=[
    donne de facteur chiffré de captation de pluie par type de contenant. Les ordres de
    grandeur qui circulent (pots séchant 3–4× plus vite, bacs 40–60 %) viennent de blogs
    horticoles, pas de publications validées : ils ne sont donc PAS utilisés dans les calculs. */
-const CONTAINER={
-  terre:{lab:'Pleine terre',ic:'🌍',rain:'pleine',basis:'surface',rotation:true,
-    note:"La pluie recharge normalement le sol. Le besoin en eau se calcule à la surface."},
-  planche:{lab:'Planche surélevée',ic:'🟫',rain:'pleine',basis:'surface',rotation:true,
-    note:"Sèche plus vite que la pleine terre (parois exposées, sol plus chaud, drainage rapide) mais reçoit la pluie normalement."},
-  bac:{lab:'Bac / pot sans réserve',ic:'🪴',rain:'partielle',basis:'volume',rotation:false,
-    note:"Volume de substrat limité et pluie partiellement interceptée : vérifier le substrat même après une averse."},
-  reserve:{lab:'Pot à réserve d\'eau',ic:'🪣',rain:'nulle',basis:'volume',rotation:false,
-    note:"La pluie n'atteint pratiquement pas le réservoir : c'est son niveau qui commande, pas la météo."}
+const MEDIUM={
+  terre:{lab:'Terre',ic:'🌍',basis:'surface',unit:'m²',rain:'pleine',rotation:true,
+    note:"Sol en place. La pluie recharge normalement ; le besoin en eau se calcule à la surface."},
+  bac:{lab:'Bac',ic:'🟫',basis:'volume',unit:'L',rain:'partielle',rotation:false,
+    note:"Volume de substrat délimité : sèche plus vite et ne capte qu'une partie de la pluie (le feuillage en intercepte, l'emprise au sol est faible)."},
+  pot:{lab:'Pot',ic:'🪴',basis:'volume',unit:'L',rain:'partielle',rotation:false,
+    note:"Petit volume : autonomie courte, et la pluie n'y arrive qu'en partie. Le substrat se renouvelle — ni rotation ni pH de parcelle."}
 };
 const COVER={
-  nue:{lab:'Sol nu',ic:'⬜',infil:'pleine',splash:false,
-    note:"Rien ne freine les éclaboussures : c'est la configuration la plus exposée aux maladies foliaires du bas."},
+  aucune:{lab:'Aucune',ic:'⬜',infil:'pleine',splash:false,
+    note:"Sol nu : rien ne freine les éclaboussures, principale voie de contamination des feuilles basses."},
   paillis:{lab:'Paillis organique',ic:'🌾',infil:'pleine',splash:true,
     note:"Perméable, limite l'évaporation et fait barrière aux éclaboussures porteuses de spores."},
-  geotextile:{lab:'Géotextile perméable',ic:'🧵',infil:'pleine',splash:true,
-    note:"Tissu polypropylène à structure poreuse : laisse passer l'eau et l'air, ne bloque que la lumière. Protège des éclaboussures."},
-  film:{lab:'Film plastique imperméable',ic:'🛢️',infil:'trou',splash:true,
-    note:"L'eau ruisselle et n'entre qu'aux trous de plantation : la pluie ne recharge pas la planche. Protège des éclaboussures et réchauffe le sol."}
+  geotextile:{lab:'Géotextile',ic:'🧵',infil:'pleine',splash:true,
+    note:"Polypropylène à structure poreuse : laisse passer l'eau et l'air, ne bloque que la lumière. Protège des éclaboussures."}
 };
-function containerOf(p){return CONTAINER[(p&&p.container)||'terre']||CONTAINER.terre;}
-function coverOf(p){return COVER[(p&&p.cover)||'nue']||COVER.nue;}
-/* la pluie recharge-t-elle réellement cette plantation ? */
+const WATERING={
+  drainage:{lab:'Drainage',ic:'💧',rain:'normale',
+    note:"Arrosage par le haut, l'excédent s'évacue. La pluie compte selon le medium."},
+  reservoir:{lab:'Réservoir',ic:'🪣',rain:'nulle',
+    note:"Sub-irrigation par mèche : c'est le niveau du réservoir qui commande, pas la météo. La pluie ne l'atteint pas."}
+};
+const SOWING={
+  direct:{lab:'Graines plantées sur place',ic:'🌱',resent:false,
+    note:"Aucune perturbation racinaire : le pivot se développe droit."},
+  repique:{lab:'Germination en intérieur puis repiquage',ic:'🪴',resent:true,
+    note:"Le système racinaire a été dérangé. Les espèces à pivot le supportent mal."}
+};
+/* La configuration physique appartient à la PARCELLE, pas à la culture : plusieurs cultures
+   d'une même parcelle partagent forcément son medium, sa couverture et son mode d'arrosage. */
+function bedCfg(p){const b=bedOf(p);return b||{medium:'terre',cover:'aucune',watering:'drainage'};}
+function mediumOf(p){const b=bedCfg(p);return MEDIUM[b.medium||'terre']||MEDIUM.terre;}
+function coverOf(p){const b=bedCfg(p);return COVER[b.cover||'aucune']||COVER.aucune;}
+function wateringOf(p){const b=bedCfg(p);return WATERING[b.watering||'drainage']||WATERING.drainage;}
+function sowingOf(p){return SOWING[(p&&p.sowing)||'direct']||SOWING.direct;}
+/* la pluie recharge-t-elle réellement cette culture ? */
 function rainReaches(p){
-  const c=containerOf(p),v=coverOf(p);
-  if(c.rain==='nulle')return 'nulle';
-  if(v.infil==='trou')return 'nulle';         // film imperméable : l'eau est évacuée du rang
-  if(c.rain==='partielle')return 'partielle'; // contenant : interception + faible emprise
-  return 'pleine';
+  if(wateringOf(p).rain==='nulle')return 'nulle';   // réservoir : la pluie n'y accède pas
+  if(coverOf(p).infil==='trou')return 'nulle';      // couverture imperméable, si jamais ajoutée
+  return mediumOf(p).rain;                          // sinon : pleine (terre) ou partielle (bac/pot)
 }
-/* le sol est-il couvert ? (protection documentée contre les éclaboussures) */
 function coverProtects(p){return coverOf(p).splash===true;}
-/* la rotation et le pH de parcelle ont-ils un sens ici ? */
-function inGround(p){return containerOf(p).rotation===true;}
+function inGround(p){return mediumOf(p).rotation===true;}
+function reservoirL(p){const b=bedOf(p);return(b&&b.watering==='reservoir')?(b.reservoirL||null):null;}
 /* ===== MODÈLE ESPÈCE / PLANTATION =====
    L'app décrivait un jardin figé : 14 entrées codées en dur, dates de semis en 2026,
    agronomie recopiée pour chaque emplacement (mais_ombre et mais_geo dupliquaient huit
@@ -844,24 +854,48 @@ function buildSeedPlantings(){
     id:sp.id,species:SPECIES_OF[sp.id],
     label:(sp.name.split('—')[1]||'').trim()||null,
     sub:sp.sub,sowDate:SOW_DATE[sp.id]||null,
-    bed:null,count:null,spacing:'',origin:'',
-    container:sp.selfWater?'reserve':(/bac/i.test(sp.name+' '+(sp.sub||''))?'bac':(sp.ornamental?'terre':'terre')),
-    cover:(/g[ée]otextile/i.test(sp.name+' '+(sp.sub||''))?'geotextile':'nue'),
-    potVol:null,
-    vol:sp.vol||null,volL:null,selfWater:sp.selfWater||null,
+    bed:null,count:null,spacing:'',
+    sowing:'direct',                       // affiné à la migration si l'info existe
+    vol:sp.vol||null,volL:null,
     water:sp.water,watch:(sp.watch||[]).slice(),structural:(sp.structural||[]).slice(),
-    checks:(sp.checks||[]).slice(),flag:sp.flag||null,builtin:true}));
+    checks:(sp.checks||[]).slice(),flag:sp.flag||null,builtin:true,
+    _seedRes:sp.selfWater||null,_seedName:sp.name+' '+(sp.sub||'')}));
+}
+/* Une culture appartient TOUJOURS à une parcelle : c'est la parcelle qui porte le medium,
+   la couverture et le mode d'arrosage. À la migration, on crée donc une parcelle par
+   configuration distincte trouvée dans les anciennes données. */
+function ensureBedFor(pl){
+  const res=pl._seedRes||pl.selfWater||null;
+  const txt=(pl._seedName||'')+' '+(pl.label||'')+' '+(pl.sub||'');
+  const medium=res?'pot':(/bac/i.test(txt)?'bac':'terre');
+  const cover=/g[ée]otextile/i.test(txt)?'geotextile':'aucune';
+  const watering=res?'reservoir':'drainage';
+  const name=medium==='terre'
+    ? (cover==='geotextile'?'Plate-bande géotextile':'Pleine terre')
+    : (medium==='bac'?'Bacs':'Pots');
+  let b=state.beds.find(x=>x.medium===medium&&x.cover===cover&&x.watering===watering
+    &&(watering!=='reservoir'||x.reservoirL===res));
+  if(!b){b={id:newBedId(),name:(watering==='reservoir'?name+' à réserve '+res+' L':name),
+    medium,cover,watering,reservoirL:res,area:null,volume:null,
+    ph:'',phDate:'',om:'',history:[]};state.beds.push(b);}
+  return b.id;
 }
 function migrateModel(){
   if(!state.species||!Object.keys(state.species).length)state.species=buildSeedSpecies();
   if(!state.plantings||!state.plantings.length)state.plantings=buildSeedPlantings();
-  // les parcelles déjà rattachées le restent
+  state.beds=state.beds||[];
   state.plantings.forEach(pl=>{
     if(!pl.bed&&state.plantBed[pl.id])pl.bed=state.plantBed[pl.id];
-    // déduction des deux axes pour les sauvegardes antérieures
-    if(!pl.container)pl.container=pl.selfWater?'reserve':(/bac/i.test((pl.label||'')+' '+(pl.sub||''))?'bac':'terre');
-    if(!pl.cover)pl.cover=/g[ée]otextile/i.test((pl.label||'')+' '+(pl.sub||''))?'geotextile':'nue';
+    // reprise des anciens axes portés par la plantation (v4/v5) vers une parcelle
+    if(!pl.bed||!bedById(pl.bed))pl.bed=ensureBedFor(pl);
+    if(!pl.sowing)pl.sowing=(pl.origin==='repique')?'repique':'direct';
+    delete pl.container;delete pl.cover;delete pl.selfWater;delete pl.potVol;
+    delete pl._seedRes;delete pl._seedName;delete pl.origin;
+    state.plantBed[pl.id]=pl.bed;
   });
+  // valeurs par défaut sur des parcelles créées avant le modèle
+  state.beds.forEach(b=>{b.medium=b.medium||'terre';b.cover=b.cover||'aucune';
+    b.watering=b.watering||(b.reservoirL?'reservoir':'drainage');});
 }
 /* Résolution : espèce + plantation → objet « plante » de la forme attendue par tout le reste */
 function resolvePlanting(pl){
@@ -877,8 +911,7 @@ function resolvePlanting(pl){
     sun:sp.sun||'plein soleil',tender:!!sp.tender,ornamental:!!sp.ornamental,peren:!!sp.peren,
     arch:sp.arch||'fruit',fam:sp.fam||'autres',phOpt:sp.phOpt||null,nTarget:sp.nTarget||null,
     resow:sp.resow||null,pollen:sp.pollen||null,camg:sp.camg||null,dtm:sp.dtm||null,
-    vol:pl.vol||null,volL:pl.volL||null,selfWater:pl.selfWater||null,bed:pl.bed||null,
-    container:pl.container||'terre',cover:pl.cover||'nue',potVol:pl.potVol||null,
+    vol:pl.vol||null,volL:pl.volL||null,bed:pl.bed||null,sowing:pl.sowing||'direct',
     count:pl.count||null,spacing:pl.spacing||'',origin:pl.origin||'',
     water:pl.water||'',watch:pl.watch||[],structural:pl.structural||[],
     checks:pl.checks||[],flag:pl.flag||null,stage:0};
@@ -1053,7 +1086,7 @@ function waterPlan(p){
    rinçage mensuel des sels (la sub-irrigation fait remonter et concentrer les sels
    en surface — cause classique de pointes brunes). Sources : ext. universitaires
    (self-watering / sub-irrigated containers), guides horticoles broméliacées. */
-function reservoirWater(p){return `<b>Où verser l'eau : dans le réservoir (${p.selfWater} L) uniquement</b>, par le tube / l'orifice de remplissage — suis la jauge de niveau si le pot en a une. <b>Jamais sur les feuilles, jamais sur les copeaux noirs</b> : la mèche fait monter l'eau au substrat par capillarité. Deux seules fois où l'on arrose <b>par le haut</b> : (1) à l'installation (terreau frais / transplantation), un arrosage du dessus pour amorcer la mèche et tasser le terreau, puis on ne remplit plus que le réservoir ; (2) ≈ 1×/mois, un arrosage abondant par le haut pour rincer les sels que la sub-irrigation accumule en surface. Vide et rince le réservoir de temps en temps (algues, moustiques).`;}
+function reservoirWater(p){return `<b>Où verser l'eau : dans le réservoir (${reservoirL(p)||'?'} L) uniquement</b>, par le tube / l'orifice de remplissage — suis la jauge de niveau si le pot en a une. <b>Jamais sur les feuilles, jamais sur les copeaux noirs</b> : la mèche fait monter l'eau au substrat par capillarité. Deux seules fois où l'on arrose <b>par le haut</b> : (1) à l'installation (terreau frais / transplantation), un arrosage du dessus pour amorcer la mèche et tasser le terreau, puis on ne remplit plus que le réservoir ; (2) ≈ 1×/mois, un arrosage abondant par le haut pour rincer les sels que la sub-irrigation accumule en surface. Vide et rince le réservoir de temps en temps (algues, moustiques).`;}
 function waterFreqLine(p){
   const e=waterEvery(p);
   if(!e)return `<div class="freq">💧 Arrosage à réduire / arrêter à ce stade (voir ci-dessus)</div>`;
@@ -1061,8 +1094,8 @@ function waterFreqLine(p){
   let when = d<0?`<b style="color:var(--amber)">à faire (retard ${-d} j)</b>`
     : d===0?`<b style="color:var(--amber)">à faire aujourd'hui</b>`
     : `prochain ≈ <b style="color:var(--leaf-d)">${fmtDate(wp.due)}</b> (dans ${d} j)`;
-  if(p.selfWater){ // pot à réserve : on vérifie/remplit le réservoir, à toute heure
-    return `<div class="freq">🪣 Réservoir d'eau (${p.selfWater} L) · vérifie ≈ <b>tous les ${e} j</b> · ${when}${d<=0?` · <span style="color:var(--leaf-d)">remplir à tout moment</span>`:''}<br><span class="note">La mèche garde le sol humide ; remplir le réservoir n'a pas de contrainte d'heure. Laisse la surface sécher.</span></div>`;
+  if(reservoirL(p)){ // réservoir : on vérifie/remplit, à toute heure
+    return `<div class="freq">🪣 Réservoir d'eau (${reservoirL(p)} L) · vérifie ≈ <b>tous les ${e} j</b> · ${when}${d<=0?` · <span style="color:var(--leaf-d)">remplir à tout moment</span>`:''}<br><span class="note">La mèche garde le sol humide ; remplir le réservoir n'a pas de contrainte d'heure. Laisse la surface sécher.</span></div>`;
   }
   if(d<=0){const t=actionTiming('water');
     when+=t.good?` · <span style="color:var(--leaf-d)">✅ ${t.short}</span>`
@@ -1076,7 +1109,7 @@ function waterFreqLine(p){
     nulle:coverOf(p).infil==='trou'
       ? "Film imperméable : l'eau ruisselle et n'entre qu'aux trous de plantation. La pluie ne recharge pas cette planche, le tour d'arrosage n'est donc PAS reporté."
       : "Pot à réserve : la pluie n'atteint pas le réservoir. C'est son niveau qui commande, pas la météo."}[wp.rainReach];
-  return `<div class="freq">💧 Environ <b>tous les ${e} j</b> · ${when}${tags}<br><span class="note">${containerOf(p).ic} ${containerOf(p).lab} · ${coverOf(p).ic} ${coverOf(p).lab}. ${R} La chaleur resserre le tour.</span></div>`;
+  return `<div class="freq">💧 Environ <b>tous les ${e} j</b> · ${when}${tags}<br><span class="note">${mediumOf(p).ic} ${mediumOf(p).lab} · ${coverOf(p).ic} ${coverOf(p).lab}. ${R} La chaleur resserre le tour.</span></div>`;
 }
 function feedFreqLine(p,noF){
   if(noF)return `<div class="freq">⚗️ Pas d'apport à ce stade (maturation / repos)</div>`;
@@ -1090,8 +1123,9 @@ function feedFreqLine(p,noF){
   return `<div class="freq">⚗️ Environ <b>tous les ${fd} j</b>${chg} · ${dueTxt(info)}${tag}</div>`;}
 /* volume de SOLUTION d'engrais à appliquer (la fertigation = un arrosage avec la solution) */
 function feedVolLine(p){
-  const txt=p.selfWater
-    ? `à <b>demi-dose</b> dissoute dans l'eau du réservoir (≤ ${p.selfWater} L) ; rinçage par le haut ≈ 1×/mois (la sub-irrigation concentre les sels)`
+  const R=reservoirL(p);
+  const txt=R
+    ? `à <b>demi-dose</b> dissoute dans l'eau du réservoir (≤ ${R} L) ; rinçage par le haut ≈ 1×/mois (la sub-irrigation concentre les sels)`
     : `≈ le <b>même volume qu'un arrosage</b> (${p.vol||'voir ci-dessus'}), versé au pied sur sol déjà humide`;
   return `<div class="freq">💧 Volume de solution : ${txt}</div>`;}
 /* ligne « quantité d'eau par arrosage » */
@@ -1187,8 +1221,8 @@ function cycleOver(p){
   return a.days>tot+21;                          // 3 semaines de marge sur le modèle
 }
 /* phase RÉELLE : le stade observé lors d'une inspection prime sur le calendrier */
-function curStage(p){const o=inspStage(p);return o!=null?o:modelStage(p);}
-function stageSince(p){const o=inspStage(p),i=lastInsp(p);
+function curStage(p){const o=observedStage(p);return o!=null?o:modelStage(p);}
+function stageSince(p){const o=observedStage(p),i=lastInsp(p);
   /* On ne re-date la phase que si l'observation CONTREDIT le calendrier. Quand elle le
      confirme, re-dater remettrait à zéro le temps déjà passé dans la phase et allongerait
      d'autant le cycle restant calculé par frostOutlook(). */
@@ -1204,9 +1238,8 @@ function stageSince(p){const o=inspStage(p),i=lastInsp(p);
    annoncé comme bénin (il ne déclenche AUCUN changement). Mieux vaut ne rien conclure
    que conclure à faux — un plant vert n'a pas faim, on ne lui ajoute pas d'azote. */
 function lastInsp(p){const i=p&&state.insp[p.id];return(i&&typeof i==='object')?i:null;}
-function inspStage(p){const i=lastInsp(p);
-  if(!i||i.stage==null||i.stage===''||!isFinite(+i.stage))return null;
-  return Math.max(0,Math.min(+i.stage,p.stages.length-1));}
+/* conservé pour lire d'anciennes saisies, mais la phase ne se saisit plus */
+function inspStage(p){return observedStage(p);}
 function inspSigns(p){const i=lastInsp(p);return(i&&Array.isArray(i.signs))?i.signs:[];}
 /* vitesse de croissance mesurée entre les deux dernières inspections (factuel, pas d'estimation) */
 function growthRate(p){
@@ -1329,6 +1362,76 @@ const SPACE_OPTS=[['','—'],['0','Moins de 5 cm'],['1','5 à 15 cm'],['2','15 �
 const POLLEN={mais_ombre:'vent',mais_geo:'vent',
   courge:'insectes',melon:'insectes',pasteque:'insectes',
   tomate_bac:'auto',tomate_geo:'auto'};
+/* ===== DÉDUCTION DE LA PHASE PAR MARQUEURS OBSERVABLES =====
+   La phase ne se saisit PLUS. L'app pose des questions factuelles sur ce qui est visible,
+   et en déduit le stade : chaque marqueur est un événement phénologique qui, une fois
+   constaté, prouve que la plante a atteint le stade correspondant. Le stade retenu est le
+   plus avancé dont le marqueur est confirmé — un marqueur observé ne se « dé-observe » pas.
+   Sans observation, on retombe sur l'estimation par calendrier, clairement annoncée. */
+const MARKERS={
+ grass:[
+  {st:1,q:"Les plants sont levés, les premières feuilles sont déployées"},
+  {st:2,q:"La tige s'allonge nettement et les feuilles s'étagent (montaison)"},
+  {st:3,q:"Un plumet (panicule) est sorti au sommet de la tige"},
+  {st:4,q:"Des soies (fils) sortent du haut des épis"}],
+ fruit:[
+  {st:1,q:"Le plant a dépassé les cotylédons, les vraies feuilles poussent"},
+  {st:2,q:"Des boutons floraux sont visibles"},
+  {st:3,q:"Des fleurs sont ouvertes"},
+  {st:4,q:"Des fruits sont noués (petits fruits verts formés)"},
+  {st:5,q:"Des fruits commencent à changer de couleur"}],
+ vine:[
+  {st:1,q:"Le plant a 3–4 vraies feuilles"},
+  {st:2,q:"Des fleurs sont ouvertes (mâles d'abord, puis femelles à petit fruit)"},
+  {st:3,q:"Des fruits sont noués et grossissent"},
+  {st:4,q:"Un fruit mûrit : peau qui durcit, pédoncule qui se liège, parfum"}],
+ root:[
+  {st:1,q:"Les plants sont levés et le feuillage se développe"},
+  {st:2,q:"Le collet s'épaissit : une racine est perceptible au ras du sol"},
+  {st:3,q:"Une racine témoin arrachée a atteint un calibre consommable"}],
+ bulb:[
+  {st:1,q:"Le feuillage est bien développé et dressé"},
+  {st:2,q:"Le bulbe se forme : renflement perceptible à la base"},
+  {st:3,q:"Le tiers ou la moitié des feuilles du bas ont bruni (maturité)"}],
+ herb:[
+  {st:1,q:"La touffe est levée et fournie"},
+  {st:2,q:"On peut prélever des tiges sans épuiser le plant"}],
+ potTree:[
+  {st:1,q:"Des fleurs sont apparues"},
+  {st:2,q:"Des fruits sont noués"},
+  {st:3,q:"Les fruits changent de couleur"}],
+ potRosette:[
+  {st:1,q:"Une inflorescence colorée est sortie au cœur de la rosette"},
+  {st:2,q:"Un fruit se forme au centre"}],
+ shrub:[
+  {st:0,q:"Le sujet est en reprise (bois vivant au test de l'ongle)"}]
+};
+function markersFor(p){return MARKERS[archKey(p)]||MARKERS.fruit;}
+/* stade DÉDUIT des marqueurs confirmés lors de la dernière inspection */
+function observedStage(p){
+  const i=lastInsp(p);if(!i||!Array.isArray(i.marks)||!i.marks.length)return null;
+  const M=markersFor(p);let best=null;
+  M.forEach((m,idx)=>{if(i.marks.indexOf(String(idx))>=0)best=(best==null?m.st:Math.max(best,m.st));});
+  return best==null?null:Math.min(best,p.stages.length-1);
+}
+/* ce que le jardinier DEVRAIT voir au stade prévu par le calendrier */
+function expectedMarker(p){
+  const st=modelStage(p),M=markersFor(p);
+  const done=M.filter(m=>m.st<=st);
+  return done.length?done[done.length-1].q:null;
+}
+/* état attendu (calendrier) vs état réel (observation) */
+function stateComparison(p){
+  const mdl=modelStage(p),obs=observedStage(p),i=lastInsp(p);
+  const gr=growthRate(p);
+  return{
+    expected:{stage:mdl,name:p.stages[mdl],marker:expectedMarker(p),
+      days:(autoPhase(p)||{}).days||null},
+    actual:{stage:obs,name:obs==null?null:p.stages[obs],
+      h:i?i.h:null,date:i?i.date:null,growth:gr},
+    gap:obs==null?null:obs-mdl,
+    source:obs==null?'calendrier':'observation'};
+}
 /* ===== BASE DE DIAGNOSTIC =====
    sev : 3 = bloquant, 2 = à corriger, 1 = bénin (aucune action).
    on(c) : condition de déclenchement. adj : effet sur le programme. */
@@ -1355,7 +1458,7 @@ const DIAG=[
   src:"Contenu déjà sourcé dans l'app (correctif fer chélaté, fiche agrumes)."},
 
  {id:'choc_transplant',sev:3,cause:"Choc de transplantation (perturbation racinaire)",
-  on:c=>archOf(c.p).resent&&c.i.origin==='repique'&&(c.i.vigor==='lente'||c.i.vigor==='nulle')&&(!c.i.color||c.i.color==='vert'),
+  on:c=>archOf(c.p).resent&&c.p.sowing==='repique'&&(c.i.vigor==='lente'||c.i.vigor==='nulle')&&(!c.i.color||c.i.color==='vert'),
   why:"Un plant VERT (donc correctement nourri) mais bloqué en croissance signe une limitation RACINAIRE, pas une carence du sol : les racines n'explorent pas la terre. Les espèces à pivot (maïs, cucurbitacées, aneth) supportent très mal le dérangement racinaire ; démarrées en contenant trop petit ou gardées trop longtemps, elles restent rabougries — l'issue classique et documentée du maïs repiqué.",
   fix:["Ne PAS augmenter l'azote : un plant vert n'a pas faim, et forcer le feuillage sur des racines abîmées prolonge le choc.","Apport léger (demi-force) seulement — appliqué automatiquement.","Arrosage régulier et profond sans détremper : c'est le premier facteur de reprise.","L'an prochain : semis DIRECT en place, ou godets biodégradables repiqués très jeunes (5–7 cm) sans casser la motte, en sol réchauffé."],
   src:"Southern Exposure Seed Exchange & Home for the Harvest (cultures à semer en place) ; Sustainable Market Farming (maïs repiqué → plants rabougris) ; principe « ne pas fertiliser un sujet stressé » — U. Maryland, U. Kentucky (déjà dans l'app).",
@@ -1442,7 +1545,7 @@ const DIAG=[
 
  {id:'sels',sev:2,cause:"Accumulation de sels (pointes brunes / croûte blanchâtre)",
   on:c=>c.signs.includes('pointes')||c.signs.includes('croute'),
-  why:c=>c.p.selfWater
+  why:c=>reservoirL(c.p)
     ? "Pointes brunes et dépôt blanchâtre en surface : en sub-irrigation, l'eau monte par capillarité et dépose ses sels en surface sans jamais les lessiver. L'accumulation est systématique avec ce type de pot, ce n'est pas une erreur de dosage."
     : (c.arch==='potTree'||c.arch==='potRosette'
       ? "Pointes brunes et croûte blanchâtre : en pot, le volume de substrat est limité et les sels d'engrais s'y concentrent à chaque apport, faute d'être lessivés vers le sol."
@@ -1465,7 +1568,7 @@ const DIAG=[
 
  /* ===== RÈGLES PROPRES À CHAQUE TYPE DE CULTURE ===== */
  {id:'racine_repiquee',sev:3,cause:"Racine repiquée — déformation acquise",
-  on:c=>c.arch==='root'&&c.i.origin==='repique',
+  on:c=>c.arch==='root'&&c.p.sowing==='repique',
   why:"Une racine comestible ne se repique JAMAIS. Le pivot, une fois touché ou replié dans un godet, ne repart pas droit : il fourche, se tord ou reste court. Le feuillage peut être superbe et la racine inutilisable.",
   fix:["Cette saison : rien à corriger, la déformation est acquise. Récolte quand même, les racines fourchues sont comestibles.","L'an prochain : semer DIRECTEMENT en place, jamais en godet, et éclaircir plutôt que transplanter.","Semer clair pour limiter l'éclaircissage, qui dérange aussi les voisines."],
   src:"Règle générale des Apiacées à racine pivotante ; « supporte mal le repiquage : semer en place » figure déjà dans les fiches semis de l'app."},
@@ -1592,7 +1695,7 @@ DIAG.push.apply(DIAG,_SEN);
 function diagnose(p){
   const i=lastInsp(p);
   if(!i)return{findings:[],adj:{},none:true};
-  const model=modelStage(p),obs=inspStage(p);
+  const model=modelStage(p),obs=observedStage(p);
   const ak=archKey(p),st=(obs==null?model:obs),stName=(p.stages[st]||'').toLowerCase();
   // sénescence normale : bulbe en fin de cycle dont les feuilles basses jaunissent
   const senesc=(ak==='bulb')&&(['bas_pale','pale'].indexOf(i.color)>=0)
@@ -1657,7 +1760,7 @@ const N_TARGET={
    l'app prescrit « ≈ 4–6 L par pied » ou « demi-dose au réservoir » : l'écart atteignait un
    facteur 6 sur agrume. On part du volume saisi ; à défaut, de l'arrosoir. */
 function appliedLiters(p){
-  if(p.selfWater)return p.selfWater/2;   // consigne de l'app : demi-dose au réservoir
+  const R=reservoirL(p); if(R)return R/2;   // consigne de l'app : demi-dose au réservoir
   if(p.volL)return p.volL;
   return canLiters();
 }
@@ -1799,21 +1902,24 @@ function phFitFor(p,ph){
   return{ok:false,txt:`pH ${v} — hors de la plage idéale de cette culture (${o[0]}–${o[1]}). ${v<o[0]?'Trop acide':'Trop alcalin'} : certains apports resteront partiellement inaccessibles.`};
 }
 /* ===== PARCELLES ===== */
-function newBedId(){return 'b'+Date.now().toString(36);}
+/* Identifiant unique même pour des parcelles créées dans la même milliseconde :
+   Date.now() seul produisait des doublons à la migration, et toutes les cultures se
+   retrouvaient rattachées à la première parcelle. */
+function newBedId(){let n=1;while(state.beds.some(b=>b.id==='b'+n))n++;return 'b'+n;}
 function addBed(){
   const el=document.getElementById('bedNew');if(!el)return;
   const inp=document.getElementById('bedNewName');
   if(el.style.display==='none'){el.style.display='';inp.focus();return;}
   const n=(inp.value||'').trim();
   if(!n){toast('Donne un nom à la parcelle.');inp.focus();return;}
-  state.beds.push({id:newBedId(),name:n,ph:'',phDate:'',om:'',area:null,history:[]});
+  state.beds.push({id:newBedId(),name:n,medium:'terre',cover:'aucune',watering:'drainage',reservoirL:null,area:null,volume:null,ph:'',phDate:'',om:'',history:[]});
   inp.value='';el.style.display='none';
   save();renderBeds();renderRot();toast('Parcelle ajoutée.');
 }
 function cancelAddBed(){const el=document.getElementById('bedNew');if(el)el.style.display='none';}
 function bedById(id){return state.beds.find(b=>b.id===id);}
 function setBedField(id,k,v){const b=bedById(id);if(!b)return;b[k]=v;save();
-  if(k==='ph'){renderBeds();renderPlants();}renderRot();}
+  clearDG();rebuildPlants();renderBeds();renderPlants();renderToday();renderPlan();renderRot();}
 function delBed(id){
   const b=bedById(id);if(!b)return;
   if(!confirm(`Supprimer la parcelle « ${b.name} » ?\n\nLes plantes qui y étaient rattachées redeviennent non assignées. Aucune autre donnée n'est perdue.`))return;
@@ -1921,8 +2027,12 @@ function renderBeds(){
     const stale=age!=null&&age>400;
     const open=state.bedFold[b.id]!==false;   // repli mémorisé, ouvert par défaut
     // résumé toujours visible : l'essentiel sans déplier
+    const M=MEDIUM[b.medium||'terre']||MEDIUM.terre,CV=COVER[b.cover||'aucune']||COVER.aucune,W=WATERING[b.watering||'drainage']||WATERING.drainage;
     const chips=[
-      v?`<span class="chip ${v.lvl==='bon'?'f':'w'}">${v.ic} pH ${b.ph}</span>`:`<span class="chip w">pH non mesuré</span>`,
+      `<span class="chip f">${M.ic} ${M.lab}${(M.basis==='surface'?(b.area?' '+b.area+' m²':''):(b.volume?' '+b.volume+' L':''))}</span>`,
+      `<span class="chip w">${CV.ic} ${CV.lab}</span>`,
+      `<span class="chip w">${W.ic} ${W.lab}${b.reservoirL?' '+b.reservoirL+' L':''}</span>`,
+      M.rotation?(v?`<span class="chip ${v.lvl==='bon'?'f':'w'}">${v.ic} pH ${b.ph}</span>`:`<span class="chip w">pH non mesuré</span>`):'',
       `<span class="chip f">${ps.length} plante${ps.length>1?'s':''}</span>`,
       warns.length?`<span class="chip w">⚠️ rotation</span>`:''
     ].filter(Boolean).join(' ');
@@ -1948,9 +2058,23 @@ function renderBeds(){
             <div class="field" style="margin-bottom:10px"><label>Date du test</label>
               <input type="date" value="${b.phDate||''}" max="${today}"
                 onchange="setBedField('${b.id}','phDate',this.value)"></div>
-            <div class="field" style="margin-bottom:10px"><label>Surface (m²)</label>
-        <input type="number" min="0" step="0.1" inputmode="decimal" value="${b.area||''}" placeholder="ex. 2,5"
-          onchange="setBedField('${b.id}','area',parseFloat(this.value)||null)"></div>
+            <div class="field" style="margin-bottom:10px"><label>Medium</label>
+        <div class="hint">Décide de la base de calcul du besoin en eau, de la captation de la pluie, et de l'applicabilité de la rotation et du pH.</div>
+        <select onchange="setBedField('${b.id}','medium',this.value)">
+          ${Object.entries(MEDIUM).map(([k,m])=>`<option value="${k}"${(b.medium||'terre')===k?' selected':''}>${m.ic} ${m.lab} (${m.unit})</option>`).join('')}</select></div>
+      <div class="field" style="margin-bottom:10px"><label>${(MEDIUM[b.medium||'terre']||MEDIUM.terre).basis==='surface'?'Superficie (m²)':'Volume de substrat (L)'}</label>
+        <input type="number" min="0" step="0.1" inputmode="decimal" value="${((MEDIUM[b.medium||'terre']||MEDIUM.terre).basis==='surface'?b.area:b.volume)||''}" placeholder="ex. 2,5"
+          onchange="setBedField('${b.id}','${(MEDIUM[b.medium||'terre']||MEDIUM.terre).basis==='surface'?'area':'volume'}',parseFloat(this.value)||null)"></div>
+      <div class="field" style="margin-bottom:10px"><label>Couverture du sol</label>
+        <div class="hint">Toute couverture fait barrière aux éclaboussures qui remontent les spores sur les feuilles basses. Un géotextile est perméable : il ne bloque que la lumière.</div>
+        <select onchange="setBedField('${b.id}','cover',this.value)">
+          ${Object.entries(COVER).map(([k,c])=>`<option value="${k}"${(b.cover||'aucune')===k?' selected':''}>${c.ic} ${c.lab}</option>`).join('')}</select></div>
+      <div class="field" style="margin-bottom:10px"><label>Arrosage</label>
+        <select onchange="setBedField('${b.id}','watering',this.value)">
+          ${Object.entries(WATERING).map(([k,w])=>`<option value="${k}"${(b.watering||'drainage')===k?' selected':''}>${w.ic} ${w.lab}</option>`).join('')}</select></div>
+      ${(b.watering==='reservoir')?`<div class="field" style="margin-bottom:10px"><label>Capacité du réservoir (L)</label>
+        <input type="number" min="0" step="0.5" value="${b.reservoirL||''}" placeholder="ex. 3"
+          onchange="setBedField('${b.id}','reservoirL',parseFloat(this.value)||null)"></div>`:''}
       <div class="field" style="margin-bottom:10px"><label>Matière organique</label>
               <select onchange="setBedField('${b.id}','om',this.value)">
                 ${[['','— non évaluée —'],['faible','Faible : terre pâle, dure, se compacte'],['moyenne',"Moyenne : terre brune, s'émiette"],['bonne','Bonne : terre foncée, souple, vers de terre']]
@@ -2481,7 +2605,7 @@ function renderToday(){
   overwinterTasks(add);   // rentrer / ressortir les plantes en pot
   // ARROSAGE — proposé au MOMENT OPPORTUN de la journée (heure + chaleur du jour)
   const waterDue=activePlants().filter(p=>{const wp=waterPlan(p);return wp&&wp.diff<=0;});
-  const topDue=waterDue.filter(p=>!p.selfWater), resDue=waterDue.filter(p=>p.selfWater);
+  const topDue=waterDue.filter(p=>!reservoirL(p)), resDue=waterDue.filter(p=>reservoirL(p));
   if(topDue.length){const t=actionTiming('water');
     add('Arrosage',t.good?'prio':'',t.ic,`${t.verb} : ${topDue.map(plantLink).join(', ')}`,`${t.advice} Valide « ✓ Arrosé » sur la plante pour fixer le prochain tour.`,topDue.length===1?topDue[0].id:null);
   } else if(hot){const t=actionTiming('water');
@@ -2492,14 +2616,14 @@ function renderToday(){
     /* Le calcul en L/m² ne vaut QUE pour le sol en place : un contenant ne s'arrose pas au
        mètre carré. Pour eux, la règle d'extension est « arroser jusqu'à écoulement par le
        fond » — aucune source ne donne de conversion ET₀ → litres par pot, on ne l'invente pas. */
-    const ground=activePlants().filter(p=>containerOf(p).basis==='surface');
+    const ground=activePlants().filter(p=>mediumOf(p).basis==='surface');
     const bedsOn=state.beds.filter(b=>b.area>0);  // une parcelle est par définition du sol en place
     const filmed=ground.filter(p=>rainReaches(p)==='nulle');
     let detail=bedsOn.length
       ? ' Pour tes parcelles en pleine terre : '+bedsOn.map(b=>`<b>${b.name} ${Math.round(wb.deficit*b.area)} L</b>`).join(', ')+'.'
       : ' Renseigne la surface de tes parcelles (Saison › Sol) pour convertir ce chiffre en litres.';
     if(filmed.length)detail+=` ⚠️ Sous film imperméable (${filmed.map(p=>p.name).join(', ')}), la pluie annoncée ne compte pas : il faut apporter la totalité de l'évapotranspiration (${wb.et0} mm), pas seulement le déficit.`;
-    const pots=activePlants().filter(p=>containerOf(p).basis==='volume'&&!p.selfWater);
+    const pots=activePlants().filter(p=>mediumOf(p).basis==='volume'&&!reservoirL(p));
     if(pots.length)detail+=` Les contenants (${pots.map(p=>p.name).join(', ')}) ne se calculent pas au m² : arrose jusqu'à écoulement par le fond, et vérifie-les plus souvent que la pleine terre.`;
     add('Arrosage','','📐',`Besoin en eau : ≈ ${wb.deficit} L/m² sur 7 jours`,
       `Évapotranspiration prévue ${wb.et0} mm, pluie attendue ${wb.rain} mm → déficit de ${wb.deficit} mm. 1 mm = 1 litre par m².${detail} Mieux vaut deux arrosages profonds qu'un filet quotidien : l'eau doit descendre là où sont les racines.`);}
@@ -2510,7 +2634,7 @@ function renderToday(){
   activePlants().forEach(p=>{const c=camgDue(p);if(!c||!c.due)return;
     add('Fertilisation','','🦴',`Ca/Mg mensuel : ${p.name}`,
       `${c.txt} À appliquer en arrosage SÉPARÉ (le calcium précipite avec le phosphate du MAP/MKP). ${c.days!=null?`Dernier apport il y a ${c.days} j.`:'Jamais appliqué.'}`,p.id);});
-  if(resDue.length)add('Arrosage','prio','🪣',`Réservoir à vérifier : ${resDue.map(p=>plantLink(p)+' ('+p.selfWater+' L)').join(', ')}`,"Pots à réserve d'eau : remplis le réservoir s'il est vide, en versant dans le tube de remplissage — pas sur les feuilles ni sur les copeaux (la mèche garde le sol humide). À faire à tout moment — pas de contrainte d'heure. Valide « ✓ Arrosé » après remplissage.",resDue.length===1?resDue[0].id:null);
+  if(resDue.length)add('Arrosage','prio','🪣',`Réservoir à vérifier : ${resDue.map(p=>plantLink(p)+' ('+reservoirL(p)+' L)').join(', ')}`,"Pots à réserve d'eau : remplis le réservoir s'il est vide, en versant dans le tube de remplissage — pas sur les feuilles ni sur les copeaux (la mèche garde le sol humide). À faire à tout moment — pas de contrainte d'heure. Valide « ✓ Arrosé » après remplissage.",resDue.length===1?resDue[0].id:null);
   // FERTILISATION
   const ft=rainSoon?null:actionTiming('feed');
   activePlants().forEach(p=>{const d=daysSince(state.feeds[p.id]),r=curRecipe(p);
@@ -2692,6 +2816,28 @@ function inspBanner(p){
       ${age>=14?`<br><b style="color:var(--amber)">Observation vieille de ${age} j</b> — à rafraîchir.`:''}
       <span class="plink" role="button" tabindex="0" onclick="event.stopPropagation();goInspect('${p.id}')"> Voir le diagnostic →</span></p></div>`;
 }
+/* ===== ÉTAT ATTENDU vs ÉTAT RÉEL =====
+   Le calendrier dit ce qui DEVRAIT être visible aujourd'hui ; l'inspection dit ce qui l'est.
+   L'écart entre les deux est l'information la plus utile du suivi. */
+function stateBlock(p){
+  const C=stateComparison(p);
+  const gapTxt=C.gap==null?null:(C.gap===0?'conforme au calendrier'
+    :C.gap<0?`<b style="color:var(--amber)">${-C.gap} phase${-C.gap>1?'s':''} de retard</b>`
+    :`<b style="color:var(--leaf-d)">${C.gap} phase${C.gap>1?'s':''} d'avance</b>`);
+  const gr=C.actual.growth;
+  return `<div class="pact"><h4>📊 Attendu vs réel</h4>
+    <div class="diff"><span class="d-k">Attendu (calendrier)</span><span class="d-v">${C.expected.name}
+      <br><span class="note" style="font-weight:400">${C.expected.days!=null?C.expected.days+' j depuis la mise en terre':''}</span></span></div>
+    <div class="diff"><span class="d-k">Observé</span><span class="d-v">${C.actual.name
+      ? `${C.actual.name}<br><span class="note" style="font-weight:400">le ${frDate(C.actual.date)}</span>`
+      : '<span style="color:var(--ink-soft);font-weight:400">aucune observation — le calendrier fait foi</span>'}</span></div>
+    ${gapTxt?`<div class="diff"><span class="d-k">Écart</span><span class="d-v">${gapTxt}</span></div>`:''}
+    ${C.actual.h?`<div class="diff"><span class="d-k">${archOf(p).hLab.replace(' (cm)','')}</span><span class="d-v">${C.actual.h} cm${gr?` <span class="note" style="font-weight:400">(${gr.perWeek>=0?'+':''}${gr.perWeek} cm/sem.)</span>`:''}</span></div>`:''}
+    <p class="note" style="margin:8px 0 0">${C.expected.marker
+      ? `À ce stade, tu devrais voir : <b>${C.expected.marker.toLowerCase()}</b>.`:''}
+      ${C.gap!=null&&C.gap<0?" L'app a recalé arrosage et fertilisation sur le stade réellement observé, pas sur le calendrier.":''}
+      <span class="plink" role="button" tabindex="0" onclick="event.stopPropagation();goInspect('${p.id}')"> Mettre à jour →</span></p></div>`;
+}
 function plantBody(p){
   if(p.ornamental)return ornamentalBody(p);
   const info=phaseInfo(p),r=RECIPES[info.r]||RECIPES.aucun,npk=recipeNPK(r),rows=recipeRows(r);
@@ -2734,9 +2880,10 @@ function plantBody(p){
     : `<div class="pact"><h4>🔎 À vérifier → solution</h4>
       ${p.checks.map(c=>`<div style="margin-bottom:8px"><p style="margin:0;font-weight:600">▢ ${c.q}</p><p style="margin:1px 0 0;font-size:13.5px;color:var(--ink-soft)">→ ${c.fix}</p></div>`).join('')}</div>`):'';
   return `<div class="plant-body">
+    ${stateBlock(p)}
     ${inspBanner(p)}
     ${durBlock}
-    <div class="pact"><h4>💧 Arrosage · ${phName}</h4><p>${p.selfWater?p.water:info.water}</p>${p.selfWater?`<p class="note" style="margin-top:5px">🪣 ${reservoirWater(p)}</p>`:''}${waterVolLine(p)}${waterFreqLine(p)}</div>
+    <div class="pact"><h4>💧 Arrosage · ${phName}</h4><p>${reservoirL(p)?p.water:info.water}</p>${reservoirL(p)?`<p class="note" style="margin-top:5px">🪣 ${reservoirWater(p)}</p>`:''}${waterVolLine(p)}${waterFreqLine(p)}</div>
     <div class="pact"><h4>⚗️ Engrais · ${r.name}</h4>
       ${noF?`<div class="recipe"><div class="r-note">${r.note}</div></div>`
       :`<div class="recipe"><div class="r-h"><span class="r-name">≈ ${npk[0]}-${npk[1]}-${npk[2]}</span><span class="r-can">pour ${state.can} ${canLabel()}</span></div>
@@ -2747,9 +2894,9 @@ function plantBody(p){
     <div class="pact"><h4>🛠️ Entretien · ${phName}</h4><ul>${(info.care||[]).map(x=>`<li>${x}</li>`).join('')}</ul></div>
     ${p.flag?`<div class="flag ${p.flag.type}">${p.flag.txt}${p.flag.type==='iron'?(()=>{const t=actionTiming('foliar');return `<br><span class="note" style="display:block;margin-top:7px">🕑 Si pulvérisation foliaire (fer chélaté) : ${t.good?`<b style="color:var(--leaf-d)">c'est le bon moment (${t.short})</b>`:`<b style="color:var(--amber)">${t.short}</b>`} — stomates ouverts tôt le matin (&lt;9 h 30) ou en soirée (&gt;18 h 30), jamais en plein soleil.`})():''}</div>`:''}
     ${(()=>{const b=bedOf(p),f=b?phFitFor(p,b.ph):null;const fam=famOf(p);
-      const C=containerOf(p),V=coverOf(p);
+      const C=mediumOf(p),V=coverOf(p),W=wateringOf(p);
       return `<div class="pact"><h4>🧱 Situation & sol</h4>
-        <p class="note" style="margin:0 0 6px"><b>${C.ic} ${C.lab}</b> — ${C.note}<br><b>${V.ic} ${V.lab}</b> — ${V.note}</p>
+        <p class="note" style="margin:0 0 6px"><b>${C.ic} ${C.lab}</b> — ${C.note}<br><b>${V.ic} ${V.lab}</b> — ${V.note}<br><b>${W.ic} ${W.lab}</b> — ${W.note}</p>
         <p class="note" style="margin:0">${b?`<b>${b.name}</b>`:'<b>Non rattachée à une parcelle</b> — rattache-la dans Saison › Sol pour suivre pH et rotation.'}
         ${f?`<br><span style="color:${f.ok?'var(--leaf-d)':'var(--amber)'}">${f.txt}</span>`:(b&&inGround(p)?'<br>pH non renseigné pour cette parcelle.':(inGround(p)?'':'<br>Substrat de contenant : ni le pH de parcelle ni la rotation ne s\'y appliquent — c\'est le renouvellement du terreau qui compte.'))}
         <br>Famille : ${fam.ic} ${fam.lab} — ${fam.need}.</p></div>`})()}
@@ -2859,7 +3006,7 @@ function fillMixSelect(){const sel=document.getElementById('mixPlant');
 function renderMix(){
   const val=document.getElementById('mixPlant').value;let r,title,applyNote='';
   if(val.startsWith('plant:')){const p=byId(val.slice(6));r=curRecipe(p);title=p.icon+' '+p.name+' · '+p.stages[curStage(p)];
-    applyNote=`<p class="note" style="margin-top:8px">💧 À appliquer sur ${p.name} : ${p.selfWater?`<b>demi-dose</b> dans le réservoir (≤ ${p.selfWater} L), puis rinçage par le haut ≈ 1×/mois`:`≈ <b>comme un arrosage</b> (${p.vol||'voir la fiche'}), au pied sur sol déjà humide`}.</p>`;
+    applyNote=`<p class="note" style="margin-top:8px">💧 À appliquer sur ${p.name} : ${reservoirL(p)?`<b>demi-dose</b> dans le réservoir (≤ ${reservoirL(p)} L), puis rinçage par le haut ≈ 1×/mois`:`≈ <b>comme un arrosage</b> (${p.vol||'voir la fiche'}), au pied sur sol déjà humide`}.</p>`;
     const nb=nBudget(p),ng=nGramsPerFeed(p);
     if(nb)applyNote+=`<p class="note" style="margin-top:6px">🧪 Sur cette plantation, un apport de <b>${appliedLiters(p)} L</b> représente <b>${ng} g d'azote</b>. Saison en cours : <b style="color:${nb.lvl==='excès'?'#eb8981':nb.lvl==='bon'?'var(--leaf-d)':'var(--amber)'}">${nb.used} g</b> sur une cible indicative de ${nb.lo}–${nb.hi} g.${nb.lvl==='excès'?" <b>Déjà au-dessus de la fourchette</b> — espace les apports plutôt que d'en rajouter.":''}</p>`;
     const bd=bedOf(p),fit=bd?phFitFor(p,bd.ph):null;
@@ -2983,8 +3130,8 @@ function inspFields(p){
    {k:'date',g:'m',t:'date',lab:"Date de l'inspection",max:today},
    {k:'h',g:'m',t:'num',lab:A.hLab,ph:'ex. 60',
     hint:A.hHint+" Deux mesures successives donnent la vitesse de croissance réelle."},
-   {k:'stage',g:'m',t:'stage',lab:'Stade réellement observé',
-    hint:"Ce que tu VOIS, pas ce que le calendrier prévoit. C'est ce champ qui recale la phase et tout le programme."},
+   {k:'marks',g:'m',t:'marks',lab:'Ce qui est visible aujourd\'hui',
+    hint:"Coche ce que tu constates réellement. La phase n'est jamais saisie : l'app la déduit de ces observations, et retombe sur le calendrier si tu ne coches rien."},
    {k:'vigor',g:'m',t:'sel',lab:'Croissance depuis ~2 semaines',
     opts:[['','—'],['normale','Normale'],['lente','Lente'],['nulle',"Nulle / à l'arrêt"]]},
    {k:'color',g:'s',t:'sel',lab:'Couleur du feuillage',hint:A.colorHint,
@@ -3006,8 +3153,8 @@ function inspFields(p){
    {k:'pests',g:'s',t:'sel',lab:'Ravageurs visibles',
     opts:[['','—'],['aucun','Aucun'],['insectes','Insectes (pucerons, chrysomèles, altises…)'],
      ['limaces','Limaces / traces de bave'],['inconnu','Dégâts sans coupable identifié']]},
-   {k:'soil',g:'c',t:'sel',lab:p.selfWater?'Substrat en surface':'Sol à 3–5 cm de profondeur',
-    hint:p.selfWater?"Pot à réserve : la surface doit sécher entre deux remplissages, la mèche fait monter l'eau par le bas.":'',
+   {k:'soil',g:'c',t:'sel',lab:reservoirL(p)?'Substrat en surface':'Sol à 3–5 cm de profondeur',
+    hint:reservoirL(p)?"Pot à réserve : la surface doit sécher entre deux remplissages, la mèche fait monter l'eau par le bas.":'',
     opts:[['','—'],['frais','Frais et humide'],['sec','Sec'],['detrempe','Détrempé / gorgé d\'eau']]},
    {k:'roots',g:'c',t:'sel',lab:A.rootsLab||'Racines (si un sujet faible a été arraché)',
     hint:"Le test décisif quand la plante reste verte sans pousser : le blocage est souvent racinaire, pas nutritionnel.",
@@ -3015,8 +3162,8 @@ function inspFields(p){
      ['spirale','Enroulées en spirale / en J (forme du contenant)'],
      ['courtes','Courtes et plates, butant à 10–15 cm'],
      ['brunes','Brunes, molles, odeur désagréable']]},
-   {k:'origin',g:'c',t:'sel',lab:A.originLab,
-    opts:[['','—'],['direct','Semé / planté directement en place'],['repique','Démarré en contenant puis repiqué']]}
+   {k:'_sowing',g:'c',t:'info',lab:'Semis',
+    txt:`${sowingOf(p).ic} ${sowingOf(p).lab} — ${sowingOf(p).note} <i>Se modifie sur la fiche de la culture.</i>`}
   ];
   if(has('nb'))F.push({k:'nb',g:'c',t:'num',lab:'Nombre de plants de cette culture',ph:'ex. 8',max:999});
   if(has('space'))F.push({k:'space',g:'c',t:'sel',lab:'Espacement entre plants',
@@ -3035,7 +3182,7 @@ function inspFields(p){
   return F;
 }
 /* clés possibles, tous archétypes confondus — sert à la sauvegarde et à la remise à zéro */
-const INSP_KEYS=['date','h','stage','vigor','color','signs','soil','roots','origin','nb','space','rows','polli','sun','pests','note'];
+const INSP_KEYS=['date','h','marks','vigor','color','signs','soil','roots','nb','space','rows','polli','sun','pests','note'];
 function inspTarget(){const s=document.getElementById('inspPlant');return s?byId(s.value):null;}
 function fillInspSelect(){
   const sel=document.getElementById('inspPlant');if(!sel)return;
@@ -3053,6 +3200,13 @@ function renderInspForm(){
              ['c','🌱 Contexte','sol, racines, lumière']];
   const fieldHTML=f=>{
     const hint=f.hint?`<div class="hint">${f.hint}</div>`:'';
+    if(f.t==='marks'){
+      const M=markersFor(p),marks=Array.isArray(i.marks)?i.marks:[];
+      const mdl=p.stages[modelStage(p)],obs=observedStage(p);
+      return `<div class="field"><label>${f.lab}</label>${hint}
+        ${M.map((m,n)=>`<label class="chk ${marks.indexOf(String(n))>=0?'on':''}"><input type="checkbox" data-mark="${n}" value="${n}" ${marks.indexOf(String(n))>=0?'checked':''} onchange="this.parentNode.classList.toggle('on',this.checked);previewStage()"> <span>${m.q}<br><span class="note">→ prouve le stade « ${p.stages[Math.min(m.st,p.stages.length-1)]} »</span></span></label>`).join('')}
+        <div class="hint" id="stagePreview" style="margin-top:8px">Calendrier : <b>${mdl}</b>${obs!=null?` · déduit de tes observations : <b>${p.stages[obs]}</b>`:' · aucune observation cochée, le calendrier fait foi'}</div></div>`;
+    }
     if(f.t==='stage'){
       const opts=[`<option value="">— non précisé —</option>`]
         .concat(p.stages.map((s,n)=>`<option value="${n}"${String(i.stage)===String(n)?' selected':''}>${n+1}. ${s}</option>`)).join('');
@@ -3066,6 +3220,7 @@ function renderInspForm(){
       <select id="if_${f.k}">${f.opts.map(([v,l])=>`<option value="${v}"${(i[f.k]||'')===v?' selected':''}>${l}</option>`).join('')}</select></div>`;
     if(f.t==='num')return `<div class="field"><label>${f.lab}</label>${hint}
       <input type="number" id="if_${f.k}" inputmode="decimal" step="any" min="0"${f.max?` max="${f.max}"`:''} placeholder="${f.ph||''}" value="${i[f.k]!=null?i[f.k]:''}"></div>`;
+    if(f.t==='info')return `<div class="field"><label>${f.lab}</label><p class="note" style="margin:0">${f.txt}</p></div>`;
     if(f.t==='date')return `<div class="field"><label>${f.lab}</label>${hint}
       <input type="date" id="if_${f.k}" value="${i.date||today}" max="${today}"></div>`;
     if(f.t==='multi'&&!f.opts.length)return '';
@@ -3095,12 +3250,24 @@ function markHealthy(){
   document.querySelectorAll('#inspForm .chk input:checked').forEach(x=>{x.checked=false;x.parentNode.classList.remove('on')});
   saveInsp(); // le bouton annonce une observation faite : il l'enregistre pour de bon
 }
+/* aperçu immédiat : le jardinier voit la phase se déduire pendant qu'il coche */
+function previewStage(){
+  const p=inspTarget(),el=document.getElementById('stagePreview');if(!p||!el)return;
+  const marks=Array.from(document.querySelectorAll('#inspForm input[data-mark]:checked')).map(x=>x.value);
+  const M=markersFor(p);let best=null;
+  M.forEach((m,idx)=>{if(marks.indexOf(String(idx))>=0)best=(best==null?m.st:Math.max(best,m.st));});
+  const mdl=p.stages[modelStage(p)];
+  el.innerHTML=best==null
+    ? `Calendrier : <b>${mdl}</b> · aucune observation cochée, le calendrier fait foi`
+    : `Calendrier : <b>${mdl}</b> · déduit de tes observations : <b style="color:var(--leaf-d)">${p.stages[Math.min(best,p.stages.length-1)]}</b>`;
+}
 function saveInsp(){
   const p=inspTarget();if(!p)return;
   const g=k=>{const el=document.getElementById('if_'+k);return el?el.value:''};
-  const signs=Array.from(document.querySelectorAll('#inspForm .chk input:checked')).map(x=>x.value);
-  const rec={ts:new Date().toISOString(),signs,arch:archKey(p)};
-  INSP_KEYS.forEach(k=>{if(k!=='signs')rec[k]=g(k);});
+  const signs=Array.from(document.querySelectorAll('#inspForm .chk input:not([data-mark]):checked')).map(x=>x.value);
+  const marks=Array.from(document.querySelectorAll('#inspForm input[data-mark]:checked')).map(x=>x.value);
+  const rec={ts:new Date().toISOString(),signs,marks,arch:archKey(p)};
+  INSP_KEYS.forEach(k=>{if(k!=='signs'&&k!=='marks')rec[k]=g(k);});
   if(!rec.date)rec.date=new Date().toISOString().slice(0,10);
   state.insp[p.id]=rec;
   state.inspLog.unshift(Object.assign({plant:p.id},rec));
@@ -3372,34 +3539,21 @@ function openPlantForm(id){
       <div class="hint">Ce qui distingue cette plantation des autres de la même culture : « sous les arbres », « bac du fond »…</div>
       <input type="text" id="pf_label" placeholder="ex. bac du fond" value="${pl&&pl.label?pl.label.replace(/"/g,'&quot;'):''}"></div>
     <div class="field"><label>Parcelle</label>
-      <select id="pf_bed"><option value="">— non rattachée —</option>
-        ${state.beds.map(b=>`<option value="${b.id}"${pl&&pl.bed===b.id?' selected':''}>${b.name}</option>`).join('')}</select></div>
-    <div class="field"><label>Date de mise en terre</label>
-      <div class="hint">C'est elle qui pilote la phase, le compte à rebours et la comparaison au gel. Modifiable à tout moment.</div>
+      <div class="hint">Une culture appartient à une parcelle : c'est elle qui porte le medium, la couverture du sol et le mode d'arrosage. Crée-la d'abord dans Saison › Sol si elle n'existe pas.</div>
+      <select id="pf_bed">${state.beds.length?state.beds.map(b=>{const M=MEDIUM[b.medium||'terre']||MEDIUM.terre,C=COVER[b.cover||'aucune']||COVER.aucune,W=WATERING[b.watering||'drainage']||WATERING.drainage;
+        return `<option value="${b.id}"${pl&&pl.bed===b.id?' selected':''}>${b.name} — ${M.ic}${M.lab} · ${C.ic}${C.lab} · ${W.ic}${W.lab}</option>`}).join('')
+        :'<option value="">— aucune parcelle : crée-en une dans Saison › Sol —</option>'}</select></div>
+    <div class="field"><label>Semis</label>
+      <select id="pf_sowing">${Object.entries(SOWING).map(([k,o])=>`<option value="${k}"${(pl&&pl.sowing||'direct')===k?' selected':''}>${o.ic} ${o.lab}</option>`).join('')}</select>
+      <div class="hint">Le repiquage perturbe les racines : les espèces à pivot (maïs, cucurbitacées, carotte) le supportent mal, et l'app en tient compte dans son diagnostic.</div></div>
+    <div class="field"><label>Date de semis / mise en terre</label>
+      <div class="hint">Elle pilote le calcul de la phase attendue et la comparaison au premier gel. La phase, elle, ne se saisit jamais : l'app la déduit de tes observations.</div>
       <input type="date" id="pf_sow" value="${pl&&pl.sowDate?pl.sowDate:today}"></div>
-    <div class="field"><label>Origine</label>
-      <select id="pf_origin">${[['','—'],['direct','Semé / planté en place'],['repique','Démarré en contenant puis repiqué']]
-        .map(([v,l])=>`<option value="${v}"${pl&&pl.origin===v?' selected':''}>${l}</option>`).join('')}</select></div>
-    <div style="display:flex;gap:8px">
-      <div class="field" style="flex:1"><label>Nombre de plants</label>
-        <input type="number" id="pf_count" min="0" max="999" placeholder="ex. 6" value="${pl&&pl.count?pl.count:''}"></div>
-      <div class="field" style="flex:1"><label>Surface (m²)</label>
-        <input type="number" id="pf_area" min="0" step="0.1" placeholder="ex. 1,5" value="${pl&&pl.area?pl.area:''}"></div>
-    </div>
-    <div class="field"><label>Type de contenant</label>
-      <div class="hint">Décide de la captation de la pluie, de la base de calcul du besoin en eau, et de l'applicabilité de la rotation et du pH de parcelle.</div>
-      <select id="pf_container">${Object.entries(CONTAINER).map(([k,c])=>`<option value="${k}"${(pl&&pl.container||'terre')===k?' selected':''}>${c.ic} ${c.lab}</option>`).join('')}</select></div>
-    <div class="field"><label>Couverture du sol</label>
-      <div class="hint">Un géotextile est perméable (il ne bloque que la lumière) ; un film plastique est imperméable et l'eau n'entre qu'aux trous. Toute couverture fait barrière aux éclaboussures porteuses de spores.</div>
-      <select id="pf_cover">${Object.entries(COVER).map(([k,c])=>`<option value="${k}"${(pl&&pl.cover||'nue')===k?' selected':''}>${c.ic} ${c.lab}</option>`).join('')}</select></div>
-    <div class="field"><label>Volume de substrat (litres, si contenant)</label>
-      <div class="hint">Le volume commande l'autonomie en eau : plus il est grand, plus l'arrosage s'espace.</div>
-      <input type="number" id="pf_potVol" min="0" step="1" placeholder="ex. 30" value="${pl&&pl.potVol?pl.potVol:''}"></div>
+    <div class="field"><label>Nombre de plants</label>
+      <input type="number" id="pf_count" min="0" max="999" placeholder="ex. 6" value="${pl&&pl.count?pl.count:''}"></div>
     <div class="field"><label>Volume par arrosage (litres)</label>
-      <div class="hint">Sert au calcul exact de l'azote apporté et au besoin en eau. Laisse vide si tu ne sais pas.</div>
+      <div class="hint">Sert au calcul exact de l'azote apporté. Laisse vide si tu ne sais pas.</div>
       <input type="number" id="pf_volL" min="0" step="0.5" placeholder="ex. 5" value="${pl&&pl.volL?pl.volL:''}"></div>
-    <div class="field"><label>Réservoir d'eau (litres, si pot à réserve)</label>
-      <input type="number" id="pf_res" min="0" step="0.5" placeholder="laisser vide si pas de réserve" value="${pl&&pl.selfWater?pl.selfWater:''}"></div>
     <div style="display:flex;gap:8px;margin-top:4px">
       <button class="btn" style="flex:1" onclick="savePlanting()">✓ ${pl?'Enregistrer':'Créer'}</button>
       <button class="btn ghost" style="flex:1" onclick="closePlantForm()">Annuler</button></div>
@@ -3412,22 +3566,22 @@ function savePlanting(){
   const g=k=>{const e=document.getElementById('pf_'+k);return e?e.value:''};
   const sid=g('species');if(!sid||!state.species[sid]){toast('Choisis une culture.');return;}
   const num=v=>{const n=parseFloat(v);return isFinite(n)&&n>0?n:null;};
-  const data={species:sid,label:(g('label')||'').trim()||null,bed:g('bed')||null,
-    sowDate:g('sow')||new Date().toISOString().slice(0,10),origin:g('origin')||'',
-    count:num(g('count')),area:num(g('area')),volL:num(g('volL')),selfWater:num(g('res')),
-    container:g('container')||'terre',cover:g('cover')||'nue',potVol:num(g('potVol'))};
+  const bed=g('bed');
+  if(!bed){toast('Crée d\'abord une parcelle dans Saison › Sol.');return;}
+  const data={species:sid,label:(g('label')||'').trim()||null,bed,
+    sowDate:g('sow')||new Date().toISOString().slice(0,10),sowing:g('sowing')||'direct',
+    count:num(g('count')),volL:num(g('volL'))};
   if(editingId){
     const pl=state.plantings.find(x=>x.id===editingId);if(!pl)return;
     Object.assign(pl,data);
     if(pl.volL&&!pl.vol)pl.vol=`≈ ${pl.volL} L par arrosage`;
     toast('Plantation mise à jour.');
   }else{
-    if(data.selfWater&&data.container!=='reserve')data.container='reserve'; // cohérence
     state.plantings.push(Object.assign({id:newPlantingId(),sub:'',vol:data.volL?`≈ ${data.volL} L par arrosage`:null,
       water:'',watch:[],structural:[],checks:[],flag:null,builtin:false},data));
     toast('Plantation créée.');
   }
-  if(data.bed)state.plantBed[editingId||state.plantings[state.plantings.length-1].id]=data.bed;
+  state.plantBed[editingId||state.plantings[state.plantings.length-1].id]=data.bed;
   closePlantForm();clearDG();rebuildPlants();save();
   renderPlants();renderToday();renderPlan();fillInspSelect();renderInspForm();fillMixSelect();renderMix();renderBeds();renderRot();
 }
