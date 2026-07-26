@@ -533,7 +533,6 @@ let state={
   species:store.get('species',null),  // catalogue d'espèces (agronomie), éditable
   plantings:store.get('plantings',null), // implantations : espèce + parcelle + date + effectif
   beds:store.get('beds',[]),        // parcelles : pH, test de sol, matière organique, historique
-  plantBed:store.get('plantBed',{}),// rattachement plante → parcelle (base de la rotation)
   harvest:store.get('harvest',[]),  // journal de récolte (boucle de rétroaction d'une année sur l'autre)
   amend:store.get('amend',{}),      // amendements réalisés {clé tâche: date}
   nlog:store.get('nlog',{}),        // azote cumulé par plante et par saison
@@ -553,8 +552,7 @@ let state={
 function save(){store.set('can',state.can);store.set('canUnit',state.canUnit);store.set('coords',state.coords);
   store.set('feeds',state.feeds);store.set('waters',state.waters);store.set('logs',state.logs);store.set('catFold',state.catFold);store.set('progFold',state.progFold);
   store.set('insp',state.insp);store.set('inspLog',state.inspLog);store.set('removed',state.removed);
-  store.set('species',state.species);store.set('plantings',state.plantings);
-  store.set('beds',state.beds);store.set('plantBed',state.plantBed);store.set('harvest',state.harvest);
+  store.set('species',state.species);store.set('plantings',state.plantings);store.set('beds',state.beds);store.set('harvest',state.harvest);
   store.set('amend',state.amend);store.set('nlog',state.nlog);store.set('camg',state.camg);store.set('tasksDone',state.tasksDone);store.set('indoor',state.indoor);store.set('closed',state.closed);store.set('bedFold',state.bedFold);store.set('plantFold',state.plantFold);store.set('seasonPane',state.seasonPane)}
 /* petit retour visuel non bloquant, à la place des alert() qui coupent l'usage */
 let toastT=null;
@@ -991,13 +989,12 @@ function migrateModel(){
   if(!state.plantings||!state.plantings.length)state.plantings=buildSeedPlantings();
   state.beds=state.beds||[];
   state.plantings.forEach(pl=>{
-    if(!pl.bed&&state.plantBed[pl.id])pl.bed=state.plantBed[pl.id];
+    if(!pl.bed&&state.plantBed&&state.plantBed[pl.id])pl.bed=state.plantBed[pl.id]; // reprise d'anciennes sauvegardes
     // reprise des anciens axes portés par la plantation (v4/v5) vers une parcelle
     if(!pl.bed||!bedById(pl.bed))pl.bed=ensureBedFor(pl);
     if(!pl.sowing)pl.sowing=(pl.origin==='repique')?'repique':'direct';
     delete pl.container;delete pl.cover;delete pl.selfWater;delete pl.potVol;
     delete pl._seedRes;delete pl._seedName;delete pl.origin;
-    state.plantBed[pl.id]=pl.bed;
   });
   // valeurs par défaut sur des parcelles créées avant le modèle
   state.beds.forEach(b=>{b.medium=b.medium||'terre';b.cover=b.cover||'aucune';
@@ -1915,6 +1912,11 @@ function feedHoldUntil(p){const a=adj(p),i=lastInsp(p);
   const today=new Date();today.setHours(0,0,0,0);
   return end>today?end:null;}
 /* la culture a-t-elle encore le temps d'arriver à maturité avant le gel ? (annuelles) */
+/* Deux prédictions de fin de cycle coexistent :
+   • varietyOutlook() — fondée sur les jours à maturité RÉELS de la variété. Prioritaire.
+   • frostOutlook()   — modèle générique de durées de phase. Repli quand la variété est
+                        inconnue, et seul à tenir compte du retard constaté par inspection.
+   L'interface annonce laquelle fait foi plutôt que d'afficher deux verdicts côte à côte. */
 function frostOutlook(p){
   const dur=p.dur;if(!dur||!dur.length||p.peren||p.ornamental)return null;
   const ci=curStage(p),since=stageSince(p),elapsed=since?daysSince(since):0;
@@ -2106,17 +2108,17 @@ function delBed(id){
   const b=bedById(id);if(!b)return;
   if(!confirm(`Supprimer la parcelle « ${b.name} » ?\n\nLes plantes qui y étaient rattachées redeviennent non assignées. Aucune autre donnée n'est perdue.`))return;
   state.beds=state.beds.filter(x=>x.id!==id);
-  Object.keys(state.plantBed).forEach(k=>{if(state.plantBed[k]===id)delete state.plantBed[k]});
   state.plantings.forEach(pl=>{if(pl.bed===id)pl.bed=null});rebuildPlants();
   save();renderBeds();renderRot();renderPlants();toast('Parcelle supprimée.');
 }
 function assignPlant(pid,bid){
   const pl=state.plantings.find(x=>x.id===pid); if(pl)pl.bed=bid||null;
-  if(bid)state.plantBed[pid]=bid;else delete state.plantBed[pid];
   rebuildPlants();
   save();renderBeds();renderRot();renderPlants();
 }
-function bedOf(p){const id=(p&&p.bed)||state.plantBed[p&&p.id];return id?bedById(id):null;}
+/* Source UNIQUE du rattachement : pl.bed. state.plantBed était un doublon hérité et
+   pouvait diverger dès qu'une plantation était modifiée sans passer par assignPlant(). */
+function bedOf(p){const id=p&&p.bed;return id?bedById(id):null;}
 function plantsOfBed(id){return activePlants().filter(p=>bedOf(p)&&bedOf(p).id===id);}
 /* familles cultivées cette année dans une parcelle (déduites des plantes assignées) */
 function bedFamiliesThisYear(id){
@@ -2661,7 +2663,7 @@ function renderWeather(){
       : `Nuit fraîche (min ${mnn}°). Melon, pastèque et ananas ralentissent sous 15° : paillis sombre et coin le plus chaud. Rien à rentrer à cette période.`]);}
   const si=soilTempInfo();
   if(si&&si.lvl!=='bon'&&season()!=='repos')D.push(['cold','🌡️',`Sol à ${si.t} °C (6 cm). ${si.txt}`]);
-  if(w.wind!=null&&w.wind>=20)D.push(['warn','💨',`Vent ${w.wind} km/h. Pas de pulvérisation foliaire (dérive et séchage trop rapide) ; vérifie les tuteurs.`]);
+  if(!windOK())D.push(['warn','💨',`Vent ${w.wind} km/h. Pas de pulvérisation foliaire au-delà de 12 km/h (dérive et séchage avant absorption).${w.wind>=25?' Vérifie aussi les tuteurs.':''}`]);
   const fa2=frostAlert();
   if(fa2)D.unshift(['cold',fa2.hard?'🧊':'❄️',`${fa2.hard?'Gel':'Risque de gel'} ${fa2.days<=0?'cette nuit':fa2.days===1?'demain nuit':'dans '+fa2.days+' j'} (${fa2.tmin} °C). Récolte, couvre, rentre les pots gélifs.`]);
   if(!D.length)D.push(['','🌿','Conditions idéales. Bonne journée pour fertiliser et entretenir.']);
@@ -2721,6 +2723,10 @@ function actionTiming(kind){
   }
   if(kind==='foliar'){ // pulvérisation foliaire (fer chélaté / Ca-Mg)
     const tooHot=tmax&&tmax>=27;
+    /* Le vent disperse le brouillard et le fait sécher avant absorption : au-delà de
+       ~12 km/h la pulvérisation foliaire ne sert à rien, quelle que soit l'heure. */
+    if(!windOK())return W('💨','vent trop fort ('+state.wx.wind+' km/h)','pulvérisation foliaire à reporter',
+      'Au-delà de 12 km/h, le brouillard dérive et sèche avant d\'être absorbé. Attends une accalmie, tôt le matin ou en soirée.');
     if(h>=5.5&&h<9.5&&!(tooHot&&h>=8)) return G('🌅','bon moment (matin)','pulvériser maintenant',
       'Tôt le matin : stomates ouverts, air frais et humide, faible évaporation = absorption maximale, pas de brûlure. Mouille le dessous des feuilles, sans former de gouttes.');
     if(h>=18.5&&h<21) return G('🌇','bon moment (soir)','pulvériser maintenant',
@@ -2873,7 +2879,7 @@ function renderToday(){
       if(rainSoon)add('Fertilisation','feed','⏸️',`Fertiliser ${p.name} — à reporter`,`Dû depuis ${isFinite(d)?d+' j':'le début'}, mais la pluie le lessiverait (l'engrais a besoin d'heures pour pénétrer). Attends une journée sèche.`,p.id);
       else add('Fertilisation',ft.good?'feed':'',ft.ic,`${ft.good?'Nourrir':'À fertiliser ('+ft.short+') :'} ${p.name}`,`Phase « ${ph} » → apport « ${r.name} » (jamais fertilisé depuis ${isFinite(d)?d+' jours':'le début'}). ${ft.advice} Voir le doseur.`,p.id);
     }});
-  const resowNow=activePlants().filter(p=>{const r=RESOW[p.id];if(!r||r.kind!=='frais')return false;const s=nextSow(p);return s&&s.now;});
+  const resowNow=activePlants().filter(p=>{const r=p.resow;if(!r||r.kind!=='frais')return false;const s=nextSow(p);return s&&s.now;});
   if(resowNow.length)add('Fertilisation','feed','🌱',`Ressemer possible : ${resowNow.map(plantLink).join(', ')}`,"Il reste assez de temps avant le gel pour une récolte d'automne — détails dans l'onglet Semis.",resowNow.length===1?resowNow[0].id:null,
     taskKey(['ressemis',isoWeek()]));
   // SOINS & PHASES — dérivés de la PHASE de chaque plante (seulement les phases « action »)
@@ -3109,15 +3115,20 @@ function stateBlock(p){
       ${C.expected.inPhase!=null?`<br><span class="note" style="font-weight:400">calendrier : ${C.expected.inPhase} j</span>`:''}
       ${C.actual.since?`<br><span class="note" style="font-weight:400">${C.actual.since.txt}</span>`:''}</span></div>
     ${C.actual.h?`<div class="diff"><span class="d-k">${archOf(p).hLab.replace(' (cm)','')}</span><span class="d-v">${C.actual.h} cm${gr?` <span class="note" style="font-weight:400">(${gr.perWeek>=0?'+':''}${gr.perWeek} cm/sem.)</span>`:''}</span></div>`:''}
-    ${(()=>{const v=varietyOutlook(p);if(!v)return '';
+    ${(()=>{const v=varietyOutlook(p),fo=frostOutlook(p);
+      if(!v&&fo)return `<div class="diff"><span class="d-k">Fin de cycle estimée</span><span class="d-v">${fo.remain} j restants
+        <br><span class="note" style="font-weight:400">modèle générique de l'espèce — renseigne la variété pour un calcul fondé sur ses jours à maturité</span>
+        <br><span class="note" style="font-weight:400;color:${fo.ok?'var(--leaf-d)':'#eb8981'}">${fo.ok?'aboutit avant le gel':'n\'aboutira pas avant le gel'}</span></span></div>`;
+      if(!v)return '';
       const conv={semis:'depuis le semis',repiquage:'depuis la mise en terre',
         'semis-14':'depuis le semis, −14 j car repiquée',plantation:'depuis la plantation'}[v.conv]||'';
       return `<div class="diff"><span class="d-k">Maturité${p.variety?` · ${p.variety}`:''}</span><span class="d-v">${v.dtm} j → ${fmtDate(v.maturity)}
-        <br><span class="note" style="font-weight:400">${conv}${v.adjusted?` (sachet : ${v.rawDtm} j)`:''} · référence : ${v.ref.lab}</span>
+        <br><span class="note" style="font-weight:400">${p.variety?'':'<b>valeur générique de l\'espèce</b> — renseigne la variété pour un calcul fondé sur son chiffre réel · '}${conv}${v.adjusted?` (sachet : ${v.rawDtm} j)`:''} · référence : ${v.ref.lab}</span>
         <br><span class="note" style="font-weight:400;color:${v.ok?'var(--leaf-d)':'#eb8981'}">${v.ok
           ? `${v.margin} j de marge avant le gel${v.frost.src==='prévision'?' annoncé':' moyen'}`
           : `<b>${-v.margin} j de retard sur le gel</b> — cette variété n'a pas le temps`}</span>
-        ${v.warn?`<br><span class="note" style="font-weight:400;color:var(--amber)">⚠️ Date de mise en terre non renseignée : le calcul part du semis, donc il est optimiste. Renseigne-la sur la fiche de la culture.</span>`:''}</span></div>`;})()}
+        ${v.warn?`<br><span class="note" style="font-weight:400;color:var(--amber)">⚠️ Date de mise en terre non renseignée : le calcul part du semis, donc il est optimiste. Renseigne-la sur la fiche de la culture.</span>`:''}
+        ${(fo&&fo.ok!==v.ok)?`<br><span class="note" style="font-weight:400;color:var(--amber)">⚠️ Le modèle générique de l'espèce dit l'inverse (${fo.remain} j de cycle restants). <b>C'est le chiffre de la variété qui fait foi</b> — il vient du semencier ; le modèle, lui, ignore ta variété.</span>`:''}</span></div>`;})()}
     <p class="note" style="margin:8px 0 0">${C.expected.marker
       ? `À ce stade, tu devrais voir : <b>${C.expected.marker.toLowerCase()}</b>.`:''}
       ${C.gap!=null&&C.gap<0?" L'app a recalé arrosage et fertilisation sur le stade réellement observé, pas sur le calendrier.":''}
@@ -3366,8 +3377,8 @@ function exportData(){
     catFold:state.catFold,progFold:state.progFold,
     insp:state.insp,inspLog:state.inspLog,removed:state.removed,
     species:state.species,plantings:state.plantings,
-    beds:state.beds,plantBed:state.plantBed,harvest:state.harvest,
-    amend:state.amend,nlog:state.nlog,camg:state.camg,tasksDone:state.tasksDone,indoor:state.indoor,closed:state.closed,bedFold:state.bedFold,seasonPane:state.seasonPane};
+    beds:state.beds,harvest:state.harvest,
+    amend:state.amend,nlog:state.nlog,camg:state.camg,tasksDone:state.tasksDone,indoor:state.indoor,plantFold:state.plantFold,closed:state.closed,bedFold:state.bedFold,seasonPane:state.seasonPane};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='jardin-sauvegarde-'+new Date().toISOString().slice(0,10)+'.json';
@@ -3394,7 +3405,7 @@ function importData(ev){
     if(d.species&&typeof d.species==='object')state.species=d.species;
     if(Array.isArray(d.plantings))state.plantings=d.plantings;
     if(Array.isArray(d.beds))state.beds=d.beds;
-    if(d.plantBed&&typeof d.plantBed==='object')state.plantBed=d.plantBed;
+    if(d.plantBed&&typeof d.plantBed==='object')state.plantBed=d.plantBed; // v4 : repris par migrateModel
     if(Array.isArray(d.harvest))state.harvest=d.harvest;
     if(d.amend&&typeof d.amend==='object')state.amend=d.amend;
     if(d.nlog&&typeof d.nlog==='object')state.nlog=d.nlog;
@@ -3402,6 +3413,8 @@ function importData(ev){
     if(d.tasksDone&&typeof d.tasksDone==='object')state.tasksDone=d.tasksDone;
     migrateModel();rebuildPlants();
     if(d.bedFold&&typeof d.bedFold==='object')state.bedFold=d.bedFold;
+    if(d.plantFold&&typeof d.plantFold==='object')state.plantFold=d.plantFold;
+    if(typeof d.seasonPane==='string')state.seasonPane=d.seasonPane;
     if(d.closed&&typeof d.closed==='object')state.closed=d.closed;
     if(d.indoor&&typeof d.indoor==='object')state.indoor=d.indoor;
     clearDG();save();
@@ -3544,7 +3557,10 @@ function markHealthy(){
   const set=(k,v)=>{const el=document.getElementById('if_'+k);if(el)el.value=v};
   set('date',new Date().toISOString().slice(0,10));
   set('vigor','normale');set('color','vert');set('soil','frais');set('pests','aucun');
-  document.querySelectorAll('#inspForm .chk input:checked').forEach(x=>{x.checked=false;x.parentNode.classList.remove('on')});
+  /* ⚠️ ne décocher QUE les signes : les marqueurs phénologiques sont des observations de
+     stade, pas des symptômes. Les effacer ferait régresser la phase au calendrier. */
+  document.querySelectorAll('#inspForm .chk input:not([data-mark]):checked')
+    .forEach(x=>{x.checked=false;x.parentNode.classList.remove('on')});
   saveInsp(); // le bouton annonce une observation faite : il l'enregistre pour de bon
 }
 /* aperçu immédiat : le jardinier voit la phase se déduire pendant qu'il coche */
@@ -3889,7 +3905,9 @@ function openPlantForm(id){
     <div style="display:flex;gap:8px;margin-top:4px">
       <button class="btn" style="flex:1" onclick="savePlanting()">✓ ${pl?'Enregistrer':'Créer'}</button>
       <button class="btn ghost" style="flex:1" onclick="closePlantForm()">Annuler</button></div>
-    ${pl?`<button class="btn ghost sm" style="width:100%;margin-top:8px" onclick="duplicatePlanting('${pl.id}')">⧉ Dupliquer dans une autre parcelle</button>`:''}
+    ${pl?`<button class="btn ghost sm" style="width:100%;margin-top:8px" onclick="duplicatePlanting('${pl.id}')">⧉ Dupliquer dans une autre parcelle</button>
+      <button class="btn ghost sm" style="width:100%;margin-top:8px" onclick="deletePlanting('${pl.id}')">🗑️ Supprimer définitivement</button>
+      <p class="note" style="margin:8px 0 0">« Retirer du jardin » (sur la fiche) met simplement de côté en conservant les données. La suppression définitive, elle, efface aussi journal, inspections et récoltes de cette culture.</p>`:''}
   </div>`;
   el.style.display='';onVarietyChange();onSowingChange();el.scrollIntoView({block:'start',behavior:'smooth'});
 }
@@ -3950,18 +3968,20 @@ function savePlanting(){
       water:'',watch:[],structural:[],checks:[],flag:null,builtin:false},data));
     toast('Plantation créée.');
   }
-  state.plantBed[editingId||state.plantings[state.plantings.length-1].id]=data.bed;
   closePlantForm();clearDG();rebuildPlants();save();
   renderPlants();renderToday();renderPlan();fillInspSelect();renderInspForm();fillMixSelect();renderMix();renderBeds();renderRot();
 }
 function duplicatePlanting(id){
   const src=state.plantings.find(x=>x.id===id);if(!src)return;
-  const copy=Object.assign({},src,{id:newPlantingId(),bed:null,
+  /* la copie garde la parcelle d'origine : la remettre à null lui faisait hériter de la
+     configuration par défaut (terre / aucune couverture / drainage) au lieu de la sienne.
+     L'utilisateur la déplace ensuite s'il le souhaite — le formulaire s'ouvre pour ça. */
+  const copy=Object.assign({},src,{id:newPlantingId(),
     label:((src.label||state.species[src.species].name)+' (2)'),builtin:false});
   state.plantings.push(copy);
   clearDG();rebuildPlants();save();
   renderPlants();fillInspSelect();fillMixSelect();
-  toast('Plantation dupliquée — choisis sa parcelle.');
+  toast('Plantation dupliquée dans la même parcelle — déplace-la si besoin.');
   openPlantForm(copy.id);
 }
 function deletePlanting(id){
@@ -3969,7 +3989,7 @@ function deletePlanting(id){
   const p=byId(id);
   if(!confirm(`Supprimer définitivement la plantation « ${p?p.name:id} » ?\n\nSon journal, ses inspections et ses récoltes seront également effacés.\nPour la mettre simplement de côté, utilise « Retirer du jardin » : les données sont conservées.`))return;
   state.plantings=state.plantings.filter(x=>x.id!==id);
-  delete state.insp[id];delete state.feeds[id];delete state.waters[id];delete state.camg[id];delete state.nlog[id];delete state.plantBed[id];
+  delete state.insp[id];delete state.feeds[id];delete state.waters[id];delete state.camg[id];delete state.nlog[id];
   state.inspLog=state.inspLog.filter(x=>x.plant!==id);
   state.harvest=state.harvest.filter(x=>x.plant!==id);
   state.logs=state.logs.filter(x=>x.plant!==id);

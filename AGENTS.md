@@ -61,6 +61,28 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
 6. **Journal** — historique `localStorage` des arrosages/fertilisations, base des rappels.
    Section **Sauvegarde** : `exportData()` / `importData()` (JSON portable des données).
 
+## 4pre. Pièges relevés en audit (⚠️ à ne pas réintroduire)
+- **Tables héritées** (`STAGE_DUR`, `SOW_DATE`, `WATER_EVERY`, `RESOW`, `POLLEN`, `CAMG`,
+  `PH_OPT`, `N_TARGET`, `PLANT_FAM`, `PLANT_ARCH`, `PEREN`) : indexées par les ids d'origine.
+  Une plantation créée dans l'app a un id `plN` qui n'y figure pas → toujours passer par
+  l'objet résolu (`p.resow`, `p.pollen`, …), jamais par `TABLE[p.id]`.
+- **Sélecteurs de cases à cocher** : les marqueurs de phase portent `data-mark`. Toute
+  manipulation groupée des `.chk input` doit les exclure (`:not([data-mark])`), sinon on
+  efface les observations de stade et la phase retombe au calendrier.
+- **Source unique du rattachement** : `pl.bed`. `state.plantBed` n'est plus qu'un vestige lu
+  à la migration ; ne jamais y réécrire, il divergeait dès qu'une plantation était modifiée
+  autrement que par `assignPlant()`.
+- **Deux prédictions de fin de cycle** coexistent : `varietyOutlook()` (jours à maturité
+  réels, **prioritaire**) et `frostOutlook()` (modèle générique de phases, repli et seul à
+  intégrer le retard constaté). L'interface annonce laquelle fait foi et signale une
+  divergence — ne jamais les afficher côte à côte sans arbitrage.
+- **Fonction définie mais jamais appelée = règle non appliquée.** `windOK()` documentait un
+  seuil de 12 km/h que rien n'utilisait pendant que `renderWeather` en appliquait un de 20.
+- **Export/import** : toute nouvelle clé d'état doit figurer dans `exportData()` ET être
+  relue dans `importData()`. Vérifier les deux sens.
+- **Duplication d'une plantation** : conserver la parcelle d'origine, sinon la copie hérite
+  de la configuration par défaut (terre / aucune couverture / drainage).
+
 ## 4ante. Fiche plante : sections repliables
 `plantBody()` et `ornamentalBody()` composent la fiche avec `pgroup(p,clé,icône,titre,sous-titre,contenu,ouvertParDéfaut)` :
 📊 État (ouverte) · 💧 Arrosage · ⚗️ Nutrition · 🔎 Diagnostic & contrôles · 🛠️ Entretien ·
@@ -373,7 +395,7 @@ des parcelles créées dans la même milliseconde, et rattachait toutes les cult
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v29`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v30`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.
