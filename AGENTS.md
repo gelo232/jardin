@@ -131,6 +131,33 @@ Accesseurs : `mediumOf(p)`, `coverOf(p)`, `wateringOf(p)`, `reservoirL(p)`, `sow
 **Une même espèce peut être cultivée dans plusieurs parcelles** : autant de cultures
 pointant vers la même espèce, sans dupliquer l'agronomie.
 
+### Durée dans la phase : DÉDUITE elle aussi
+`phaseStart(p)` encadre la transition avec l'historique : la dernière inspection montrant un
+stade antérieur = borne basse, la première montrant le stade courant = borne haute, on retient
+le **milieu**. Une seule borne → croisement avec le calendrier. Aucune → calendrier, annoncé.
+`daysInPhase(p)` en dérive, et `stageSince()` s'aligne dessus, donc `frostOutlook()` et le
+bloc « temps par phase » en héritent.
+⚠️ `stageOfRecord()` renvoie **0** pour une inspection dont `marks` est un tableau VIDE
+(« rien n'était encore visible » est une information, utile comme borne basse) mais
+`observedStage()` exige une preuve positive : une inspection vide ne fait jamais **régresser**
+la phase courante.
+
+### Conseils : clôturables par OCCURRENCE
+`add(g,c,ic,titre,détail,pid,key)` — la `key` identifie l'occurrence, pas le type :
+`gel|2026-09-20`, `mildiou|2026w38|élevé`, `soin|<culture>|<phase>|<semaine>`,
+`diag|<culture>|<règle>|<ts inspection>`, `camg|<culture>|<mois>`, `rentrer|<culture>|<année>`.
+`closeTask(key)` clôt CETTE occurrence ; une situation nouvelle produit une clé nouvelle,
+donc un conseil neuf. `renderTaskArchive()` liste les conseils clos et permet de les rétablir.
+⚠️ Tout nouveau conseil doit recevoir une clé, sinon il n'est pas clôturable.
+
+### Pertinence temporelle (⚠️ règle de conception)
+Un conseil ne s'affiche que dans sa fenêtre utile. Cas de référence : « rentrer les pots
+gélifs » exige **septembre ou plus tard, OU un gel réellement annoncé**, et le seuil de la
+plante SANS marge — une nuit isolée à 12 °C en juillet n'est pas un motif, et rentrer trop tôt
+coûte de la lumière. Idem pour le bulletin météo, qui change de message selon le mois.
+Les soins de phase ne sortent pas pour un cycle terminé. Les `structural` de la fiche sont
+présentés comme **repères permanents**, pas comme des tâches du jour.
+
 ### La phase ne se saisit JAMAIS
 `MARKERS[archétype]` = liste ordonnée de marqueurs phénologiques observables (« un plumet
 est sorti au sommet », « des soies sortent des épis »). L'inspection ne demande QUE des
@@ -292,7 +319,7 @@ des parcelles créées dans la même milliseconde, et rattachait toutes les cult
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v25`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v26`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.

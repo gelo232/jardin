@@ -306,6 +306,7 @@
     </div>
     <div id="todayList"></div>
     <div id="checkCard"></div>
+    <div id="taskArchive" style="margin-top:10px"></div>
     <div id="planList" style="display:none"></div>
     <p class="note" id="todayNote" style="margin-top:10px">Les priorités s'ajustent à la météo et à ton journal. Coche une action dans l'onglet d'une plante pour mettre à jour les rappels.</p>
   </section>
@@ -536,7 +537,8 @@ let state={
   harvest:store.get('harvest',[]),  // journal de récolte (boucle de rétroaction d'une année sur l'autre)
   amend:store.get('amend',{}),      // amendements réalisés {clé tâche: date}
   nlog:store.get('nlog',{}),        // azote cumulé par plante et par saison
-  camg:store.get('camg',{}),        // dernier apport calcium/magnésium par plante        // azote cumulé par plante et par saison {id:{annee:grammes}}
+  camg:store.get('camg',{}),
+  tasksDone:store.get('tasksDone',{}), // conseils clos, par occurrence        // dernier apport calcium/magnésium par plante        // azote cumulé par plante et par saison {id:{annee:grammes}}
   indoor:store.get('indoor',{}),    // plantes en pot actuellement rentrées à l'abri
   closed:store.get('closed',{}),    // saisons archivées {année: date}
   bedFold:store.get('bedFold',{}),  // repli des parcelles et de leurs sections
@@ -552,7 +554,7 @@ function save(){store.set('can',state.can);store.set('canUnit',state.canUnit);st
   store.set('insp',state.insp);store.set('inspLog',state.inspLog);store.set('removed',state.removed);
   store.set('species',state.species);store.set('plantings',state.plantings);
   store.set('beds',state.beds);store.set('plantBed',state.plantBed);store.set('harvest',state.harvest);
-  store.set('amend',state.amend);store.set('nlog',state.nlog);store.set('camg',state.camg);store.set('indoor',state.indoor);store.set('closed',state.closed);store.set('bedFold',state.bedFold);store.set('seasonPane',state.seasonPane)}
+  store.set('amend',state.amend);store.set('nlog',state.nlog);store.set('camg',state.camg);store.set('tasksDone',state.tasksDone);store.set('indoor',state.indoor);store.set('closed',state.closed);store.set('bedFold',state.bedFold);store.set('seasonPane',state.seasonPane)}
 /* petit retour visuel non bloquant, à la place des alert() qui coupent l'usage */
 let toastT=null;
 function toast(msg){
@@ -1222,12 +1224,9 @@ function cycleOver(p){
 }
 /* phase RÉELLE : le stade observé lors d'une inspection prime sur le calendrier */
 function curStage(p){const o=observedStage(p);return o!=null?o:modelStage(p);}
-function stageSince(p){const o=observedStage(p),i=lastInsp(p);
-  /* On ne re-date la phase que si l'observation CONTREDIT le calendrier. Quand elle le
-     confirme, re-dater remettrait à zéro le temps déjà passé dans la phase et allongerait
-     d'autant le cycle restant calculé par frostOutlook(). */
-  if(o!=null&&o!==modelStage(p)&&i&&i.date)return new Date(i.date+'T00:00').toISOString();
-  const a=autoPhase(p);return a?a.since:null;}
+/* début de phase : entièrement DÉDUIT (voir phaseStart). Tout ce qui en dépend — temps
+   restant dans la phase, cycle restant avant gel — en hérite automatiquement. */
+function stageSince(p){const s=phaseStart(p);return s?s.date.toISOString():null;}
 
 /* ===== INSPECTION DE TERRAIN → DIAGNOSTIC → RÉAJUSTEMENT DU PROGRAMME =====
    Le calendrier (SOW_DATE + STAGE_DUR) n'est qu'un MODÈLE : il suppose une croissance à
@@ -1414,6 +1413,60 @@ function observedStage(p){
   M.forEach((m,idx)=>{if(i.marks.indexOf(String(idx))>=0)best=(best==null?m.st:Math.max(best,m.st));});
   return best==null?null:Math.min(best,p.stages.length-1);
 }
+/* stade déduit d'UN enregistrement quelconque de l'historique */
+function stageOfRecord(p,rec){
+  if(!rec||!Array.isArray(rec.marks))return null;   // saisie antérieure aux marqueurs : sans info
+  /* Une inspection où AUCUN marqueur n'est coché est une information : rien n'était encore
+     visible, donc la plante était au premier stade. Elle sert de BORNE BASSE pour dater la
+     transition — mais jamais à faire régresser la phase courante, qui exige une preuve
+     positive (voir observedStage). */
+  if(!rec.marks.length)return 0;
+  const M=markersFor(p);let best=null;
+  M.forEach((m,idx)=>{if(rec.marks.indexOf(String(idx))>=0)best=(best==null?m.st:Math.max(best,m.st));});
+  return best==null?0:Math.min(best,p.stages.length-1);
+}
+/* ===== DÉBUT DE PHASE DÉDUIT =====
+   Le temps déjà passé dans la phase ne se saisit pas davantage que la phase elle-même.
+   On ENCADRE la transition avec l'historique d'inspections : la dernière observation
+   montrant un stade antérieur donne la borne basse, la première montrant le stade courant
+   donne la borne haute, et on retient le milieu. Si une seule borne existe, on la croise
+   avec le calendrier. Sans aucune observation, le calendrier fait foi — et c'est annoncé. */
+function phaseStart(p){
+  const st=curStage(p);
+  const mdl=(autoPhase(p)||{}).since;
+  const mdlDate=mdl?new Date(mdl):null;
+  const hist=state.inspLog.filter(x=>x.plant===p.id&&x.date)
+    .slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  let lower=null,upper=null;
+  hist.forEach(r=>{
+    const sr=stageOfRecord(p,r);if(sr==null)return;
+    if(sr<st)lower=r.date;                       // encore avant : borne basse
+    else if(sr>=st&&upper===null)upper=r.date;   // déjà au stade : borne haute
+  });
+  if(lower&&upper&&upper<=lower)upper=null;      // incohérence de dates : on ignore la borne
+  if(lower&&upper){
+    const a=new Date(lower+'T00:00').getTime(),b=new Date(upper+'T00:00').getTime();
+    return{date:new Date((a+b)/2),src:'encadrée par deux inspections',precise:true,
+      txt:`transition située entre le ${frDate(lower)} et le ${frDate(upper)}`};
+  }
+  if(upper){
+    const u=new Date(upper+'T00:00');
+    if(mdlDate&&mdlDate<u)return{date:mdlDate,src:'calendrier, confirmé par observation',precise:false,
+      txt:`déjà à ce stade le ${frDate(upper)} — début estimé au calendrier`};
+    return{date:u,src:'première observation à ce stade',precise:false,
+      txt:`constaté à ce stade le ${frDate(upper)}, sans observation antérieure`};
+  }
+  if(lower){
+    const l=new Date(lower+'T00:00');
+    const cand=(mdlDate&&mdlDate>l)?mdlDate:l;
+    return{date:cand,src:'postérieur à la dernière observation',precise:false,
+      txt:`encore au stade précédent le ${frDate(lower)}`};
+  }
+  return mdlDate?{date:mdlDate,src:'calendrier',precise:false,
+    txt:"aucune inspection : estimation d'après la date de semis"}:null;
+}
+function daysInPhase(p){const s=phaseStart(p);
+  return s?Math.max(0,Math.floor((Date.now()-s.date.getTime())/864e5)):null;}
 /* ce que le jardinier DEVRAIT voir au stade prévu par le calendrier */
 function expectedMarker(p){
   const st=modelStage(p),M=markersFor(p);
@@ -1426,9 +1479,13 @@ function stateComparison(p){
   const gr=growthRate(p);
   return{
     expected:{stage:mdl,name:p.stages[mdl],marker:expectedMarker(p),
-      days:(autoPhase(p)||{}).days||null},
+      days:(autoPhase(p)||{}).days||null,
+      inPhase:(()=>{const d=p.dur;if(!d||!d.length)return null;
+        const el=(autoPhase(p)||{}).days;if(el==null)return null;
+        let acc=0;for(let k=0;k<mdl;k++)acc+=d[k];return Math.max(0,el-acc);})()},
     actual:{stage:obs,name:obs==null?null:p.stages[obs],
-      h:i?i.h:null,date:i?i.date:null,growth:gr},
+      h:i?i.h:null,date:i?i.date:null,growth:gr,
+      inPhase:daysInPhase(p),since:phaseStart(p)},
     gap:obs==null?null:obs-mdl,
     source:obs==null?'calendrier':'observation'};
 }
@@ -2463,7 +2520,13 @@ function renderWeather(){
   const D=[];
   if(w.tmax>=28)D.push(['hot','🔥',`Chaleur (${w.tmax}°). Arrose tôt le matin, pas en plein midi. Évite la fertilisation aux heures chaudes.`]);
   if(w.rainProb>=55||w.rainToday>=4)D.push(['rain','🌧️',`Pluie probable (${w.rainProb}%). Reporte l'engrais — il serait lessivé. Pas besoin d'arroser.`]);
-  if(w.tmin<=12||w.tmin2<=12)D.push(['cold','❄️',`Nuit fraîche (min ${Math.min(w.tmin,w.tmin2)}°). Melon, pastèque, ananas n'aiment pas ; rentre les citronniers si <10°.`]);
+  if(w.tmin<=12||w.tmin2<=12){
+    const mm=new Date().getMonth()+1,mnn=Math.min(w.tmin,w.tmin2);
+    // la consigne de rentrer les pots gélifs n'apparaît qu'en fin de saison : en juillet,
+    // une nuit à 12 °C ne concerne que les cultures thermophiles encore en croissance
+    D.push(['cold','❄️',mm>=9
+      ? `Nuit fraîche (min ${mnn}°). Fin de saison : rentre les pots gélifs (citron sous 10°, ananas sous 12°) et protège ce qui est encore en production.`
+      : `Nuit fraîche (min ${mnn}°). Melon, pastèque et ananas ralentissent sous 15° : paillis sombre et coin le plus chaud. Rien à rentrer à cette période.`]);}
   const si=soilTempInfo();
   if(si&&si.lvl!=='bon'&&season()!=='repos')D.push(['cold','🌡️',`Sol à ${si.t} °C (6 cm). ${si.txt}`]);
   if(w.wind!=null&&w.wind>=20)D.push(['warn','💨',`Vent ${w.wind} km/h. Pas de pulvérisation foliaire (dérive et séchage trop rapide) ; vérifie les tuteurs.`]);
@@ -2573,10 +2636,39 @@ function careTimingKind(p,ph){
 }
 /* lien cliquable d'un nom de plante dans le Programme → ouvre sa fiche */
 function plantLink(p){return `<span class="plink" role="button" tabindex="0" onclick="event.stopPropagation();focusPlant('${p.id}')">${p.name}</span>`;}
+/* ===== TRAÇABILITÉ DES CONSEILS =====
+   Un conseil doit pouvoir être clos. Chaque tâche porte une CLÉ qui décrit son instance,
+   pas seulement son type : la clé d'une alerte gel contient la date du gel annoncé, celle
+   d'un risque de maladie contient la semaine et le niveau. Marquer « fait » clôt donc CETTE
+   occurrence — et une nouvelle situation régénère naturellement une nouvelle clé, donc une
+   nouvelle tâche. Rien ne se perd, rien ne revient à tort. */
+function taskKey(parts){return parts.filter(Boolean).join('|').replace(/[^\w|:.-]+/g,'_').slice(0,120);}
+function taskClosed(k){return !!(k&&state.tasksDone[k]);}
+function closeTask(k,label){
+  state.tasksDone[k]={at:new Date().toISOString(),label:label||''};
+  save();renderToday();toast('Noté comme fait.');
+}
+function reopenTask(k){delete state.tasksDone[k];save();renderToday();renderTaskArchive();toast('Rétabli.');}
+function isoWeek(){const d=new Date();const t=new Date(d.getFullYear(),0,1);
+  return d.getFullYear()+'w'+Math.ceil(((d-t)/864e5+t.getDay()+1)/7);}
+function renderTaskArchive(){
+  const el=document.getElementById('taskArchive');if(!el)return;
+  const ks=Object.keys(state.tasksDone||{});
+  if(!ks.length){el.innerHTML='';return;}
+  const recent=ks.map(k=>({k,...state.tasksDone[k]}))
+    .sort((a,b)=>a.at<b.at?1:-1).slice(0,25);
+  el.innerHTML=`<details class="fgrp"><summary>✔️ Conseils clos <span class="fg-n">${ks.length}</span></summary>
+    <div class="fgrp-b"><p class="note" style="margin:0 0 8px">Ces conseils ne réapparaîtront pas pour cette occurrence. Une nouvelle situation (autre gel annoncé, autre semaine à risque) en produira une nouvelle.</p>
+    ${recent.map(r=>`<div class="log-row"><span class="lg-d mono">${new Date(r.at).toLocaleDateString('fr-CA',{day:'2-digit',month:'2-digit'})}</span>
+      <span style="flex:1">${r.label||r.k}</span>
+      <button class="btn ghost sm" style="padding:2px 8px" onclick="reopenTask('${r.k.replace(/'/g,"\\'")}')">↩︎</button></div>`).join('')}
+    </div></details>`;
+}
 function renderToday(){
   const w=state.wx,rainSoon=w&&(w.rainProb>=55||w.rainToday>=4),hot=w&&w.tmax>=28;
   const G={Urgent:[],Arrosage:[],Fertilisation:[],'Soins & phases':[],Inspection:[]};
-  const add=(g,c,ic,t,d,pid)=>G[g].push([c,ic,t,d,pid]); // pid = plante liée (rend la ligne cliquable)
+  /* key : identifie l'OCCURRENCE du conseil. Si elle est close, la tâche n'est pas émise. */
+  const add=(g,c,ic,t,d,pid,key)=>{if(key&&taskClosed(key))return;G[g].push([c,ic,t,d,pid,key,t]);};
   // ===== URGENT : gel annoncé (prévision réelle, pas la date moyenne) =====
   const fa=frostAlert();
   if(fa){
@@ -2585,7 +2677,8 @@ function renderToday(){
     add('Urgent','prio',fa.hard?'🧊':'❄️',
       `${fa.hard?'GEL':'Risque de gel'} ${quand} — ${fa.tmin} °C annoncé`,
       `${fa.hard?'Gel annoncé' : 'Minimale à '+fa.tmin+' °C : au ras du sol il peut geler alors que la station annonce 2 °C (elle mesure à 1,5 m de haut).'} `
-      +`À faire aujourd'hui : récolter tout ce qui est mûr ; couvrir les cultures encore en production (voile, drap, carton — pas de plastique en contact avec le feuillage) ; rentrer les pots gélifs${tender.length?' ('+tender.map(p=>p.name).join(', ')+')':''} ; arroser le sol en fin de journée, un sol humide restitue de la chaleur la nuit.`);
+      +`À faire aujourd'hui : récolter tout ce qui est mûr ; couvrir les cultures encore en production (voile, drap, carton — pas de plastique en contact avec le feuillage) ; rentrer les pots gélifs${tender.length?' ('+tender.map(p=>p.name).join(', ')+')':''} ; arroser le sol en fin de journée, un sol humide restitue de la chaleur la nuit.`,
+      null,taskKey(['gel',new Date(fa.day).toISOString().slice(0,10)]));
   }
   // ===== URGENT : risque de maladie foliaire (indice, pour agir en préventif) =====
   const dr=diseaseRisk();
@@ -2596,11 +2689,13 @@ function renderToday(){
       +(dr.exposed&&dr.exposed.length
         ? `<b>Sol nu chez : ${dr.exposed.join(', ')}</b> — c'est là que le risque est le plus élevé : les gouttes rebondissent sur la terre et projettent les spores sur les feuilles basses. Un paillis de 5–7 cm fait barrière (paille, feuilles déchiquetées, papier ou film).`
         : `Tes cultures sensibles sont toutes couvertes (paillis, géotextile ou film) : la barrière aux éclaboussures joue déjà, le risque est abaissé d'autant.`)
-      +` Une fois les taches installées, il est trop tard. Indice indicatif, pas un modèle validé.`);
+      +` Une fois les taches installées, il est trop tard. Indice indicatif, pas un modèle validé.`,
+      null,taskKey(['mildiou',isoWeek(),dr.mildew]));
   }
   if(dr&&dr.powdery==='élevé'){
     add('Urgent','','⚪',"Risque d'oïdium élevé",
-      "Nuits humides et journées chaudes et sèches : conditions typiques de l'oïdium sur cucurbitacées. Aère les plants, évite l'excès d'azote (feuillage tendre = plus sensible), arrose au pied.");
+      "Nuits humides et journées chaudes et sèches : conditions typiques de l'oïdium sur cucurbitacées. Aère les plants, évite l'excès d'azote (feuillage tendre = plus sensible), arrose au pied.",
+      null,taskKey(['oidium',isoWeek()]));
   }
   overwinterTasks(add);   // rentrer / ressortir les plantes en pot
   // ARROSAGE — proposé au MOMENT OPPORTUN de la journée (heure + chaleur du jour)
@@ -2633,7 +2728,8 @@ function renderToday(){
   // apports calcium / magnésium planifiés (et non plus une note de bas de page)
   activePlants().forEach(p=>{const c=camgDue(p);if(!c||!c.due)return;
     add('Fertilisation','','🦴',`Ca/Mg mensuel : ${p.name}`,
-      `${c.txt} À appliquer en arrosage SÉPARÉ (le calcium précipite avec le phosphate du MAP/MKP). ${c.days!=null?`Dernier apport il y a ${c.days} j.`:'Jamais appliqué.'}`,p.id);});
+      `${c.txt} À appliquer en arrosage SÉPARÉ (le calcium précipite avec le phosphate du MAP/MKP). ${c.days!=null?`Dernier apport il y a ${c.days} j.`:'Jamais appliqué.'}`,p.id,
+      taskKey(['camg',p.id,new Date().toISOString().slice(0,7)]));});
   if(resDue.length)add('Arrosage','prio','🪣',`Réservoir à vérifier : ${resDue.map(p=>plantLink(p)+' ('+reservoirL(p)+' L)').join(', ')}`,"Pots à réserve d'eau : remplis le réservoir s'il est vide, en versant dans le tube de remplissage — pas sur les feuilles ni sur les copeaux (la mèche garde le sol humide). À faire à tout moment — pas de contrainte d'heure. Valide « ✓ Arrosé » après remplissage.",resDue.length===1?resDue[0].id:null);
   // FERTILISATION
   const ft=rainSoon?null:actionTiming('feed');
@@ -2646,38 +2742,44 @@ function renderToday(){
       else add('Fertilisation',ft.good?'feed':'',ft.ic,`${ft.good?'Nourrir':'À fertiliser ('+ft.short+') :'} ${p.name}`,`Phase « ${ph} » → apport « ${r.name} » (jamais fertilisé depuis ${isFinite(d)?d+' jours':'le début'}). ${ft.advice} Voir le doseur.`,p.id);
     }});
   const resowNow=activePlants().filter(p=>{const r=RESOW[p.id];if(!r||r.kind!=='frais')return false;const s=nextSow(p);return s&&s.now;});
-  if(resowNow.length)add('Fertilisation','feed','🌱',`Ressemer possible : ${resowNow.map(plantLink).join(', ')}`,"Il reste assez de temps avant le gel pour une récolte d'automne — détails dans l'onglet Semis.",resowNow.length===1?resowNow[0].id:null);
+  if(resowNow.length)add('Fertilisation','feed','🌱',`Ressemer possible : ${resowNow.map(plantLink).join(', ')}`,"Il reste assez de temps avant le gel pour une récolte d'automne — détails dans l'onglet Semis.",resowNow.length===1?resowNow[0].id:null,
+    taskKey(['ressemis',isoWeek()]));
   // SOINS & PHASES — dérivés de la PHASE de chaque plante (seulement les phases « action »)
   const ACTION=new Set(['Boutons','Floraison','Fruits','Récolte','Récolte continue','Maturation','Bulbaison','Soies','Épis','Grossissement']);
   activePlants().forEach(p=>{const ph=p.stages[curStage(p)],info=phaseInfo(p);
     if(!(ACTION.has(ph)&&info.care&&info.care.length))return;
+    if(cycleOver(p))return;                       // cycle terminé : plus de soins de phase
+    if(observedStage(p)==null&&daysInPhase(p)!=null&&daysInPhase(p)<0)return;
     const kind=careTimingKind(p,ph);
-    if(kind){const t=actionTiming(kind);add('Soins & phases',t.good?'prio':'',t.ic,`${p.name} · ${ph} — ${t.verb}`,`${info.care[0]} ${t.advice}`,p.id);}
-    else add('Soins & phases','','🌿',`${p.name} · ${ph}`,info.care[0],p.id);});
+    const k=taskKey(['soin',p.id,ph,isoWeek()]);
+    if(kind){const t=actionTiming(kind);add('Soins & phases',t.good?'prio':'',t.ic,`${p.name} · ${ph} — ${t.verb}`,`${info.care[0]} ${t.advice}`,p.id,k);}
+    else add('Soins & phases','','🌿',`${p.name} · ${ph}`,info.care[0],p.id,k);});
   // INSPECTION — problèmes actifs issus des inspections saisies, puis rappel de tournée
   activePlants().forEach(p=>{
     const d=dg(p); if(d.none||!d.findings.length)return;
     const worst=d.findings[0]; if(worst.sev<2)return; // le bénin ne remonte pas au Programme
     const others=d.findings.filter(f=>f.sev>=2).length-1;
     add('Inspection',worst.sev>=3?'prio':'',worst.sev>=3?'🚨':'⚠️',`${p.name} — ${worst.cause}`,
-      `${worst.fix[0]||''} ${others>0?`(+ ${others} autre${others>1?'s':''} point${others>1?'s':''} identifié${others>1?'s':''})`:''} Diagnostic complet et sources dans l'onglet Inspection.`,p.id);});
+      `${worst.fix[0]||''} ${others>0?`(+ ${others} autre${others>1?'s':''} point${others>1?'s':''} identifié${others>1?'s':''})`:''} Diagnostic complet et sources dans l'onglet Inspection.`,p.id,
+      taskKey(['diag',p.id,worst.id,(lastInsp(p)||{}).ts||'']));});
   // relance : une inspection vieillit, surtout quand le programme s'appuie dessus
   activePlants().forEach(p=>{const i=lastInsp(p);if(!i||!i.date)return;
     const age=daysSince(i.date+'T00:00');
-    if(age>=14)add('Inspection','','🔁',`Réinspecter ${p.name}`,`Dernière inspection il y a ${age} j. Le programme de cette plante est calé sur cette observation : une saisie fraîche le remet à jour.`,p.id);});
+    if(age>=14)add('Inspection','','🔁',`Réinspecter ${p.name}`,`Dernière inspection il y a ${age} j. Le programme de cette plante est calé sur cette observation : une saisie fraîche le remet à jour.`,p.id,
+      taskKey(['reinsp',p.id,i.date]));});
   // cycles terminés : on arrête d'entretenir et on propose de clôturer
   activePlants().filter(cycleOver).forEach(p=>{
     const h=state.harvest.some(x=>x.plant===p.id&&x.date.startsWith(String(new Date().getFullYear())));
     add('Soins & phases','','🏁',`${p.name} — cycle terminé`,
-      `Le cycle complet de cette culture est dépassé : arrosage et fertilisation sont arrêtés automatiquement. ${h?'Récolte déjà notée. ':'Pense à noter ta récolte dans le Journal — c\'est ce qui rendra le plan de l\'an prochain factuel. '}Tu peux ensuite la retirer du jardin depuis sa fiche.`,p.id);});
+      `Le cycle complet de cette culture est dépassé : arrosage et fertilisation sont arrêtés automatiquement. ${h?'Récolte déjà notée. ':'Pense à noter ta récolte dans le Journal — c\'est ce qui rendra le plan de l\'an prochain factuel. '}Tu peux ensuite la retirer du jardin depuis sa fiche.`,p.id,taskKey(['cycle',p.id,new Date().getFullYear()]));});
   if(season()==='culture')add('Inspection','','🔎',"Tour d'inspection",'Passe en revue la section « À vérifier · solutions » plus bas : pour chaque plante, les éléments à contrôler et quoi faire. Une anomalie ? Saisis-la dans l\'onglet Inspection : l\'app en cherche la cause et recale le programme.');
 
   const ICON={Urgent:'🚨',Arrosage:'💧',Fertilisation:'⚗️','Soins & phases':'🌿',Inspection:'🔎'};
   const order=['Urgent','Arrosage','Fertilisation','Soins & phases','Inspection'];
-  const blocks=order.filter(g=>G[g].length).map(g=>progBlock(g.replace(/[^a-zA-Z]/g,''),ICON[g],g,G[g].map(([c,ic,t,d,pid])=>`<div class="task ${c}${pid?' clickable':''}"${pid?` role="button" tabindex="0" onclick="focusPlant('${pid}')"`:''}><div class="tk-ic">${ic}</div><div class="tk-body"><div class="tk-t">${t}</div><div class="tk-d">${d}</div></div>${pid?'<i class="bi bi-chevron-right tk-chev"></i>':''}</div>`).join(''),G[g].length)).join('');
+  const blocks=order.filter(g=>G[g].length).map(g=>progBlock(g.replace(/[^a-zA-Z]/g,''),ICON[g],g,G[g].map(([c,ic,t,d,pid,key,lab])=>`<div class="task ${c}${pid?' clickable':''}"${pid?` role="button" tabindex="0" onclick="focusPlant('${pid}')"`:''}><div class="tk-ic">${ic}</div><div class="tk-body"><div class="tk-t">${t}</div><div class="tk-d">${d}</div>${key?`<button class="btn ghost sm" style="margin-top:8px" onclick="event.stopPropagation();closeTask('${key.replace(/'/g,"\\'")}','${String(lab).replace(/'/g,"\\'").replace(/<[^>]+>/g,'')}')">✓ C'est fait</button>`:''}</div>${pid?'<i class="bi bi-chevron-right tk-chev"></i>':''}</div>`).join(''),G[g].length)).join('');
   document.getElementById('todayList').innerHTML=blocks||'<div class="card"><div class="empty">Rien d\'urgent. Profite du jardin.</div></div>';
   document.getElementById('dateLabel').textContent=new Date().toLocaleDateString('fr-CA',{day:'numeric',month:'long'});
-  renderChecks();
+  renderChecks();renderTaskArchive();
 }
 /* bloc repliable du Programme (réutilise le style des catégories de l'onglet Plantes) */
 function progBlock(key,icon,label,inner,count){
@@ -2754,6 +2856,7 @@ function setView(v){
   document.getElementById('segPlan').classList.toggle('on',v==='plan');
   document.getElementById('todayList').style.display=v==='today'?'':'none';
   document.getElementById('checkCard').style.display=v==='today'?'':'none';
+  {const ta=document.getElementById('taskArchive');if(ta)ta.style.display=v==='today'?'':'none';}
   document.getElementById('planList').style.display=v==='plan'?'':'none';
   document.getElementById('todayNote').textContent = v==='plan'
     ? "Plan calculé sur les prévisions réelles ; il se réajuste à chaque ouverture. Les apports d'engrais sont automatiquement décalés hors des jours de pluie."
@@ -2832,6 +2935,9 @@ function stateBlock(p){
       ? `${C.actual.name}<br><span class="note" style="font-weight:400">le ${frDate(C.actual.date)}</span>`
       : '<span style="color:var(--ink-soft);font-weight:400">aucune observation — le calendrier fait foi</span>'}</span></div>
     ${gapTxt?`<div class="diff"><span class="d-k">Écart</span><span class="d-v">${gapTxt}</span></div>`:''}
+    <div class="diff"><span class="d-k">Dans cette phase depuis</span><span class="d-v">${C.actual.inPhase!=null?`${C.actual.inPhase} j`:'—'}
+      ${C.expected.inPhase!=null?`<br><span class="note" style="font-weight:400">calendrier : ${C.expected.inPhase} j</span>`:''}
+      ${C.actual.since?`<br><span class="note" style="font-weight:400">${C.actual.since.txt}</span>`:''}</span></div>
     ${C.actual.h?`<div class="diff"><span class="d-k">${archOf(p).hLab.replace(' (cm)','')}</span><span class="d-v">${C.actual.h} cm${gr?` <span class="note" style="font-weight:400">(${gr.perWeek>=0?'+':''}${gr.perWeek} cm/sem.)</span>`:''}</span></div>`:''}
     <p class="note" style="margin:8px 0 0">${C.expected.marker
       ? `À ce stade, tu devrais voir : <b>${C.expected.marker.toLowerCase()}</b>.`:''}
@@ -2866,7 +2972,8 @@ function plantBody(p){
       : `Dernière phase « <b style="color:var(--leaf-d)">${p.stages[ci]}</b> » : dure ≈ <b style="color:var(--leaf-d)">${fmtDur(phaseDur)}</b>`;
     const sinceTxt = peren
       ? `<b style="color:var(--amber)">estimation indicative</b> (vivace, années avant fruit)`
-      : `≈ ${elapsed} j dans cette phase · calculé depuis ta mise en terre (~${frDate(p.sowDate)})`;
+      : (()=>{const ps=phaseStart(p);
+          return `≈ <b>${elapsed} j</b> dans cette phase — ${ps?ps.txt:'estimation'}. Semis ~${frDate(p.sowDate)}`;})();
     durBlock=`<div class="pact"><h4>⏱️ Temps par phase</h4>
       <div class="note" style="margin-bottom:7px">${head}.<br>${sinceTxt}. Cycle complet ≈ <b style="color:var(--ink)">${fmtDur(total)}</b>${peren?' <b style="color:var(--amber)">(vivace — indicatif)</b>':''}</div>
       <table class="sdur"><thead><tr><th>Phase</th><th class="sd-r">temps avant la suivante</th></tr></thead><tbody>${rows}</tbody></table>
@@ -2891,7 +2998,8 @@ function plantBody(p){
         <div class="r-note">${r.note}</div></div>`}${feedFreqLine(p,noF)}${noF?'':feedVolLine(p)}${noF?'':nBudgetLine(p)}${camgLine(p)}</div>
     ${checksBlock}
     <div class="pact"><h4>👁️ À surveiller</h4><ul>${(info.watch||[]).map(x=>`<li>${x}</li>`).join('')}</ul></div>
-    <div class="pact"><h4>🛠️ Entretien · ${phName}</h4><ul>${(info.care||[]).map(x=>`<li>${x}</li>`).join('')}</ul></div>
+    <div class="pact"><h4>🛠️ Entretien · ${phName}</h4><ul>${(info.care||[]).map(x=>`<li>${x}</li>`).join('')}</ul>
+      ${(p.structural&&p.structural.length)?`<p class="note" style="margin:7px 0 0"><b>Repères permanents</b> (pas des tâches du jour) : ${p.structural.join(' · ')}</p>`:''}</div>
     ${p.flag?`<div class="flag ${p.flag.type}">${p.flag.txt}${p.flag.type==='iron'?(()=>{const t=actionTiming('foliar');return `<br><span class="note" style="display:block;margin-top:7px">🕑 Si pulvérisation foliaire (fer chélaté) : ${t.good?`<b style="color:var(--leaf-d)">c'est le bon moment (${t.short})</b>`:`<b style="color:var(--amber)">${t.short}</b>`} — stomates ouverts tôt le matin (&lt;9 h 30) ou en soirée (&gt;18 h 30), jamais en plein soleil.`})():''}</div>`:''}
     ${(()=>{const b=bedOf(p),f=b?phFitFor(p,b.ph):null;const fam=famOf(p);
       const C=mediumOf(p),V=coverOf(p),W=wateringOf(p);
@@ -3072,7 +3180,7 @@ function exportData(){
     insp:state.insp,inspLog:state.inspLog,removed:state.removed,
     species:state.species,plantings:state.plantings,
     beds:state.beds,plantBed:state.plantBed,harvest:state.harvest,
-    amend:state.amend,nlog:state.nlog,camg:state.camg,indoor:state.indoor,closed:state.closed,bedFold:state.bedFold,seasonPane:state.seasonPane};
+    amend:state.amend,nlog:state.nlog,camg:state.camg,tasksDone:state.tasksDone,indoor:state.indoor,closed:state.closed,bedFold:state.bedFold,seasonPane:state.seasonPane};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='jardin-sauvegarde-'+new Date().toISOString().slice(0,10)+'.json';
@@ -3104,6 +3212,7 @@ function importData(ev){
     if(d.amend&&typeof d.amend==='object')state.amend=d.amend;
     if(d.nlog&&typeof d.nlog==='object')state.nlog=d.nlog;
     if(d.camg&&typeof d.camg==='object')state.camg=d.camg;
+    if(d.tasksDone&&typeof d.tasksDone==='object')state.tasksDone=d.tasksDone;
     migrateModel();rebuildPlants();
     if(d.bedFold&&typeof d.bedFold==='object')state.bedFold=d.bedFold;
     if(d.closed&&typeof d.closed==='object')state.closed=d.closed;
@@ -3446,19 +3555,26 @@ function minAhead(n){
 /* nuit la plus froide passée derrière nous ? approximation : moyenne des minimales à venir */
 function overwinterTasks(add){
   const mn=minAhead(5);if(mn==null)return;
-  const m=new Date().getMonth()+1;
+  const m=new Date().getMonth()+1,fa=frostAlert();
   activePlants().forEach(p=>{
-    const th=indoorMin(p);if(th==null||!p.selfWater&&!p.peren&&!p.tender)return;
+    const th=indoorMin(p);if(th==null)return;
     if(!p.peren&&!p.tender)return;
-    if(!isIndoor(p)&&mn<=th+2&&m>=8){
+    /* Fenêtre de pertinence : on ne propose de rentrer qu'à partir de septembre, quand les
+       nuits fraîches s'installent — ou plus tôt SI un gel est réellement annoncé. Une nuit
+       isolée à 12 °C en juillet ou en août n'est pas un motif : la plante profite du dehors,
+       et la rentrer trop tôt lui coûte de la lumière. Le seuil est la température de la
+       plante, sans marge, pour ne pas déclencher sur un simple coup de fraîcheur. */
+    if(!isIndoor(p)&&(m>=9||fa)&&(mn<=th||fa)){
       add('Urgent','prio','🏠',`Rentrer ${p.name} à l'abri`,
-        `Minimale de ${mn} °C annoncée dans les 5 jours ; cette plante souffre en dessous de ${th} °C. Rentre-la avant la nuit froide, dans la pièce la plus lumineuse. Réduis ensuite l'arrosage : en intérieur et en lumière faible, elle consomme beaucoup moins. `
-        +`<button class="btn ghost sm" style="margin-top:7px" onclick="event.stopPropagation();setIndoor('${p.id}',true)">✓ Rentrée</button>`,null);
+        `${fa?`Gel annoncé (${fa.tmin} °C)`:`Minimale de ${mn} °C annoncée dans les 5 jours`} ; cette plante souffre en dessous de ${th} °C. Rentre-la avant la nuit froide, dans la pièce la plus lumineuse. Réduis ensuite l'arrosage : en intérieur et en lumière faible, elle consomme beaucoup moins. `
+        +`<button class="btn ghost sm" style="margin-top:7px" onclick="event.stopPropagation();setIndoor('${p.id}',true)">✓ Rentrée</button>`,null,
+        taskKey(['rentrer',p.id,new Date().getFullYear()]));
     }
     if(isIndoor(p)&&mn>=th+4&&m>=5&&m<=7){
       add('Soins & phases','','🌤️',`Ressortir ${p.name} progressivement`,
         `Les nuits ne descendent plus sous ${th} °C (minimale annoncée ${mn} °C). Sors-la par étapes sur 7 à 10 jours : d'abord à l'ombre quelques heures, puis de plus en plus longtemps et de plus en plus au soleil. Un passage direct au plein soleil brûle le feuillage formé à l'intérieur. `
-        +`<button class="btn ghost sm" style="margin-top:7px" onclick="event.stopPropagation();setIndoor('${p.id}',false)">✓ Ressortie</button>`,null);
+        +`<button class="btn ghost sm" style="margin-top:7px" onclick="event.stopPropagation();setIndoor('${p.id}',false)">✓ Ressortie</button>`,null,
+        taskKey(['sortir',p.id,new Date().getFullYear()]));
     }
   });
 }
