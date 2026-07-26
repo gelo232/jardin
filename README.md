@@ -28,6 +28,13 @@ Ouvrir l'URL dans Chrome → menu ⋮ → **Ajouter à l'écran d'accueil**.
 
 Météo : API open-meteo (sans clé). Données utilisateur : `localStorage`.
 
+## Modèle
+Une **espèce** porte l'agronomie (stades, durées, recettes, pH visé, famille) ; une
+**plantation** porte la mise en terre (parcelle, date, effectif, surface, volume
+d'arrosage). Une même culture peut donc être plantée dans plusieurs parcelles. Les
+plantations s'ajoutent, se modifient, se dupliquent et se suppriment depuis l'app —
+la date de mise en terre incluse, qui pilote tout le calcul des phases.
+
 L'onglet **Saison** regroupe les semis, le **sol** (température du sol, pH par parcelle avec
 diagnostic et correctifs, calendrier d'amendements) et la **rotation** des familles
 botaniques. Le Programme intègre les alertes de gel calculées sur les prévisions réelles,

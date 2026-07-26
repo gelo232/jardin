@@ -107,6 +107,53 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
   mais `byId()` continue de le résoudre et son journal + ses inspections sont conservés
   (restauration depuis l'onglet Inspection).
 
+## 4-0. MODÈLE DE DONNÉES (⚠️ lire en premier)
+
+L'app n'a plus de plantes codées en dur. Deux concepts distincts :
+
+- **ESPÈCE** (`state.species[id]`) — l'agronomie, une seule fois : `stages`, `dur`,
+  `phases`, `waterEvery`, `feedDays`, `recipe`, `arch`, `fam`, `phOpt`, `nTarget`,
+  `resow`, `pollen`, `camg`, `dtm`, `sun`, `tender`, `ornamental`, `peren`.
+- **PLANTATION** (`state.plantings[]`) — une mise en terre : `species`, `label`, `bed`,
+  `sowDate`, `origin`, `count`, `area`, `volL`, `selfWater`, plus les textes propres à
+  l'emplacement (`water`, `watch`, `structural`, `checks`, `flag`).
+  **Une même culture peut avoir plusieurs plantations dans plusieurs parcelles.**
+
+`resolvePlanting(pl)` fusionne les deux en un objet « plante » de la forme attendue par
+tout le reste ; `rebuildPlants()` reconstruit `PLANTS` (variable, plus une constante).
+**Ne plus jamais lire `STAGE_DUR[p.id]`, `PH[p.id]`, `WATER_EVERY[p.id]`, `PLANT_FAM`,
+`PLANT_ARCH`, `PH_OPT`, `N_TARGET`, `RESOW`, `POLLEN`, `CAMG`, `SOW_DATE`, `PEREN`** :
+ces tables ne servent qu'à `buildSeedSpecies()` au premier lancement. Utiliser `p.dur`,
+`p.phases`, `p.waterEvery`, `p.fam`, `p.arch`, `p.phOpt`, `p.nTarget`, `p.resow`,
+`p.pollen`, `p.camg`, `p.sowDate`, `p.peren`.
+
+**Migration sans perte** : `migrateModel()` conserve les identifiants d'origine
+(`mais_ombre`, `tomate_bac`…), car journal, inspections, budget azote, Ca/Mg, corbeille
+et rattachement aux parcelles sont indexés dessus. `SEED_PLANTINGS` (ex-`PLANTS`) n'est
+plus lu après la migration.
+
+**CRUD** : `openPlantForm` / `savePlanting` / `duplicatePlanting` / `deletePlanting`.
+La date de mise en terre est modifiable — c'est elle qui pilote tout le moteur de phase.
+
+## 4quinquies. Volumes, saison, hivernage
+
+- **Dose réelle** : `appliedLiters(p)` = demi-réservoir pour un pot à réserve, sinon
+  `volL` de la plantation, sinon l'arrosoir. `nGramsPerFeed()` en dérive — le compteur
+  supposait auparavant un arrosoir plein partout (facteur 6 d'erreur sur agrume).
+- **Cible azote** : `nTargetOf(p)` met la fourchette à l'échelle de `planting.area`
+  (bornée 0,3–6 m², on ajuste sans extrapoler).
+- **Surface de parcelle** (`bed.area`) : convertit le déficit ET₀ en litres par parcelle.
+- **Clôture de saison** : `archiveSeason()` verse les familles cultivées à
+  `bed.history` — c'est ce qui fait vivre l'alerte de rotation d'une année sur l'autre.
+  `seasonSummary()` dresse le bilan (récoltes, azote vs cible, apports, inspections).
+- **Hiérarchie des conseils** : quand un diagnostic de sévérité ≥ 2 est actif, les
+  `checks` génériques passent en `<details>` replié avec la mention « le diagnostic fait
+  foi », et la plante est retirée de la carte « À vérifier » du Programme. Les deux
+  systèmes ne peuvent plus se contredire à l'écran.
+- **Hivernage** : `INDOOR_MIN` par espèce, `state.indoor[id]`, `overwinterTasks()` —
+  rentrer à l'approche du seuil (dès août), ressortir progressivement au printemps.
+  Une plante rentrée sort de `plantsAtRisk()` et n'alimente plus l'alerte gel.
+
 ## 4quater. Invariants métier (⚠️ à ne pas casser)
 
 - **Fin de cycle** : `cycleOver(p)` = annuelle dont le modèle a dépassé la durée totale
@@ -234,7 +281,7 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v22`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v23`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.
