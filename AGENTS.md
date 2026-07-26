@@ -107,6 +107,27 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
   mais `byId()` continue de le résoudre et son journal + ses inspections sont conservés
   (restauration depuis l'onglet Inspection).
 
+## 4quater. Invariants métier (⚠️ à ne pas casser)
+
+- **Fin de cycle** : `cycleOver(p)` = annuelle dont le modèle a dépassé la durée totale
+  (+21 j de marge) ET qui est au dernier stade. Une inspation la situant plus tôt fait foi.
+  Effets : `waterEvery()` → null, `curRecipe()` → aucun, `camgDue()` → null, tâche
+  « cycle terminé » au Programme. Sans cela une tomate restait « en récolte » en janvier.
+- **Un diagnostic ne crée jamais un apport** : `curRecipe()` refuse tout override de recette
+  quand le régime de base est `isNoFeed` ou que la plante est `ornamental`. Le choc de
+  transplantation prescrivait sinon de l'engrais au buis — le geste que sa propre source
+  interdit.
+- **Ancrage de phase** : `stageSince()` ne re-date la phase que si le stade observé
+  **diffère** du modèle. Confirmer le calendrier ne doit pas remettre le compteur à zéro.
+- **Azote** : `undoLast()` retranche `log.n` (valeur enregistrée), jamais une valeur
+  recalculée — une inspection peut avoir changé la recette entre-temps.
+- **Alertes météo cadrées** : `frostAlert()` exige avril–novembre ET `plantsAtRisk()`
+  non vide ; `diseaseRisk()` exige au moins une culture sensible en végétation.
+- **Une seule notion de gel** : `frostInfo()` — la prévision réelle prime sur la moyenne du
+  7 oct ; `past:true` après le gel moyen. `daysToFrost()` en dérive.
+- **Champs météo** : tester `== null`, jamais la falsy (`et0` ou `rhMax` peuvent valoir 0).
+- **Aucun `prompt()`** : toute saisie passe par un formulaire en ligne.
+
 ## 4ter. Sol, nutrition saisonnière et météo dérivée
 
 - **Parcelles** (`state.beds`) : `{id,name,ph,phDate,om,history[]}` ; rattachement
@@ -213,7 +234,7 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v21`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v22`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.

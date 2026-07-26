@@ -233,6 +233,7 @@
   .log-row .lg-d{color:var(--ink-soft);font-size:12px;white-space:nowrap}
   .chip{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:20px}
   .chip.f{background:rgba(110,198,216,.16);color:var(--leaf)} .chip.w{background:rgba(111,151,224,.18);color:#a9c0f2}
+  .chip.bad{background:rgba(224,104,95,.18);color:#eb8981}
 
   /* semis */
   .sow{cursor:pointer}
@@ -314,6 +315,7 @@
     <p class="eyebrow">13 cultures + arbustes déco</p>
     <h2 class="title">Mes plantes</h2>
     <div id="plantList"></div>
+    <div id="trashWrap" style="margin-top:16px"></div>
   </section>
 
   <!-- SAISON : semis · sol · rotation -->
@@ -378,6 +380,13 @@
       <p class="note" style="margin:0 0 10px">Le pH commande tout : au-dessus de 7,5 le fer et le manganèse se bloquent, en dessous de 5,5 c'est le phosphore. On peut doser au gramme près et affamer quand même la plante. Renseigne-le une fois par an.</p>
       <div id="bedList"></div>
       <button class="btn ghost sm" style="width:100%;margin-top:10px" onclick="addBed()">＋ Ajouter une parcelle</button>
+      <div id="bedNew" style="display:none;border:1px solid var(--line);border-radius:11px;padding:11px;margin-top:10px;background:var(--card-2)">
+        <div class="field" style="margin-bottom:9px"><label>Nom de la parcelle</label>
+          <input type="text" id="bedNewName" placeholder="Bac du fond, plate-bande géotextile…"></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn sm" style="flex:1" onclick="addBed()">✓ Créer</button>
+          <button class="btn ghost sm" style="flex:1" onclick="cancelAddBed()">Annuler</button></div>
+      </div>
       <p class="eyebrow" style="margin-top:20px">Calendrier des amendements</p>
       <div class="card" id="amendList"></div>
       <p class="eyebrow" style="margin-top:20px">Le sol vivant</p>
@@ -450,10 +459,7 @@
     <div id="photoGrid" style="margin-bottom:14px"></div>
     <button class="btn" onclick="saveInsp()">✓ Enregistrer l'inspection</button>
     <div id="inspResult"></div>
-    <hr class="sep">
-    <p class="eyebrow">Plants retirés du jardin</p>
-    <p class="note" style="margin:0 0 10px">Un plant retiré disparaît du Programme, du plan 14 j et du Doseur. Ses données (journal, inspections) sont <b>conservées</b> : tu peux le remettre à tout moment.</p>
-    <div id="trashList"></div>
+    <div id="inspHist" style="margin-top:14px"></div>
   </section>
 
   <!-- JOURNAL -->
@@ -805,9 +811,16 @@ function phaseInfo(p){const arr=PH[p.id],ci=curStage(p),b=arr&&arr[ci];
   return {r:(b&&b.r!==undefined)?b.r:p.recipe, water:b?b.water:p.water, watch:b?b.watch:p.watch, care:b?b.care:p.structural};}
 /* recette du moment : la phase donne la base, une inspection peut la corriger
    (ex. plant vert bloqué par un choc racinaire → apport léger, surtout pas un boost d'azote) */
-function curRecipe(p){const a=adj(p);
-  if(a.recipe&&RECIPES[a.recipe])return RECIPES[a.recipe];
-  return RECIPES[phaseInfo(p).r]||RECIPES.aucun;}
+function curRecipe(p){
+  const base=RECIPES[phaseInfo(p).r]||RECIPES.aucun, a=adj(p);
+  if(cycleOver(p))return RECIPES.aucun;          // cycle terminé : plus aucun apport
+  if(!a.recipe||!RECIPES[a.recipe])return base;
+  /* GARDE-FOU : un diagnostic peut ALLÉGER un apport, jamais en créer un là où le régime
+     de base l'interdit. Sans cela, le choc de transplantation prescrivait de l'engrais à un
+     arbuste en reprise — exactement le geste que sa propre source (U. Maryland, U. Kentucky)
+     interdit, et en contradiction avec sa fiche qui affiche « aucun apport pendant la reprise ». */
+  if(p.ornamental||isNoFeed(base))return base;
+  return RECIPES[a.recipe];}
 function baseRecipe(p){return RECIPES[phaseInfo(p).r]||RECIPES.aucun;}
 function isNoFeed(r){return !(r.urea||r.map||r.mkp||r.kcl||r.sop);}
 
@@ -824,7 +837,9 @@ const WATER_EVERY={
 };
 function baseWaterEvery(p){const a=WATER_EVERY[p.id];return a?a[curStage(p)]:null;}
 /* intervalle d'arrosage : base de la phase, ajustée par l'inspection (sol détrempé = espacé, sec = resserré) */
-function waterEvery(p){const b=baseWaterEvery(p);if(b==null)return null;
+function waterEvery(p){
+  if(cycleOver(p))return null;                   // cycle terminé : plus de tour d'arrosage
+  const b=baseWaterEvery(p);if(b==null)return null;
   const d=adj(p).waterDelta||0;return Math.max(1,b+d);}
 /* fréquence d'engrais : intervalle de la plante, ajusté par le diagnostic */
 function feedDaysOf(p){const d=adj(p).feedDelta||0;return Math.max(5,(p.feedDays||14)+d);}
@@ -988,10 +1003,27 @@ function autoPhase(p){const dur=STAGE_DUR[p.id],sow=SOW_DATE[p.id];if(!dur||!sow
   return {i,since:new Date(t0+acc*864e5).toISOString(),days};}
 /* phase du MODÈLE (calendrier seul) — sert de référence pour mesurer un retard réel */
 function modelStage(p){const a=autoPhase(p);return a?a.i:p.stage;}
+/* ===== FIN DE CYCLE =====
+   `autoPhase` plafonne sur le dernier stade indéfiniment : sans cela, une tomate semée en
+   juin restait « en récolte » au mois de janvier, avec arrosage tous les 3 jours et rappels
+   d'engrais. Une annuelle a une fin. On la déclare terminée quand le modèle a dépassé la
+   durée totale du cycle avec une marge, ET que la plante est effectivement au dernier stade
+   (une inspection qui la situe plus tôt fait foi : elle est manifestement encore en vie). */
+function cycleDays(p){const d=STAGE_DUR[p.id];return d?d.reduce((a,b)=>a+b,0):null;}
+function cycleOver(p){
+  if(!p||PEREN[p.id]||p.ornamental)return false;
+  const tot=cycleDays(p),a=autoPhase(p);
+  if(!tot||!a)return false;
+  if(curStage(p)<p.stages.length-1)return false; // observé plus tôt = encore en végétation
+  return a.days>tot+21;                          // 3 semaines de marge sur le modèle
+}
 /* phase RÉELLE : le stade observé lors d'une inspection prime sur le calendrier */
 function curStage(p){const o=inspStage(p);return o!=null?o:modelStage(p);}
 function stageSince(p){const o=inspStage(p),i=lastInsp(p);
-  if(o!=null&&i&&i.date)return new Date(i.date+'T00:00').toISOString(); // phase datée de l'observation
+  /* On ne re-date la phase que si l'observation CONTREDIT le calendrier. Quand elle le
+     confirme, re-dater remettrait à zéro le temps déjà passé dans la phase et allongerait
+     d'autant le cycle restant calculé par frostOutlook(). */
+  if(o!=null&&o!==modelStage(p)&&i&&i.date)return new Date(i.date+'T00:00').toISOString();
   const a=autoPhase(p);return a?a.since:null;}
 
 /* ===== INSPECTION DE TERRAIN → DIAGNOSTIC → RÉAJUSTEMENT DU PROGRAMME =====
@@ -1499,6 +1531,9 @@ const CAMG={
 };
 function camgDue(p){
   if(!CAMG[p.id])return null;
+  /* cohérence : on ne réclame pas un apport foliaire quand la phase dit « stoppe l'engrais »,
+     que le cycle est terminé, ou qu'un diagnostic a suspendu les apports. */
+  if(cycleOver(p)||isNoFeed(curRecipe(p))||feedHoldUntil(p))return null;
   const last=state.camg[p.id],d=daysSince(last);
   return{due:d>=CAMG_DAYS,days:isFinite(d)?d:null,txt:CAMG[p.id]};
 }
@@ -1578,11 +1613,16 @@ function phFitFor(p,ph){
 /* ===== PARCELLES ===== */
 function newBedId(){return 'b'+Date.now().toString(36);}
 function addBed(){
-  const n=prompt("Nom de la parcelle (ex. « Bac du fond », « Plate-bande géotextile ») :");
-  if(!n)return;
-  state.beds.push({id:newBedId(),name:n.trim(),ph:'',phDate:'',om:'',history:[]});
+  const el=document.getElementById('bedNew');if(!el)return;
+  const inp=document.getElementById('bedNewName');
+  if(el.style.display==='none'){el.style.display='';inp.focus();return;}
+  const n=(inp.value||'').trim();
+  if(!n){toast('Donne un nom à la parcelle.');inp.focus();return;}
+  state.beds.push({id:newBedId(),name:n,ph:'',phDate:'',om:'',history:[]});
+  inp.value='';el.style.display='none';
   save();renderBeds();renderRot();toast('Parcelle ajoutée.');
 }
+function cancelAddBed(){const el=document.getElementById('bedNew');if(el)el.style.display='none';}
 function bedById(id){return state.beds.find(b=>b.id===id);}
 function setBedField(id,k,v){const b=bedById(id);if(!b)return;b[k]=v;save();
   if(k==='ph'){renderBeds();renderPlants();}renderRot();}
@@ -1613,14 +1653,42 @@ function rotWarnings(bed){
   });
   return out;
 }
-function addHistory(bedId){
+/* saisie d'une année d'historique : formulaire en ligne (année + famille au choix),
+   à la place d'une boîte système qui demandait de taper un NUMÉRO de famille. */
+function histForm(bedId){
+  const y=new Date().getFullYear();
+  const years=[];for(let k=1;k<=6;k++)years.push(y-k);
+  return `<div id="hist_${bedId}" style="display:none;border:1px solid var(--line);border-radius:11px;padding:11px;margin-top:10px;background:var(--card-2)">
+    <div class="field" style="margin-bottom:9px"><label>Année</label>
+      <select id="hy_${bedId}">${years.map(v=>`<option value="${v}">${v}</option>`).join('')}</select></div>
+    <div class="field" style="margin-bottom:9px"><label>Famille cultivée</label>
+      <select id="hf_${bedId}">${Object.entries(FAM).filter(([k])=>k!=='autres')
+        .map(([k,f])=>`<option value="${k}">${f.ic} ${f.lab} — ${f.ex.split(',')[0]}…</option>`).join('')}</select></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn sm" style="flex:1" onclick="saveHistory('${bedId}')">✓ Ajouter</button>
+      <button class="btn ghost sm" style="flex:1" onclick="toggleHistForm('${bedId}',false)">Annuler</button></div>
+  </div>`;
+}
+function toggleHistForm(bedId,show){const el=document.getElementById('hist_'+bedId);
+  if(el)el.style.display=(show===false?'none':(el.style.display==='none'?'':'none'));}
+function saveHistory(bedId){
   const b=bedById(bedId);if(!b)return;
-  const y=prompt("Année (ex. 2025) :");if(!y||!/^\d{4}$/.test(y.trim()))return;
-  const keys=Object.keys(FAM).filter(k=>k!=='autres');
-  const f=prompt("Famille cultivée cette année-là ?\n\n"+keys.map((k,i)=>`${i+1}. ${FAM[k].lab}`).join('\n')+"\n\nNuméro :");
-  const idx=parseInt(f,10)-1;if(!(idx>=0&&idx<keys.length))return;
-  b.history=b.history||[];b.history.push({year:+y.trim(),fam:keys[idx]});
+  const y=+document.getElementById('hy_'+bedId).value,f=document.getElementById('hf_'+bedId).value;
+  if(!y||!FAM[f])return;
+  b.history=b.history||[];
+  if(b.history.some(h=>h.year===y&&h.fam===f)){toast('Déjà noté pour cette année.');return;}
+  b.history.push({year:y,fam:f});
   save();renderBeds();renderRot();toast('Historique enregistré.');
+}
+/* renommage : édition en ligne, sans boîte système */
+function renameBed(id){
+  const b=bedById(id);if(!b)return;
+  const el=document.getElementById('rn_'+id);if(!el)return;
+  if(el.style.display==='none'){el.style.display='';const i=document.getElementById('rni_'+id);if(i){i.value=b.name;i.focus();i.select();}return;}
+  const v=(document.getElementById('rni_'+id).value||'').trim();
+  if(!v){toast('Nom vide — inchangé.');return;}
+  b.name=v;el.style.display='none';
+  save();renderBeds();renderRot();renderPlants();toast('Parcelle renommée.');
 }
 function delHistory(bedId,i){const b=bedById(bedId);if(!b||!b.history)return;
   b.history.splice(i,1);save();renderBeds();renderRot();}
@@ -1672,6 +1740,10 @@ function renderBeds(){
           <button class="btn ghost sm" style="flex:1" onclick="renameBed('${b.id}')">✏️ Renommer</button>
           <button class="btn ghost sm" style="flex:1" onclick="delBed('${b.id}')">🗑️ Supprimer</button>
         </div>
+        <div id="rn_${b.id}" style="display:none;margin-bottom:12px">
+          <div class="field" style="margin-bottom:8px"><label>Nouveau nom</label>
+            <input type="text" id="rni_${b.id}" value="${b.name}"></div>
+          <button class="btn sm" style="width:100%" onclick="renameBed('${b.id}')">✓ Valider le nom</button></div>
 
         <details class="fgrp" ${(v||b.om)?'':'open'}>
           <summary>🧪 Analyse du sol <span class="fg-n">${v?v.t:'pH à renseigner'}</span></summary>
@@ -1723,7 +1795,8 @@ function renderBeds(){
               `<div class="diff"><span class="d-k">${h.year}</span><span class="d-v">${FAM[h.fam].ic} ${FAM[h.fam].lab}
                <button class="btn ghost sm" style="padding:2px 8px;margin-left:6px" onclick="delHistory('${b.id}',${i})">✕</button></span></div>`).join('')
              :'<p class="note" style="margin:0">Aucun historique. Note les années passées pour activer l\'alerte de rotation.</p>'}
-            <button class="btn ghost sm" style="width:100%;margin-top:10px" onclick="addHistory('${b.id}')">＋ Ajouter une année passée</button>
+            <button class="btn ghost sm" style="width:100%;margin-top:10px" onclick="toggleHistForm('${b.id}')">＋ Ajouter une année passée</button>
+            ${histForm(b.id)}
           </div>
         </details>
       </div>
@@ -1731,13 +1804,7 @@ function renderBeds(){
   }).join('');
 }
 function setBedFold(id,open){state.bedFold[id]=open;store.set('bedFold',state.bedFold);}
-function renameBed(id){
-  const b=bedById(id);if(!b)return;
-  const n=prompt("Nouveau nom de la parcelle :",b.name);
-  if(n==null)return;
-  const t=n.trim();if(!t){toast('Nom vide — inchangé.');return;}
-  b.name=t;save();renderBeds();renderRot();renderPlants();toast('Parcelle renommée.');
-}
+
 /* Calendrier des amendements : ce qui construit le sol, saison par saison. */
 const AMEND=[
   {k:'test',m:[4,5],ic:'🧪',t:'Test de sol (pH)',
@@ -1833,12 +1900,36 @@ const SOW=[
   {n:'Épinard',i:'🥬',dtm:45,win:[4,8,9],type:'semis direct',gt:'5–18 °C',gd:'7–14 j',dp:'1 cm',tip:"Déteste la chaleur (monte en graine). Pas en juin : attendre fin août pour l'automne."},
   {n:'Pois',i:'🟢',dtm:60,win:[4,7,8],type:'semis direct',gt:'5–20 °C',gd:'7–14 j',dp:'3 cm',tip:"Saison fraîche. Trop tard pour l'été ; resemer fin juillet pour l'automne."},
 ];
-function daysToFrost(){const now=new Date();const frost=new Date(now.getFullYear(),9,7);/*~7 oct, gel moyen Montréal*/
-  return Math.max(0,Math.round((frost-now)/864e5))}
+/* ===== FIN DE SAISON : UNE SEULE RÉFÉRENCE =====
+   Deux notions de gel coexistaient : la moyenne du 7 octobre (onglet Saison) et la prévision
+   réelle (Programme). Elles pouvaient se contredire le même jour. La prévision, quand elle
+   existe, fait désormais autorité ; la moyenne ne sert que de repère au-delà de l'horizon. */
+function frostInfo(){
+  const now=new Date();now.setHours(0,0,0,0);
+  const w=state.wx,m=now.getMonth()+1;
+  if(w&&w.daily&&m>=8){ // en fin de saison, on cherche le premier gel réellement annoncé
+    for(const d of w.daily){
+      const dd=new Date(d.date);dd.setHours(0,0,0,0);
+      if(dd<now||d.tmin>2)continue;
+      return{date:dd,days:Math.round((dd-now)/864e5),src:'prévision',past:false};
+    }
+  }
+  const avg=new Date(now.getFullYear(),9,7);
+  const days=Math.round((avg-now)/864e5);
+  if(days>=0)return{date:avg,days,src:'moyenne',past:false};
+  // le gel moyen est dépassé : la saison de plein air est finie, la prochaine est l'an prochain
+  const next=new Date(now.getFullYear()+1,9,7);
+  return{date:next,days:Math.round((next-now)/864e5),src:'moyenne',past:true};
+}
+function daysToFrost(){const f=frostInfo();return f.past?0:Math.max(0,f.days);}
 function renderSeeds(){
   const m=new Date().getMonth()+1, dleft=daysToFrost();
-  document.getElementById('frostCard').innerHTML=
-    `<p style="margin:0;font-size:14px">🍁 Au Québec (Montréal), le premier gel d'automne arrive en moyenne <b>vers le 7 octobre</b> (centre-ville ; un peu plus tôt en banlieue). Il reste environ <b>${dleft} jours</b> de saison. Compte les jours à maturité d'une culture à partir d'aujourd'hui pour savoir si elle a le temps.</p>`;
+  const fi=frostInfo();
+  document.getElementById('frostCard').innerHTML= fi.past
+    ? `<p style="margin:0;font-size:14px">🍁 <b>La saison de plein air est terminée</b> : le premier gel d'automne (~7 oct à Montréal) est passé. Prochaine fenêtre de semis en pleine terre au printemps ; d'ici là, seuls les semis d'intérieur et la planification de la rotation ont du sens.</p>`
+    : fi.src==='prévision'
+      ? `<p style="margin:0;font-size:14px">🧊 <b>Gel annoncé le ${fmtDate(fi.date)}</b> d'après les prévisions — dans <b>${fi.days} jour${fi.days>1?'s':''}</b>. C'est cette date qui fait foi, pas la moyenne du 7 octobre. Compte les jours à maturité d'une culture à partir d'aujourd'hui pour savoir si elle a le temps.</p>`
+      : `<p style="margin:0;font-size:14px">🍁 Au Québec (Montréal), le premier gel d'automne arrive en moyenne <b>vers le 7 octobre</b> (centre-ville ; un peu plus tôt en banlieue). Il reste environ <b>${dleft} jours</b> de saison. Compte les jours à maturité d'une culture à partir d'aujourd'hui pour savoir si elle a le temps.</p>`;
   const now=SOW.filter(s=>s.win.includes(m));
   document.getElementById('sowEyebrow').textContent=`À semer en ${new Date().toLocaleDateString('fr-CA',{month:'long'})}`;
   document.getElementById('sowList').innerHTML = now.length? now.map((s,idx)=>{
@@ -1972,8 +2063,14 @@ function season(){const m=new Date().getMonth();return(m>=4&&m<=8)?'culture':(m>
 /* Gel annoncé : la moyenne du 7 octobre ne protège rien — c'est la prévision qui compte.
    Seuil à 2 °C : la température au sol peut descendre sous 0 quand l'air annoncé est à 2 °C
    (abri météo à 1,5 m de haut, rayonnement nocturne au ras du sol). */
+/* plantes qu'un gel menacerait réellement : en végétation, cycle non terminé */
+function plantsAtRisk(){return activePlants().filter(p=>!cycleOver(p)&&!p.ornamental);}
 function frostAlert(){
   const w=state.wx;if(!w||!w.daily)return null;
+  const m=new Date().getMonth()+1;
+  // hors de la fenêtre de risque utile (avril–novembre), ou plus rien à protéger : pas d'alerte.
+  // Sans ce filtre, le Programme affichait « GEL cette nuit, récoltez tout » tout l'hiver.
+  if(m<4||m>11||!plantsAtRisk().length)return null;
   const today=new Date();today.setHours(0,0,0,0);
   for(let i=0;i<Math.min(6,w.daily.length);i++){
     const d=w.daily[i];if(d.tmin>2)continue;
@@ -1988,7 +2085,10 @@ function frostAlert(){
    Mildiou : humidité élevée + 15–25 °C. Oïdium : forte humidité nocturne mais feuillage sec. */
 function diseaseRisk(){
   const w=state.wx;if(!w||!w.daily)return null;
-  const n=w.daily.slice(0,5);if(!n.length||!n[0].rhMax)return null;
+  // pas de risque à annoncer s'il n'y a aucune culture sensible en végétation
+  const S=plantsAtRisk().filter(p=>['fruit','vine','grass','bulb','root'].indexOf(archKey(p))>=0);
+  if(!S.length)return null;
+  const n=w.daily.slice(0,5);if(!n.length||n[0].rhMax==null)return null;
   let mildew=0,powdery=0;
   n.forEach(d=>{
     const humid=d.rhMax>=90||d.rhMean>=80, wet=d.rainSum>=2||d.rainProb>=60;
@@ -2002,7 +2102,7 @@ function diseaseRisk(){
    1 mm de déficit = 1 litre d'eau à apporter par m² de sol. Rend l'arrosage quantitatif. */
 function waterBalance(nd){
   const w=state.wx;if(!w||!w.daily)return null;
-  const n=w.daily.slice(0,nd||7);if(!n.length||!n[0].et0)return null;
+  const n=w.daily.slice(0,nd||7);if(!n.length||n[0].et0==null)return null;
   const et0=n.reduce((a,d)=>a+(d.et0||0),0), rain=n.reduce((a,d)=>a+(d.rainSum||0),0);
   return{days:n.length,et0:Math.round(et0*10)/10,rain:Math.round(rain*10)/10,
     deficit:Math.max(0,Math.round((et0-rain)*10)/10)};
@@ -2218,6 +2318,11 @@ function renderToday(){
   activePlants().forEach(p=>{const i=lastInsp(p);if(!i||!i.date)return;
     const age=daysSince(i.date+'T00:00');
     if(age>=14)add('Inspection','','🔁',`Réinspecter ${p.name}`,`Dernière inspection il y a ${age} j. Le programme de cette plante est calé sur cette observation : une saisie fraîche le remet à jour.`,p.id);});
+  // cycles terminés : on arrête d'entretenir et on propose de clôturer
+  activePlants().filter(cycleOver).forEach(p=>{
+    const h=state.harvest.some(x=>x.plant===p.id&&x.date.startsWith(String(new Date().getFullYear())));
+    add('Soins & phases','','🏁',`${p.name} — cycle terminé`,
+      `Le cycle complet de cette culture est dépassé : arrosage et fertilisation sont arrêtés automatiquement. ${h?'Récolte déjà notée. ':'Pense à noter ta récolte dans le Journal — c\'est ce qui rendra le plan de l\'an prochain factuel. '}Tu peux ensuite la retirer du jardin depuis sa fiche.`,p.id);});
   if(season()==='culture')add('Inspection','','🔎',"Tour d'inspection",'Passe en revue la section « À vérifier · solutions » plus bas : pour chaque plante, les éléments à contrôler et quoi faire. Une anomalie ? Saisis-la dans l\'onglet Inspection : l\'app en cherche la cause et recale le programme.');
 
   const ICON={Urgent:'🚨',Arrosage:'💧',Fertilisation:'⚗️','Soins & phases':'🌿',Inspection:'🔎'};
@@ -2416,16 +2521,30 @@ function plantBody(p){
       <button class="btn ghost sm" style="flex:1" onclick="event.stopPropagation();undoLast()">↩︎ Annuler</button>
       <button class="btn ghost sm" style="flex:1" onclick="event.stopPropagation();removePlant('${p.id}')">🗑️ Retirer</button></div>
   </div>`}
-function plantCard(p){return `<div class="card plant" id="card_${p.id}" tabindex="0" role="button" onclick="toggle('${p.id}')">
+/* état de santé résumé, visible SANS ouvrir la fiche (elles sont fermées par défaut) */
+function plantStatus(p){
+  if(cycleOver(p))return{cls:'w',ic:'🏁',txt:'cycle terminé',sev:0};
+  const d=dg(p);
+  if(d.none)return{cls:'',ic:'',txt:'',sev:-1};
+  const worst=d.findings.filter(f=>f.sev>=2)[0];
+  if(worst)return{cls:worst.sev>=3?'bad':'w',ic:worst.sev>=3?'🚨':'⚠️',txt:worst.cause,sev:worst.sev};
+  return{cls:'f',ic:'✅',txt:'rien à signaler',sev:0};
+}
+function plantCard(p){
+  const st=plantStatus(p);
+  const badge=st.sev>=0?`<span class="chip ${st.cls==='bad'?'bad':st.cls}" style="margin-left:6px">${st.ic} ${st.txt}</span>`:'';
+  return `<div class="card plant" id="card_${p.id}" tabindex="0" role="button" onclick="toggle('${p.id}')">
       <div class="plant-head"><div class="pic">${p.icon}</div>
-        <div><div class="pname">${p.name}</div><div class="psub">${p.sub}</div></div><i class="bi bi-chevron-right chev"></i></div>
+        <div style="flex:1"><div class="pname">${p.name}</div><div class="psub">${p.sub}</div>
+          ${badge?`<div style="margin-top:4px">${badge}</div>`:''}</div><i class="bi bi-chevron-right chev"></i></div>
       ${gauge(p)}${plantBody(p)}</div>`;}
 function catBlock(key,icon,label,ps){
   const open=state.catFold[key]!==false; // ouvert par défaut, repli mémorisé
   return `<div class="cat ${open?'open':''}" id="cat_${key}">
     <button class="cat-h" type="button" onclick="toggleCat('${key}')">
       <span class="cat-l">${icon?icon+' ':''}${label}</span>
-      <span class="cat-count">${ps.length}</span>
+      <span class="cat-count">${(()=>{const n=ps.filter(p=>plantStatus(p).sev>=2).length;
+        return n?`<span style="color:#eb8981">${n} ⚠</span> / ${ps.length}`:ps.length;})()}</span>
       <i class="bi bi-chevron-right cat-chev"></i></button>
     <div class="cat-items">${ps.map(plantCard).join('')}</div></div>`;
 }
@@ -2525,11 +2644,15 @@ function undoLast(){
   if(!lastAction||Date.now()-lastAction.at>30000){toast("Rien à annuler.");return;}
   const {id,type}=lastAction,p=byId(id);
   const i=state.logs.findIndex(l=>l.plant===id&&l.type===type);
+  const removed=i>=0?state.logs[i]:null;
   if(i>=0)state.logs.splice(i,1);
   const prev=state.logs.find(l=>l.plant===id&&l.type===type);
   if(type==='feed'){
+    /* on retranche l'azote TEL QU'IL A ÉTÉ ENREGISTRÉ, pas une valeur recalculée : entre
+       l'apport et l'annulation, une inspection peut avoir changé la recette. */
+    const gN=(removed&&isFinite(+removed.n))?+removed.n:(p?nGramsPerFeed(p):0);
     if(p){const y=new Date().getFullYear();const cur=(state.nlog[id]||{})[y]||0;
-      state.nlog[id]=state.nlog[id]||{};state.nlog[id][y]=Math.max(0,Math.round((cur-nGramsPerFeed(p))*100)/100);}
+      state.nlog[id]=state.nlog[id]||{};state.nlog[id][y]=Math.max(0,Math.round((cur-gN)*100)/100);}
     if(prev)state.feeds[id]=prev.date;else delete state.feeds[id];
   }else{ if(prev)state.waters[id]=prev.date;else delete state.waters[id]; }
   lastAction=null;save();renderLog();renderToday();renderPlan();renderPlants();toast('Annulé.');}
@@ -2541,7 +2664,10 @@ function renderLog(){const el=document.getElementById('logList');
       :l.type==='harvest'?`<span class="chip f">récolte${l.qty?' · '+l.qty:''}</span>`
       :'<span class="chip w">arrosage</span>';
     return `<div class="log-row"><span class="lg-d mono">${d.toLocaleDateString('fr-CA',{day:'2-digit',month:'2-digit'})}</span><span style="flex:1">${p?p.icon+' '+p.name:l.plant}</span>${chip}</div>`}).join('')}
-function clearLog(){if(confirm('Effacer tout le journal et les rappels ?')){state.logs=[];state.feeds={};state.waters={};save();renderLog();renderToday();renderPlan();renderPlants()}}
+function clearLog(){
+  if(!confirm("Effacer l'historique des actions et remettre les rappels à zéro ?\n\nSont effacés : arrosages, fertilisations, apports Ca/Mg et le budget azote de la saison.\nSont CONSERVÉS : tes récoltes, tes inspections et tes parcelles."))return;
+  state.logs=[];state.feeds={};state.waters={};state.camg={};state.nlog={};
+  save();renderLog();renderHarvest();renderToday();renderPlan();renderPlants();toast('Journal et rappels remis à zéro.');}
 /* sauvegarde / restauration : permet de conserver l'état des données (entre appareils,
    réinstallations ou mises à jour). localStorage persiste déjà, ceci en est l'export portable. */
 function exportData(){
@@ -2639,7 +2765,7 @@ function inspFields(p){
    {k:'origin',g:'c',t:'sel',lab:A.originLab,
     opts:[['','—'],['direct','Semé / planté directement en place'],['repique','Démarré en contenant puis repiqué']]}
   ];
-  if(has('nb'))F.push({k:'nb',g:'c',t:'num',lab:'Nombre de plants de cette culture',ph:'ex. 8'});
+  if(has('nb'))F.push({k:'nb',g:'c',t:'num',lab:'Nombre de plants de cette culture',ph:'ex. 8',max:999});
   if(has('space'))F.push({k:'space',g:'c',t:'sel',lab:'Espacement entre plants',
     hint:`Pour cette culture, vise ${A.spaceTxt}. Trop serré, les plants se concurrencent et aucun n'atteint sa taille.`,
     opts:SPACE_OPTS});
@@ -2650,7 +2776,7 @@ function inspFields(p){
   if(has('polli'))F.push({k:'polli',g:'c',t:'sel',lab:'Pollinisateurs observés (abeilles, bourdons)',
     hint:"Fleurs mâles et femelles séparées : sans insecte, la fleur femelle avorte.",
     opts:[['','—'],['oui','Oui, réguliers'],['peu','Rares'],['non','Aucun']]});
-  F.push({k:'sun',g:'c',t:'num',lab:'Heures de soleil direct (mesurées)',ph:'ex. 5',
+  F.push({k:'sun',g:'c',t:'num',lab:'Heures de soleil direct (mesurées)',ph:'ex. 5',max:24,
     hint:"Compté sur une journée dégagée, pas estimé de mémoire."});
   F.push({k:'note',g:'c',t:'txt',lab:'Notes libres'});
   return F;
@@ -2686,7 +2812,7 @@ function renderInspForm(){
     if(f.t==='sel')return `<div class="field"><label>${f.lab}</label>${hint}
       <select id="if_${f.k}">${f.opts.map(([v,l])=>`<option value="${v}"${(i[f.k]||'')===v?' selected':''}>${l}</option>`).join('')}</select></div>`;
     if(f.t==='num')return `<div class="field"><label>${f.lab}</label>${hint}
-      <input type="number" id="if_${f.k}" inputmode="decimal" step="any" min="0" placeholder="${f.ph||''}" value="${i[f.k]!=null?i[f.k]:''}"></div>`;
+      <input type="number" id="if_${f.k}" inputmode="decimal" step="any" min="0"${f.max?` max="${f.max}"`:''} placeholder="${f.ph||''}" value="${i[f.k]!=null?i[f.k]:''}"></div>`;
     if(f.t==='date')return `<div class="field"><label>${f.lab}</label>${hint}
       <input type="date" id="if_${f.k}" value="${i.date||today}" max="${today}"></div>`;
     if(f.t==='multi'&&!f.opts.length)return '';
@@ -2704,6 +2830,7 @@ function renderInspForm(){
       <div class="fgrp-b">${fs.map(fieldHTML).join('')}</div></details>`;}).join('')
    +`<button class="btn ghost" style="margin-bottom:14px" onclick="removePlant('${p.id}')">🗑️ Retirer « ${p.name} » du jardin</button>`;
   renderPhotos();
+  renderInspHistory();
   renderInspResult();
 }
 /* raccourci : consigner un plant en bonne santé en un seul geste (cas le plus fréquent) */
@@ -2712,9 +2839,8 @@ function markHealthy(){
   const set=(k,v)=>{const el=document.getElementById('if_'+k);if(el)el.value=v};
   set('date',new Date().toISOString().slice(0,10));
   set('vigor','normale');set('color','vert');set('soil','frais');set('pests','aucun');
-  const r=document.getElementById('if_roots');if(r&&!r.value)r.value='';
   document.querySelectorAll('#inspForm .chk input:checked').forEach(x=>{x.checked=false;x.parentNode.classList.remove('on')});
-  toast("Plant marqué sain — complète la hauteur et le stade, puis enregistre.");
+  saveInsp(); // le bouton annonce une observation faite : il l'enregistre pour de bon
 }
 function saveInsp(){
   const p=inspTarget();if(!p)return;
@@ -2728,7 +2854,7 @@ function saveInsp(){
   if(state.inspLog.length>400)state.inspLog.length=400;
   clearDG(); save();
   // le programme entier se recalcule : phase, recette, arrosage, fréquence d'apport, plan 14 j
-  renderInspResult();renderPlants();renderToday();renderPlan();renderMix();
+  renderInspResult();renderInspHistory();renderPlants();renderToday();renderPlan();renderMix();
   const r=document.getElementById('inspResult');if(r)r.scrollIntoView({block:'start',behavior:'smooth'});
 }
 /* carte de résultat : ce qui a été trouvé, avec sources — puis ce que le programme a changé */
@@ -2824,7 +2950,9 @@ async function addPhoto(ev){
   if(!p||!f)return;
   try{
     const blob=await shrinkImage(f);
-    await PDB.put({id:'p'+Date.now().toString(36),plant:p.id,date:new Date().toISOString().slice(0,10),blob});
+    const df=document.getElementById('if_date');
+    const d=(df&&df.value)?df.value:new Date().toISOString().slice(0,10);
+    await PDB.put({id:'p'+Date.now().toString(36),plant:p.id,date:d,blob});
     toast('Photo ajoutée.');renderPhotos();
   }catch(e){toast("Photo impossible à enregistrer.");}
 }
@@ -2880,6 +3008,43 @@ function renderHarvest(){
         <span style="flex:1">${p?p.icon+' '+p.name:h.plant}<br><span class="note">${h.qty}${h.qual?' · '+h.qual:''}${h.note?' · '+h.note:''}</span></span>
         <button class="btn ghost sm" style="padding:2px 8px" onclick="delHarvest(${i})">✕</button></div>`}).join('');
 }
+/* ===== HISTORIQUE DES INSPECTIONS =====
+   `inspLog` accumulait jusqu'à 400 saisies sans jamais être consultable : on ne pouvait ni
+   relire une observation passée, ni suivre une évolution. */
+function inspHistory(p){
+  return state.inspLog.filter(x=>x.plant===p.id)
+    .slice().sort((a,b)=>(a.date<b.date?1:a.date>b.date?-1:(a.ts<b.ts?1:-1)));
+}
+function renderInspHistory(){
+  const el=document.getElementById('inspHist'),p=inspTarget();
+  if(!el||!p){if(el)el.innerHTML='';return;}
+  const h=inspHistory(p);
+  if(h.length<1){el.innerHTML='';return;}
+  const A=archOf(p);
+  // courbe simple : évolution de la mesure dans le temps
+  const pts=h.filter(x=>isFinite(+x.h)&&+x.h>0).slice().reverse();
+  let spark='';
+  if(pts.length>=2){
+    const hs=pts.map(x=>+x.h),mx=Math.max.apply(null,hs),mn=Math.min.apply(null,hs);
+    const rng=(mx-mn)||1;
+    spark=`<div style="display:flex;align-items:flex-end;gap:3px;height:44px;margin:8px 0 4px">`
+      +pts.map(x=>{const v=Math.round(((+x.h-mn)/rng)*34)+8;
+        return `<div title="${frDate(x.date)} · ${x.h} cm" style="flex:1;height:${v}px;background:var(--leaf);opacity:.75;border-radius:3px 3px 0 0"></div>`}).join('')
+      +`</div><div class="note" style="margin:0 0 8px">${A.hLab.replace(' (cm)','')} : de <b>${pts[0].h} cm</b> (${frDate(pts[0].date)}) à <b>${pts[pts.length-1].h} cm</b> (${frDate(pts[pts.length-1].date)})</div>`;
+  }
+  const lbl={vert:'vert normal',pale:'vert pâle',v_bas:'jaunissement en V',bas_pale:'vieilles feuilles jaunes',
+    bords:'bords jaunis',nervures:'nervures vertes',violace:'violacé'};
+  el.innerHTML=`<details class="fgrp"><summary>🗂️ Historique des inspections <span class="fg-n">${h.length} saisie${h.length>1?'s':''}</span></summary>
+    <div class="fgrp-b">${spark}
+      ${h.map(x=>{
+        const st=(x.stage!==''&&x.stage!=null&&p.stages[+x.stage])?p.stages[+x.stage]:'—';
+        const bits=[x.h?x.h+' cm':null,st!=='—'?'stade '+st:null,x.vigor?'croissance '+x.vigor:null,
+          x.color&&x.color!=='vert'?lbl[x.color]||x.color:null,
+          (x.signs&&x.signs.length)?x.signs.length+' signe'+(x.signs.length>1?'s':''):null].filter(Boolean);
+        return `<div class="log-row"><span class="lg-d mono">${frDate(x.date)}</span>
+          <span style="flex:1">${bits.join(' · ')||'saisie sans détail'}${x.note?`<br><span class="note">${x.note}</span>`:''}</span></div>`;}).join('')}
+    </div></details>`;
+}
 /* ===== SUPPRESSION / RESTAURATION D'UN PLANT ===== */
 function removePlant(id){
   const p=byId(id);if(!p)return;
@@ -2896,10 +3061,12 @@ function restorePlant(id){
   fillMixSelect();renderMix();renderPlants();renderToday();renderPlan();
 }
 function renderTrash(){
-  const el=document.getElementById('trashList');if(!el)return;
+  const el=document.getElementById('trashWrap');if(!el)return;
   const ps=PLANTS.filter(isRemoved);
-  if(!ps.length){el.innerHTML='<div class="card"><div class="empty">Aucun plant retiré.</div></div>';return;}
-  el.innerHTML='<div class="card">'+ps.map(p=>`<div class="task">
+  if(!ps.length){el.innerHTML='';return;}   // rien à montrer tant que rien n'est retiré
+  el.innerHTML=`<p class="eyebrow">🗑️ Retirées du jardin (${ps.length})</p>
+    <p class="note" style="margin:0 0 10px">Elles ne figurent plus au Programme, au plan 14 j ni au Doseur. Leurs données sont conservées.</p>`
+    +'<div class="card">'+ps.map(p=>`<div class="task">
       <div class="tk-ic">${p.icon}</div>
       <div class="tk-body"><div class="tk-t">${p.name}</div><div class="tk-d">Retiré du jardin — données conservées.</div>
         <button class="btn sm ghost" style="margin-top:7px" onclick="restorePlant('${p.id}')">↩︎ Remettre au jardin</button></div>
