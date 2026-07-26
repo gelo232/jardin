@@ -61,6 +61,15 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
 6. **Journal** — historique `localStorage` des arrosages/fertilisations, base des rappels.
    Section **Sauvegarde** : `exportData()` / `importData()` (JSON portable des données).
 
+## 4ante. Fiche plante : sections repliables
+`plantBody()` et `ornamentalBody()` composent la fiche avec `pgroup(p,clé,icône,titre,sous-titre,contenu,ouvertParDéfaut)` :
+📊 État (ouverte) · 💧 Arrosage · ⚗️ Nutrition · 🔎 Diagnostic & contrôles · 🛠️ Entretien ·
+🧱 Situation & sol. Chaque en-tête porte un résumé (phase, intervalle, recette, parcelle) pour
+décider sans déplier. Repli mémorisé par plante ET par section (`state.plantFold['<id>.<clé>']`).
+Les boutons d'action restent HORS des sections, toujours accessibles.
+⚠️ `plantStatus()` est défini juste avant `plantCard()` et sert aussi aux pastilles de
+catégorie : ne pas l'emporter en réécrivant `plantBody()`.
+
 ## 4bis. Inspection → diagnostic → réajustement (⚠️ prime sur le calendrier)
 
 - ⚠️ **Le formulaire est ADAPTÉ À LA PLANTE** — `inspFields(p)`, pas une liste figée.
@@ -364,7 +373,7 @@ des parcelles créées dans la même milliseconde, et rattachait toutes les cult
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v28`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v29`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.

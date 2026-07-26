@@ -541,6 +541,7 @@ let state={
   tasksDone:store.get('tasksDone',{}), // conseils clos, par occurrence        // dernier apport calcium/magnésium par plante        // azote cumulé par plante et par saison {id:{annee:grammes}}
   indoor:store.get('indoor',{}),    // plantes en pot actuellement rentrées à l'abri
   closed:store.get('closed',{}),    // saisons archivées {année: date}
+  plantFold:store.get('plantFold',{}), // repli des sections de fiche, par plante
   bedFold:store.get('bedFold',{}),  // repli des parcelles et de leurs sections
   seasonPane:store.get('seasonPane','semis'),
   wx:null, view:'today'
@@ -554,7 +555,7 @@ function save(){store.set('can',state.can);store.set('canUnit',state.canUnit);st
   store.set('insp',state.insp);store.set('inspLog',state.inspLog);store.set('removed',state.removed);
   store.set('species',state.species);store.set('plantings',state.plantings);
   store.set('beds',state.beds);store.set('plantBed',state.plantBed);store.set('harvest',state.harvest);
-  store.set('amend',state.amend);store.set('nlog',state.nlog);store.set('camg',state.camg);store.set('tasksDone',state.tasksDone);store.set('indoor',state.indoor);store.set('closed',state.closed);store.set('bedFold',state.bedFold);store.set('seasonPane',state.seasonPane)}
+  store.set('amend',state.amend);store.set('nlog',state.nlog);store.set('camg',state.camg);store.set('tasksDone',state.tasksDone);store.set('indoor',state.indoor);store.set('closed',state.closed);store.set('bedFold',state.bedFold);store.set('plantFold',state.plantFold);store.set('seasonPane',state.seasonPane)}
 /* petit retour visuel non bloquant, à la place des alert() qui coupent l'usage */
 let toastT=null;
 function toast(msg){
@@ -3025,30 +3026,32 @@ function gauge(p){if(p.ornamental)return '';const cs=curStage(p);const segs=p.st
   return `<div class="gauge"><div class="track">${segs}</div><div class="stages">${labels}</div></div>`}
 function ornamentalBody(p){
   const wat=daysSince(state.waters[p.id]);
-  /* Deux systèmes de conseil coexistaient : les points de contrôle génériques et le moteur
-     de diagnostic. Ils pouvaient s'afficher côte à côte en se contredisant (« applique la
-     recette végétative » contre « ne PAS augmenter l'azote »). Quand un diagnostic est actif,
-     il prime et les points génériques passent en second, repliés et annoncés comme tels. */
   const act=dg(p).none?[]:dg(p).findings.filter(f=>f.sev>=2);
   const checksBlock=(p.checks&&p.checks.length)?(act.length
-    ? `<details class="fgrp"><summary>🔎 Points de contrôle génériques <span class="fg-n">le diagnostic ci-dessus prime</span></summary>
-       <div class="fgrp-b"><p class="note" style="margin:0 0 8px">Repères valables en l'absence de diagnostic. En cas de désaccord avec le diagnostic issu de ton inspection, <b>c'est le diagnostic qui fait foi</b> : il s'appuie sur ce que tu as réellement observé.</p>
-       ${p.checks.map(c=>`<div style="margin-bottom:8px"><p style="margin:0;font-weight:600">▢ ${c.q}</p><p style="margin:1px 0 0;font-size:13.5px;color:var(--ink-soft)">→ ${c.fix}</p></div>`).join('')}</div></details>`
-    : `<div class="pact"><h4>🔎 À vérifier → solution</h4>
-      ${p.checks.map(c=>`<div style="margin-bottom:8px"><p style="margin:0;font-weight:600">▢ ${c.q}</p><p style="margin:1px 0 0;font-size:13.5px;color:var(--ink-soft)">→ ${c.fix}</p></div>`).join('')}</div>`):'';
+    ? `<p class="note" style="margin:0 0 8px">En cas de désaccord avec le diagnostic issu de ton inspection, <b>c'est le diagnostic qui fait foi</b>.</p>
+       ${p.checks.map(c=>`<div style="margin-bottom:8px"><p style="margin:0;font-weight:600">▢ ${c.q}</p><p style="margin:1px 0 0;font-size:13.5px;color:var(--ink-soft)">→ ${c.fix}</p></div>`).join('')}`
+    : p.checks.map(c=>`<div style="margin-bottom:8px"><p style="margin:0;font-weight:600">▢ ${c.q}</p><p style="margin:1px 0 0;font-size:13.5px;color:var(--ink-soft)">→ ${c.fix}</p></div>`).join('')):'';
+  const situ=(()=>{const b=bedOf(p),C=mediumOf(p),V=coverOf(p),W=wateringOf(p);
+    return `<p class="note" style="margin:0"><b>${C.ic} ${C.lab}</b> · <b>${V.ic} ${V.lab}</b> · <b>${W.ic} ${W.lab}</b>${b?`<br>Parcelle : <b>${b.name}</b>`:''}
+      ${bedSun(p)!=null?`<br>☀️ ${bedSun(p)} h de soleil direct`:''}</p>`;})();
   return `<div class="plant-body">
-    ${inspBanner(p)}
-    <div class="pact"><h4>🌳 Situation</h4><ul>${(p.watch||[]).map(x=>`<li>${x}</li>`).join('')}</ul></div>
-    <div class="pact"><h4>💧 Arrosage (priorité reprise)</h4><p>${p.water}</p>${waterVolLine(p)}${waterFreqLine(p)}</div>
-    <div class="pact"><h4>⚗️ Engrais</h4><div class="recipe"><div class="r-note">Aucun apport pendant la reprise (≥ 1ʳᵉ année). Fertiliser un arbuste stressé aggrave le choc et brûle les racines.</div></div></div>
-    ${checksBlock}
-    <div class="pact"><h4>🛠️ Entretien</h4><ul>${(p.structural||[]).map(x=>`<li>${x}</li>`).join('')}</ul></div>
+    ${pgroup(p,'etat','📊','État',plantStatus(p).txt||'reprise',inspBanner(p)
+      +`<div class="pact"><h4>🌳 Situation</h4><ul>${(p.watch||[]).map(x=>`<li>${x}</li>`).join('')}</ul></div>`,true)}
+    ${pgroup(p,'eau','💧','Arrosage (priorité reprise)',waterEvery(p)?`tous les ${waterEvery(p)} j`:'',
+      `<p>${p.water}</p>${waterVolLine(p)}${waterFreqLine(p)}`,false)}
+    ${pgroup(p,'nutri','⚗️','Engrais','aucun apport',
+      `<div class="recipe"><div class="r-note">Aucun apport pendant la reprise (≥ 1ʳᵉ année). Fertiliser un arbuste stressé aggrave le choc et brûle les racines.</div></div>`,false)}
+    ${pgroup(p,'diag','🔎','Diagnostic & contrôles',act.length?'points identifiés':'',checksBlock,false)}
+    ${pgroup(p,'soin','🛠️','Entretien','',`<ul>${(p.structural||[]).map(x=>`<li>${x}</li>`).join('')}</ul>`,false)}
+    ${pgroup(p,'situ','🧱','Situation & sol',bedOf(p)?bedOf(p).name:'sans parcelle',situ,false)}
     ${p.flag?`<div class="flag ${p.flag.type}">${p.flag.txt}</div>`:''}
     <div class="pill-row"><span class="pill">Soleil : ${p.sun}</span>
       <span class="pill">Dernier arrosage : ${isFinite(wat)?wat+' j':'—'}</span></div>
     <div style="display:flex;gap:8px;margin-top:12px">
       <button class="btn sm ghost" style="flex:1" onclick="event.stopPropagation();logAction('${p.id}','water')">✓ Arrosé</button></div>
-    <button class="btn ghost sm" style="width:100%;margin-top:8px" onclick="event.stopPropagation();removePlant('${p.id}')">🗑️ Retirer du jardin</button>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn ghost sm" style="flex:1" onclick="event.stopPropagation();openPlantForm('${p.id}')">✏️ Modifier</button>
+      <button class="btn ghost sm" style="flex:1" onclick="event.stopPropagation();removePlant('${p.id}')">🗑️ Retirer</button></div>
   </div>`;
 }
 /* bandeau de la fiche plante : d'où vient le programme affiché (calendrier seul, ou
@@ -3078,6 +3081,17 @@ function inspBanner(p){
 /* ===== ÉTAT ATTENDU vs ÉTAT RÉEL =====
    Le calendrier dit ce qui DEVRAIT être visible aujourd'hui ; l'inspection dit ce qui l'est.
    L'écart entre les deux est l'information la plus utile du suivi. */
+/* Sections repliables de la fiche : une fiche complète dépasse la dizaine de blocs.
+   Repli mémorisé par plante ET par section, pour retrouver son écran d'un jour à l'autre. */
+function pgroup(p,key,icon,title,sub,inner,openByDefault){
+  if(!inner||!inner.trim())return '';
+  const k=p.id+'.'+key;
+  const open=(state.plantFold[k]!==undefined)?state.plantFold[k]:!!openByDefault;
+  return `<details class="fgrp" ${open?'open':''} ontoggle="setPlantFold('${k}',this.open)">
+    <summary>${icon} ${title}${sub?` <span class="fg-n">${sub}</span>`:''}</summary>
+    <div class="fgrp-b">${inner}</div></details>`;
+}
+function setPlantFold(k,open){state.plantFold[k]=open;store.set('plantFold',state.plantFold);}
 function stateBlock(p){
   const C=stateComparison(p);
   const gapTxt=C.gap==null?null:(C.gap===0?'conforme au calendrier'
@@ -3113,7 +3127,7 @@ function plantBody(p){
   if(p.ornamental)return ornamentalBody(p);
   const info=phaseInfo(p),r=RECIPES[info.r]||RECIPES.aucun,npk=recipeNPK(r),rows=recipeRows(r);
   const phName=p.stages[curStage(p)],noF=isNoFeed(r);
-  const fed=daysSince(state.feeds[p.id]),wat=daysSince(state.waters[p.id]);
+  const fed=daysSince(state.feeds[p.id]),wat2=daysSince(state.waters[p.id]);
   // bloc durées par stade : durée de chaque stade + temps restant jusqu'à la fin du cycle
   let durBlock='';
   const dur=p.dur;
@@ -3151,35 +3165,39 @@ function plantBody(p){
        ${p.checks.map(c=>`<div style="margin-bottom:8px"><p style="margin:0;font-weight:600">▢ ${c.q}</p><p style="margin:1px 0 0;font-size:13.5px;color:var(--ink-soft)">→ ${c.fix}</p></div>`).join('')}</div></details>`
     : `<div class="pact"><h4>🔎 À vérifier → solution</h4>
       ${p.checks.map(c=>`<div style="margin-bottom:8px"><p style="margin:0;font-weight:600">▢ ${c.q}</p><p style="margin:1px 0 0;font-size:13.5px;color:var(--ink-soft)">→ ${c.fix}</p></div>`).join('')}</div>`):'';
-  return `<div class="plant-body">
-    ${stateBlock(p)}
-    ${inspBanner(p)}
-    ${durBlock}
-    <div class="pact"><h4>💧 Arrosage · ${phName}</h4><p>${reservoirL(p)?p.water:info.water}</p>${reservoirL(p)?`<p class="note" style="margin-top:5px">🪣 ${reservoirWater(p)}</p>`:''}${waterVolLine(p)}${waterFreqLine(p)}</div>
-    <div class="pact"><h4>⚗️ Engrais · ${r.name}</h4>
+  const A=archOf(p);
+  const wat=`<div class="pact"><h4>💧 Arrosage · ${phName}</h4><p>${reservoirL(p)?p.water:info.water}</p>${reservoirL(p)?`<p class="note" style="margin-top:5px">🪣 ${reservoirWater(p)}</p>`:''}${waterVolLine(p)}${waterFreqLine(p)}</div>`;
+  const fert=`<div class="pact"><h4>⚗️ Engrais · ${r.name}</h4>
       ${noF?`<div class="recipe"><div class="r-note">${r.note}</div></div>`
       :`<div class="recipe"><div class="r-h"><span class="r-name">≈ ${npk[0]}-${npk[1]}-${npk[2]}</span><span class="r-can">pour ${state.can} ${canLabel()}</span></div>
         <table>${rows.map(([n,g])=>`<tr><td>${n}</td><td class="amt mono">${g} g</td></tr>`).join('')}</table>
-        <div class="r-note">${r.note}</div></div>`}${feedFreqLine(p,noF)}${noF?'':feedVolLine(p)}${noF?'':nBudgetLine(p)}${camgLine(p)}</div>
-    ${checksBlock}
-    <div class="pact"><h4>👁️ À surveiller</h4><ul>${(info.watch||[]).map(x=>`<li>${x}</li>`).join('')}</ul></div>
-    <div class="pact"><h4>🛠️ Entretien · ${phName}</h4><ul>${(info.care||[]).map(x=>`<li>${x}</li>`).join('')}</ul>
-      ${(p.structural&&p.structural.length)?`<p class="note" style="margin:7px 0 0"><b>Repères permanents</b> (pas des tâches du jour) : ${p.structural.join(' · ')}</p>`:''}</div>
-    ${p.flag?`<div class="flag ${p.flag.type}">${p.flag.txt}${p.flag.type==='iron'?(()=>{const t=actionTiming('foliar');return `<br><span class="note" style="display:block;margin-top:7px">🕑 Si pulvérisation foliaire (fer chélaté) : ${t.good?`<b style="color:var(--leaf-d)">c'est le bon moment (${t.short})</b>`:`<b style="color:var(--amber)">${t.short}</b>`} — stomates ouverts tôt le matin (&lt;9 h 30) ou en soirée (&gt;18 h 30), jamais en plein soleil.`})():''}</div>`:''}
-    ${(()=>{const b=bedOf(p),f=b?phFitFor(p,b.ph):null;const fam=famOf(p);
+        <div class="r-note">${r.note}</div></div>`}${feedFreqLine(p,noF)}${noF?'':feedVolLine(p)}${noF?'':nBudgetLine(p)}${camgLine(p)}</div>`;
+  const watch=`<div class="pact"><h4>👁️ À surveiller</h4><ul>${(info.watch||[]).map(x=>`<li>${x}</li>`).join('')}</ul></div>`;
+  const care=`<div class="pact"><h4>🛠️ Entretien · ${phName}</h4><ul>${(info.care||[]).map(x=>`<li>${x}</li>`).join('')}</ul>
+      ${(p.structural&&p.structural.length)?`<p class="note" style="margin:7px 0 0"><b>Repères permanents</b> (pas des tâches du jour) : ${p.structural.join(' · ')}</p>`:''}</div>`;
+  const situ=(()=>{const b=bedOf(p),f=b?phFitFor(p,b.ph):null;const fam=famOf(p);
       const C=mediumOf(p),V=coverOf(p),W=wateringOf(p);
       return `<div class="pact"><h4>🧱 Situation & sol</h4>
         <p class="note" style="margin:0 0 6px"><b>${C.ic} ${C.lab}</b> — ${C.note}<br><b>${V.ic} ${V.lab}</b> — ${V.note}<br><b>${W.ic} ${W.lab}</b> — ${W.note}</p>
-        <p class="note" style="margin:0">${b?`<b>${b.name}</b>`:'<b>Non rattachée à une parcelle</b> — rattache-la dans Saison › Sol pour suivre pH et rotation.'}
+        <p class="note" style="margin:0">${b?`<b>${b.name}</b>`:'<b>Non rattachée à une parcelle</b>.'}
         ${f?`<br><span style="color:${f.ok?'var(--leaf-d)':'var(--amber)'}">${f.txt}</span>`:(b&&inGround(p)?'<br>pH non renseigné pour cette parcelle.':(inGround(p)?'':'<br>Substrat de contenant : ni le pH de parcelle ni la rotation ne s\'y appliquent — c\'est le renouvellement du terreau qui compte.'))}
         <br>Famille : ${fam.ic} ${fam.lab} — ${fam.need}.
         ${(()=>{const sv=sunVerdict(bedSun(p));return sv
           ? `<br><span style="color:${sv.lvl==='bon'?'var(--leaf-d)':sv.lvl==='limite'?'var(--amber)':'#eb8981'}">${sv.ic} ${bedSun(p)} h de soleil — ${sv.txt}</span>`
           : `<br>Ensoleillement non mesuré pour cette parcelle.`;})()}
-        ${p.spacing!==''&&p.spacing!=null?`<br>Espacement : ${(SPACE_OPTS.find(o=>o[0]===String(p.spacing))||['','—'])[1]}${archOf(p).spaceTxt?` (visé : ${archOf(p).spaceTxt})`:''}`:''}</p></div>`})()}
+        ${p.spacing!==''&&p.spacing!=null?`<br>Espacement : ${(SPACE_OPTS.find(o=>o[0]===String(p.spacing))||['','—'])[1]}${A.spaceTxt?` (visé : ${A.spaceTxt})`:''}`:''}</p></div>`;})();
+  const st=plantStatus(p);
+  return `<div class="plant-body">
+    ${pgroup(p,'etat','📊','État',st.sev>=0&&st.txt?st.txt:p.stages[curStage(p)],stateBlock(p)+inspBanner(p)+durBlock,true)}
+    ${pgroup(p,'eau','💧','Arrosage',waterEvery(p)?`tous les ${waterEvery(p)} j`:'à réduire',wat,false)}
+    ${pgroup(p,'nutri','⚗️','Nutrition',noF?'aucun apport':r.name,fert,false)}
+    ${pgroup(p,'diag','🔎','Diagnostic & contrôles',(dg(p).findings||[]).filter(f=>f.sev>=2).length?'points identifiés':'',checksBlock+watch,false)}
+    ${pgroup(p,'soin','🛠️','Entretien',phName,care,false)}
+    ${pgroup(p,'situ','🧱','Situation & sol',bedOf(p)?bedOf(p).name:'sans parcelle',situ,false)}
+    ${p.flag?`<div class="flag ${p.flag.type}">${p.flag.txt}${p.flag.type==='iron'?(()=>{const t=actionTiming('foliar');return `<br><span class="note" style="display:block;margin-top:7px">🕑 Si pulvérisation foliaire (fer chélaté) : ${t.good?`<b style="color:var(--leaf-d)">c'est le bon moment (${t.short})</b>`:`<b style="color:var(--amber)">${t.short}</b>`} — stomates ouverts tôt le matin (&lt;9 h 30) ou en soirée (&gt;18 h 30), jamais en plein soleil.`})():''}</div>`:''}
     <div class="pill-row"><span class="pill">Soleil : ${p.sun}</span>
       <span class="pill">Dernier engrais : ${isFinite(fed)?fed+' j':'—'}</span>
-      <span class="pill">Dernier arrosage : ${isFinite(wat)?wat+' j':'—'}</span></div>
+      <span class="pill">Dernier arrosage : ${isFinite(wat2)?wat2+' j':'—'}</span></div>
     <div style="display:flex;gap:8px;margin-top:12px">
       <button class="btn sm" style="flex:1" onclick="event.stopPropagation();logAction('${p.id}','feed')">✓ Fertilisé</button>
       <button class="btn sm ghost" style="flex:1" onclick="event.stopPropagation();logAction('${p.id}','water')">✓ Arrosé</button></div>
@@ -3820,7 +3838,7 @@ function openPlantForm(id){
     <div style="font-weight:800;font-size:15px;margin-bottom:12px">${pl?'✏️ Modifier la plantation':'＋ Nouvelle plantation'}</div>
     <div class="field"><label>Culture</label>
       <div class="hint">L'agronomie (stades, durées, recettes, pH visé) vient de l'espèce. Une même culture peut être plantée dans plusieurs parcelles : crée simplement une plantation par emplacement.</div>
-      <select id="pf_species" ${pl?'disabled':''} onchange="openPlantForm(editingId)">${sps.map(sp=>`<option value="${sp.id}"${pl&&pl.species===sp.id?' selected':''}>${sp.icon} ${sp.name}</option>`).join('')}</select></div>
+      <select id="pf_species" ${pl?'disabled':''} onchange="onSpeciesChange()">${sps.map(sp=>`<option value="${sp.id}"${pl&&pl.species===sp.id?' selected':''}>${sp.icon} ${sp.name}</option>`).join('')}</select></div>
     <div class="field"><label>Emplacement (nom court)</label>
       <div class="hint">Ce qui distingue cette plantation des autres de la même culture : « sous les arbres », « bac du fond »…</div>
       <input type="text" id="pf_label" placeholder="ex. bac du fond" value="${pl&&pl.label?pl.label.replace(/"/g,'&quot;'):''}"></div>
@@ -3877,6 +3895,18 @@ function openPlantForm(id){
 }
 /* La variété commande les jours à maturité : on les affiche, on ne les demande pas.
    Le champ manuel n'apparaît que pour une variété absente du catalogue. */
+/* Changer d'espèce ne doit recharger QUE la liste des variétés. Reconstruire tout le
+   formulaire réinitialisait le sélecteur à sa première option (Ail, par ordre alphabétique) :
+   il devenait impossible de choisir une autre espèce. */
+function onSpeciesChange(){
+  const ssel=document.getElementById('pf_species'),vsel=document.getElementById('pf_variety');
+  if(!ssel||!vsel)return;
+  vsel.innerHTML='<option value="">— non précisée —</option>'
+    +varietiesOf(ssel.value).map(v=>`<option value="${v.n.replace(/"/g,'&quot;')}">${v.n}${v.dtm?` — ${v.dtm} j`:''}</option>`).join('')
+    +'<option value="__autre__">Autre / non listée…</option>';
+  vsel.value='';
+  onVarietyChange();
+}
 function onVarietyChange(){
   const sel=document.getElementById('pf_variety'),info=document.getElementById('pf_varInfo'),
         wrap=document.getElementById('pf_autreWrap'),ssel=document.getElementById('pf_species');
