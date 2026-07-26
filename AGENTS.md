@@ -131,6 +131,32 @@ Accesseurs : `mediumOf(p)`, `coverOf(p)`, `wateringOf(p)`, `reservoirL(p)`, `sow
 **Une même espèce peut être cultivée dans plusieurs parcelles** : autant de cultures
 pointant vers la même espèce, sans dupliquer l'agronomie.
 
+### ⚠️ PRINCIPE DIRECTEUR
+**L'app ne demande à l'utilisateur QUE ce que lui seul peut savoir** : ce qu'il a planté, où,
+quand, et ce qu'il observe. Tout le reste — agronomie, jours à maturité, durées de phase,
+plages de pH, conventions de comptage — est une donnée du domaine, à embarquer dans l'app.
+Avant d'ajouter un champ, se demander : « le jardinier est-il la seule source possible ? »
+Si non, c'est une donnée à intégrer, pas une question à poser.
+
+### Variétés et jours à maturité
+`VARIETIES[espèce]` = catalogue `{n, dtm, from, note}`. Choisir la variété renseigne les jours
+à maturité : ils ne sont JAMAIS demandés, sauf variété absente du catalogue (option « Autre »,
+qui révèle alors le champ manuel + la convention).
+
+⚠️ **QUATRE CONVENTIONS de comptage**, les confondre fausse tout :
+- `semis` — depuis le semis (maïs, carotte).
+- `repiquage` — depuis la MISE EN TERRE du plant, pas depuis le semis intérieur (tomate,
+  melon, pastèque). Ajouter 6–8 semaines pour le délai réel depuis la graine. (Burpee)
+- `semis-14` — depuis le semis, moins 14 j si repiquée (courges, convention Johnny's).
+  Appliqué par `dtmEffective()`.
+- `plantation` — depuis la mise en terre du caïeu (ail, 8–10 mois).
+
+**DEUX DATES sur la culture** : `sowDate` (semis, pilote le modèle de phases) et `plantDate`
+(mise en terre, référence des jours à maturité pour les conventions `repiquage`/`plantation`).
+`maturityRef(p)` choisit la bonne ; si `plantDate` manque alors qu'elle est requise,
+`varietyOutlook().warn` est vrai et l'interface annonce que le calcul est optimiste plutôt que
+de se tromper en silence.
+
 ### Où vit chaque donnée (⚠️ ne pas déplacer sans raison)
 - **Ensoleillement → PARCELLE** (`bed.sun`, `bedSun(p)`, `sunVerdict()`). C'est une propriété
   de l'emplacement : le demander à chaque inspection et pour chaque culture d'une même
@@ -338,7 +364,7 @@ des parcelles créées dans la même milliseconde, et rattachait toutes les cult
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v27`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v28`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.

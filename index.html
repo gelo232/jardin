@@ -824,14 +824,19 @@ function sunVerdict(h){
 /* jours à maturité : la valeur de la VARIÉTÉ prime sur celle, générique, de l'espèce.
    ⚠️ `varDtm` (variété) et `dtm` (espèce) doivent rester deux clés distinctes sur l'objet
    résolu : les confondre faisait écraser la valeur de l'espèce par un null. */
-function dtmOf(p){return(p&&isFinite(+p.varDtm)&&p.varDtm)?+p.varDtm:((p&&p.dtm)||null);}
+function dtmOf(p){
+  const v=varietyRec(p);if(v&&v.dtm)return v.dtm;              // variété du catalogue
+  return(p&&isFinite(+p.varDtm)&&p.varDtm)?+p.varDtm:((p&&p.dtm)||null);}
 /* la variété a-t-elle le temps d'arriver à maturité avant le gel ? */
 function varietyOutlook(p){
-  const d=dtmOf(p);if(!d||!p.sowDate||p.peren||p.ornamental)return null;
-  const sow=new Date(p.sowDate+'T00:00'),mat=new Date(sow.getTime()+d*864e5);
+  const d=dtmEffective(p);if(!d||p.peren||p.ornamental)return null;
+  const ref=maturityRef(p);if(!ref||!ref.date)return null;
+  const base=new Date(ref.date+'T00:00'),mat=new Date(base.getTime()+d*864e5);
   const f=frostInfo();if(!f)return null;
   const margin=Math.round((f.date-mat)/864e5);
-  return{dtm:d,maturity:mat,margin,ok:margin>=0,frost:f};
+  const conv=dtmFrom(p),adj=(conv==='semis-14'&&p.sowing==='repique');
+  return{dtm:d,rawDtm:dtmOf(p),adjusted:adj,conv,ref,maturity:mat,margin,ok:margin>=0,frost:f,
+    warn:(conv==='repiquage'||conv==='plantation')&&!ref.exact};
 }
 /* ===== MODÈLE ESPÈCE / PLANTATION =====
    L'app décrivait un jardin figé : 14 entrées codées en dur, dates de semis en 2026,
@@ -844,6 +849,81 @@ function varietyOutlook(p){
    Une même culture peut donc être plantée dans plusieurs parcelles : autant de plantations
    pointant vers la même espèce. Ajouter, modifier ou dupliquer devient une opération de
    l'utilisateur, plus une modification du code. */
+/* ===== CATALOGUE DE VARIÉTÉS =====
+   Principe de conception : l'app ne demande à l'utilisateur QUE ce que lui seul peut savoir.
+   Les jours à maturité sont une donnée du semencier, pas une observation du jardinier : ils
+   sont donc rattachés à la variété et renseignés automatiquement dès qu'elle est choisie.
+
+   ⚠️ TROIS CONVENTIONS coexistent, et les confondre fausse tout :
+   • `semis`      — compté depuis le semis. Cultures semées en place : maïs, carotte.
+   • `repiquage`  — compté depuis la MISE EN TERRE du plant, pas depuis le semis intérieur.
+                    Tomate, poivron, melon, pastèque. Il faut ajouter 6 à 8 semaines de
+                    culture intérieure pour obtenir le délai réel depuis la graine.
+                    (Burpee, Garden Betty)
+   • `semis-14`   — compté depuis le semis, MOINS ~14 jours si la culture est repiquée.
+                    Convention des courges chez Johnny's Selected Seeds.
+   • `plantation` — bulbes : compté depuis la mise en terre du caïeu (ail, 8–10 mois).
+
+   Les chiffres varient d'un semencier à l'autre pour une même variété : ceux retenus sont
+   les plus couramment publiés, et la fourchette est indiquée quand elle est large. */
+const VARIETIES={
+  mais:[
+    {n:'Bicolore hâtif (type Double Sweet)',dtm:75,from:'semis'},
+    {n:'Ruby Queen (rouge)',dtm:75,from:'semis'},
+    {n:'Silver Queen (blanc)',dtm:88,from:'semis',note:'88 à 92 j selon le semencier — juste pour Montréal'},
+    {n:'Glass Gem (ornemental)',dtm:110,from:'semis',note:'110 à 120 j, récolté sec — ne mûrit pas avant le gel à Montréal'}],
+  tomate:[
+    {n:'Cerise hâtive (type Sungold)',dtm:57,from:'repiquage'},
+    {n:'Cerise (générique)',dtm:60,from:'repiquage'},
+    {n:'Roma (paste, déterminée)',dtm:75,from:'repiquage'},
+    {n:'Cherry Roma (indéterminée)',dtm:78,from:'repiquage'},
+    {n:'Beefsteak / grosse chair',dtm:80,from:'repiquage'}],
+  courge:[
+    {n:'Courgette / zucchini',dtm:50,from:'semis-14'},
+    {n:'Poivrée / acorn',dtm:85,from:'semis-14'},
+    {n:'Spaghetti',dtm:88,from:'semis-14'},
+    {n:'Butternut / musquée',dtm:95,from:'semis-14'}],
+  melon:[
+    {n:'Cantaloup (générique)',dtm:80,from:'repiquage',note:'70 à 85 j depuis le repiquage'}],
+  pasteque:[
+    {n:'Golden Midget',dtm:70,from:'repiquage',note:'sélectionnée pour les saisons courtes'},
+    {n:'Sugar Baby',dtm:78,from:'repiquage',note:'75 à 80 j — la plus réaliste sous climat frais'}],
+  carotte:[
+    {n:'Nantes',dtm:70,from:'semis'},
+    {n:'Bolero (Nantes hybride)',dtm:75,from:'semis'}],
+  ail:[
+    {n:'Col dur (hardneck)',dtm:270,from:'plantation',note:'planté en octobre, récolté en juillet-août'},
+    {n:'Col souple (softneck)',dtm:250,from:'plantation',note:'mûrit un peu avant le col dur'}],
+  persil:[{n:'Frisé',dtm:75,from:'semis'},{n:'Plat (italien)',dtm:70,from:'semis'}],
+  thym:[{n:'Commun',dtm:90,from:'semis',note:'vivace : récolte continue dès la 1re année'}],
+  citron:[{n:'Semis de pépin (non greffé)',dtm:null,from:'semis',note:'plusieurs années avant la 1re floraison'}],
+  ananas:[{n:'Couronne enracinée',dtm:null,from:'plantation',note:'16 à 24 mois avant floraison'}],
+  buis:[{n:'Buis en boule',dtm:null,from:'plantation'}]
+};
+function varietiesOf(sid){return VARIETIES[sid]||[];}
+function varietyRec(p){
+  const pl=p&&p.planting;if(!pl||!pl.variety)return null;
+  return varietiesOf(pl.species).find(v=>v.n===pl.variety)||null;
+}
+/* convention applicable : celle de la variété, sinon celle de l'espèce (défaut : semis) */
+function dtmFrom(p){const v=varietyRec(p);if(v&&v.from)return v.from;
+  const pl=p&&p.planting;return(pl&&pl.dtmFrom)||'semis';}
+/* date de référence du décompte, selon la convention ET le mode de semis réel */
+function maturityRef(p){
+  const pl=p&&p.planting;if(!pl)return null;
+  const conv=dtmFrom(p);
+  const plant=pl.plantDate||null,sow=pl.sowDate||null;
+  if(conv==='repiquage'||conv==='plantation')
+    return{date:plant||sow,lab:plant?'mise en terre':'date de semis (mise en terre non renseignée)',exact:!!plant};
+  return{date:sow,lab:'semis',exact:!!sow};
+}
+/* jours à maturité effectifs : la convention « semis-14 » retranche 14 j si la culture a
+   été démarrée à l'intérieur puis repiquée (règle Johnny's pour les courges). */
+function dtmEffective(p){
+  const d=dtmOf(p);if(!d)return null;
+  if(dtmFrom(p)==='semis-14'&&p.sowing==='repique')return Math.max(1,d-14);
+  return d;
+}
 const SPECIES_OF={mais_ombre:'mais',mais_geo:'mais',tomate_bac:'tomate',tomate_geo:'tomate',
   courge:'courge',melon:'melon',pasteque:'pasteque',carotte:'carotte',ail:'ail',
   persil:'persil',thym:'thym',citron:'citron',ananas:'ananas',buis:'buis'};
@@ -937,6 +1017,8 @@ function migrateModel(){
     }
     if(pl.variety===undefined)pl.variety=null;
     if(pl.dtm===undefined)pl.dtm=null;
+    if(pl.dtmFrom===undefined)pl.dtmFrom=null;
+    if(pl.plantDate===undefined)pl.plantDate=null;
   });
 }
 /* Résolution : espèce + plantation → objet « plante » de la forme attendue par tout le reste */
@@ -946,7 +1028,7 @@ function resolvePlanting(pl){
   return{
     id:pl.id,species:pl.species,planting:pl,sp,
     name:(pl.variety?`${nm} « ${pl.variety} »`:nm)+(pl.label?` — ${pl.label}`:''),
-    variety:pl.variety||null,
+    variety:pl.variety||null,plantDate:pl.plantDate||null,dtmFrom:pl.dtmFrom||null,
     icon:sp.icon||'🌱',sub:pl.sub||'',
     stages:sp.stages||['Croissance'],dur:sp.dur||null,phases:sp.phases||null,
     waterEvery:sp.waterEvery||null,sowDate:pl.sowDate||null,
@@ -3014,10 +3096,14 @@ function stateBlock(p){
       ${C.actual.since?`<br><span class="note" style="font-weight:400">${C.actual.since.txt}</span>`:''}</span></div>
     ${C.actual.h?`<div class="diff"><span class="d-k">${archOf(p).hLab.replace(' (cm)','')}</span><span class="d-v">${C.actual.h} cm${gr?` <span class="note" style="font-weight:400">(${gr.perWeek>=0?'+':''}${gr.perWeek} cm/sem.)</span>`:''}</span></div>`:''}
     ${(()=>{const v=varietyOutlook(p);if(!v)return '';
-      return `<div class="diff"><span class="d-k">Maturité de la variété</span><span class="d-v">${v.dtm} j → ${fmtDate(v.maturity)}
+      const conv={semis:'depuis le semis',repiquage:'depuis la mise en terre',
+        'semis-14':'depuis le semis, −14 j car repiquée',plantation:'depuis la plantation'}[v.conv]||'';
+      return `<div class="diff"><span class="d-k">Maturité${p.variety?` · ${p.variety}`:''}</span><span class="d-v">${v.dtm} j → ${fmtDate(v.maturity)}
+        <br><span class="note" style="font-weight:400">${conv}${v.adjusted?` (sachet : ${v.rawDtm} j)`:''} · référence : ${v.ref.lab}</span>
         <br><span class="note" style="font-weight:400;color:${v.ok?'var(--leaf-d)':'#eb8981'}">${v.ok
           ? `${v.margin} j de marge avant le gel${v.frost.src==='prévision'?' annoncé':' moyen'}`
-          : `<b>${-v.margin} j de retard sur le gel</b> — cette variété n'a pas le temps`}</span></span></div>`;})()}
+          : `<b>${-v.margin} j de retard sur le gel</b> — cette variété n'a pas le temps`}</span>
+        ${v.warn?`<br><span class="note" style="font-weight:400;color:var(--amber)">⚠️ Date de mise en terre non renseignée : le calcul part du semis, donc il est optimiste. Renseigne-la sur la fiche de la culture.</span>`:''}</span></div>`;})()}
     <p class="note" style="margin:8px 0 0">${C.expected.marker
       ? `À ce stade, tu devrais voir : <b>${C.expected.marker.toLowerCase()}</b>.`:''}
       ${C.gap!=null&&C.gap<0?" L'app a recalé arrosage et fertilisation sur le stade réellement observé, pas sur le calendrier.":''}
@@ -3734,7 +3820,7 @@ function openPlantForm(id){
     <div style="font-weight:800;font-size:15px;margin-bottom:12px">${pl?'✏️ Modifier la plantation':'＋ Nouvelle plantation'}</div>
     <div class="field"><label>Culture</label>
       <div class="hint">L'agronomie (stades, durées, recettes, pH visé) vient de l'espèce. Une même culture peut être plantée dans plusieurs parcelles : crée simplement une plantation par emplacement.</div>
-      <select id="pf_species" ${pl?'disabled':''}>${sps.map(sp=>`<option value="${sp.id}"${pl&&pl.species===sp.id?' selected':''}>${sp.icon} ${sp.name}</option>`).join('')}</select></div>
+      <select id="pf_species" ${pl?'disabled':''} onchange="openPlantForm(editingId)">${sps.map(sp=>`<option value="${sp.id}"${pl&&pl.species===sp.id?' selected':''}>${sp.icon} ${sp.name}</option>`).join('')}</select></div>
     <div class="field"><label>Emplacement (nom court)</label>
       <div class="hint">Ce qui distingue cette plantation des autres de la même culture : « sous les arbres », « bac du fond »…</div>
       <input type="text" id="pf_label" placeholder="ex. bac du fond" value="${pl&&pl.label?pl.label.replace(/"/g,'&quot;'):''}"></div>
@@ -3744,17 +3830,36 @@ function openPlantForm(id){
         return `<option value="${b.id}"${pl&&pl.bed===b.id?' selected':''}>${b.name} — ${M.ic}${M.lab} · ${C.ic}${C.lab} · ${W.ic}${W.lab}</option>`}).join('')
         :'<option value="">— aucune parcelle : crée-en une dans Saison › Sol —</option>'}</select></div>
     <div class="field"><label>Semis</label>
-      <select id="pf_sowing">${Object.entries(SOWING).map(([k,o])=>`<option value="${k}"${(pl&&pl.sowing||'direct')===k?' selected':''}>${o.ic} ${o.lab}</option>`).join('')}</select>
+      <select id="pf_sowing" onchange="onSowingChange()">${Object.entries(SOWING).map(([k,o])=>`<option value="${k}"${(pl&&pl.sowing||'direct')===k?' selected':''}>${o.ic} ${o.lab}</option>`).join('')}</select>
       <div class="hint">Le repiquage perturbe les racines : les espèces à pivot (maïs, cucurbitacées, carotte) le supportent mal, et l'app en tient compte dans son diagnostic.</div></div>
-    <div class="field"><label>Date de semis / mise en terre</label>
-      <div class="hint">Elle pilote le calcul de la phase attendue et la comparaison au premier gel. La phase, elle, ne se saisit jamais : l'app la déduit de tes observations.</div>
+    <div class="field"><label>Date de semis</label>
+      <div class="hint">Quand la graine a été semée, en intérieur comme en place. Elle pilote le modèle de phases.</div>
       <input type="date" id="pf_sow" value="${pl&&pl.sowDate?pl.sowDate:today}"></div>
+    <div class="field" id="pf_plantWrap" style="display:${((pl&&pl.sowing)||'direct')==='repique'?'':'none'}">
+      <label>Date de mise en terre</label>
+      <div class="hint">Quand le plant a été mis en place dehors. Pour les cultures repiquées, c'est CETTE date que compte le semencier pour les jours à maturité — pas celle du semis.</div>
+      <input type="date" id="pf_plant" value="${pl&&pl.plantDate?pl.plantDate:''}"></div>
     <div class="field"><label>Variété</label>
-      <div class="hint">Facultatif, mais c'est la variété qui décide du nombre de jours à maturité — le chiffre déterminant dans une saison courte.</div>
-      <input type="text" id="pf_variety" placeholder="ex. Sugar Baby, Silver Queen" value="${pl&&pl.variety?String(pl.variety).replace(/"/g,'&quot;'):''}"></div>
-    <div class="field"><label>Jours à maturité de cette variété</label>
-      <div class="hint">Indiqué sur le sachet. Laisse vide pour utiliser la valeur générique de l'espèce${sps.length?` (${(state.species[(pl&&pl.species)||sps[0].id]||{}).dtm||'—'} j)`:''}.</div>
-      <input type="number" id="pf_dtm" min="0" max="400" placeholder="ex. 78" value="${pl&&pl.dtm?pl.dtm:''}"></div>
+      <div class="hint">Les jours à maturité viennent de la variété : c'est une donnée du semencier, pas quelque chose à retenir. Choisis « Autre » seulement si la tienne n'est pas listée.</div>
+      <select id="pf_variety" onchange="onVarietyChange()">
+        <option value="">— non précisée —</option>
+        ${(()=>{const sid=(pl&&pl.species)||(sps[0]&&sps[0].id);
+          return varietiesOf(sid).map(v=>`<option value="${v.n.replace(/"/g,'&quot;')}"${pl&&pl.variety===v.n?' selected':''}>${v.n}${v.dtm?` — ${v.dtm} j`:''}</option>`).join('');})()}
+        <option value="__autre__"${pl&&pl.variety&&!varietiesOf((pl&&pl.species)).some(v=>v.n===pl.variety)?' selected':''}>Autre / non listée…</option>
+      </select>
+      <div id="pf_varInfo" class="hint" style="margin-top:6px"></div></div>
+    <div id="pf_autreWrap" style="display:none">
+      <div class="field"><label>Nom de ta variété</label>
+        <input type="text" id="pf_varName" placeholder="ex. Blue Hopi" value="${pl&&pl.variety&&!varietiesOf((pl&&pl.species)).some(v=>v.n===pl.variety)?String(pl.variety).replace(/"/g,'&quot;'):''}"></div>
+      <div class="field"><label>Jours à maturité (sur le sachet)</label>
+        <div class="hint">Recopie le chiffre du sachet. Précise aussi à partir de quand il est compté : c'est écrit sur le sachet, et les deux conventions donnent des résultats très différents.</div>
+        <input type="number" id="pf_dtm" min="0" max="400" placeholder="ex. 78" value="${pl&&pl.dtm?pl.dtm:''}"></div>
+      <div class="field"><label>Compté à partir de</label>
+        <select id="pf_dtmFrom">
+          <option value="semis"${(pl&&pl.dtmFrom)==='semis'?' selected':''}>du semis</option>
+          <option value="repiquage"${(pl&&pl.dtmFrom)==='repiquage'?' selected':''}>de la mise en terre (plant repiqué)</option>
+        </select></div>
+    </div>
     <div class="field"><label>Nombre de plants</label>
       <input type="number" id="pf_count" min="0" max="999" placeholder="ex. 6" value="${pl&&pl.count?pl.count:''}"></div>
     <div class="field"><label>Espacement entre plants</label>
@@ -3768,7 +3873,27 @@ function openPlantForm(id){
       <button class="btn ghost" style="flex:1" onclick="closePlantForm()">Annuler</button></div>
     ${pl?`<button class="btn ghost sm" style="width:100%;margin-top:8px" onclick="duplicatePlanting('${pl.id}')">⧉ Dupliquer dans une autre parcelle</button>`:''}
   </div>`;
-  el.style.display='';el.scrollIntoView({block:'start',behavior:'smooth'});
+  el.style.display='';onVarietyChange();onSowingChange();el.scrollIntoView({block:'start',behavior:'smooth'});
+}
+/* La variété commande les jours à maturité : on les affiche, on ne les demande pas.
+   Le champ manuel n'apparaît que pour une variété absente du catalogue. */
+function onVarietyChange(){
+  const sel=document.getElementById('pf_variety'),info=document.getElementById('pf_varInfo'),
+        wrap=document.getElementById('pf_autreWrap'),ssel=document.getElementById('pf_species');
+  if(!sel)return;
+  const autre=sel.value==='__autre__';
+  if(wrap)wrap.style.display=autre?'':'none';
+  const v=varietiesOf(ssel?ssel.value:'').find(x=>x.n===sel.value);
+  if(!info)return;
+  if(autre){info.innerHTML="Renseigne les jours à maturité indiqués sur ton sachet.";return;}
+  if(!v){info.innerHTML="Sans variété, l'app utilise la durée générique de l'espèce — moins précise pour juger du temps restant avant le gel.";return;}
+  const conv={semis:"compté depuis le SEMIS",repiquage:"compté depuis la MISE EN TERRE du plant (ajoute 6 à 8 semaines si tu la démarres à l'intérieur)",
+    'semis-14':"compté depuis le semis ; l'app retranche 14 j si tu la repiques",plantation:"compté depuis la plantation"}[v.from]||'';
+  info.innerHTML=`<b>${v.dtm?v.dtm+' jours à maturité':'durée non applicable'}</b>${v.dtm?` — ${conv}`:''}.${v.note?` ${v.note}.`:''}`;
+}
+function onSowingChange(){
+  const s=document.getElementById('pf_sowing'),w=document.getElementById('pf_plantWrap');
+  if(s&&w)w.style.display=s.value==='repique'?'':'none';
 }
 function closePlantForm(){const el=document.getElementById('plantForm');if(el){el.style.display='none';el.innerHTML='';}editingId=null;}
 function savePlanting(){
@@ -3779,8 +3904,12 @@ function savePlanting(){
   if(!bed){toast('Crée d\'abord une parcelle dans Saison › Sol.');return;}
   const data={species:sid,label:(g('label')||'').trim()||null,bed,
     sowDate:g('sow')||new Date().toISOString().slice(0,10),sowing:g('sowing')||'direct',
-    count:num(g('count')),volL:num(g('volL')),
-    variety:(g('variety')||'').trim()||null,dtm:num(g('dtm')),spacing:g('spacing')||''};
+    count:num(g('count')),volL:num(g('volL')),spacing:g('spacing')||'',
+    plantDate:g('plant')||null};
+  const vsel=g('variety');
+  if(vsel==='__autre__'){data.variety=(g('varName')||'').trim()||null;
+    data.dtm=num(g('dtm'));data.dtmFrom=g('dtmFrom')||'semis';}
+  else{data.variety=vsel||null;data.dtm=null;data.dtmFrom=null;}
   if(editingId){
     const pl=state.plantings.find(x=>x.id===editingId);if(!pl)return;
     Object.assign(pl,data);
