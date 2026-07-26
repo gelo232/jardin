@@ -810,6 +810,29 @@ function rainReaches(p){
 function coverProtects(p){return coverOf(p).splash===true;}
 function inGround(p){return mediumOf(p).rotation===true;}
 function reservoirL(p){const b=bedOf(p);return(b&&b.watering==='reservoir')?(b.reservoirL||null):null;}
+/* L'ensoleillement caractérise l'EMPLACEMENT, pas une observation ponctuelle : le mesurer à
+   chaque inspection et pour chaque culture d'une même parcelle était redondant et pouvait se
+   contredire. Il appartient donc à la parcelle. */
+function bedSun(p){const b=bedOf(p);return(b&&isFinite(+b.sun)&&b.sun!=='')?+b.sun:null;}
+function sunVerdict(h){
+  if(h==null)return null;
+  if(h>=6)return{lvl:'bon',ic:'☀️',txt:"Plein soleil : convient à toutes les cultures, y compris les légumes-fruits."};
+  if(h>=4)return{lvl:'limite',ic:'⛅',txt:"Mi-ombre : correct pour les feuillages et les racines, juste pour les légumes-fruits (rendement réduit)."};
+  return{lvl:'bas',ic:'🌥️',txt:"Trop ombragé pour des légumes-fruits. Réserve cet emplacement aux feuillages et aux aromatiques, qui tolèrent moins de 4 h."};
+}
+/* jours à maturité : la variété prime sur l'espèce — c'est le nombre décisif en saison courte */
+/* jours à maturité : la valeur de la VARIÉTÉ prime sur celle, générique, de l'espèce.
+   ⚠️ `varDtm` (variété) et `dtm` (espèce) doivent rester deux clés distinctes sur l'objet
+   résolu : les confondre faisait écraser la valeur de l'espèce par un null. */
+function dtmOf(p){return(p&&isFinite(+p.varDtm)&&p.varDtm)?+p.varDtm:((p&&p.dtm)||null);}
+/* la variété a-t-elle le temps d'arriver à maturité avant le gel ? */
+function varietyOutlook(p){
+  const d=dtmOf(p);if(!d||!p.sowDate||p.peren||p.ornamental)return null;
+  const sow=new Date(p.sowDate+'T00:00'),mat=new Date(sow.getTime()+d*864e5);
+  const f=frostInfo();if(!f)return null;
+  const margin=Math.round((f.date-mat)/864e5);
+  return{dtm:d,maturity:mat,margin,ok:margin>=0,frost:f};
+}
 /* ===== MODÈLE ESPÈCE / PLANTATION =====
    L'app décrivait un jardin figé : 14 entrées codées en dur, dates de semis en 2026,
    agronomie recopiée pour chaque emplacement (mais_ombre et mais_geo dupliquaient huit
@@ -898,6 +921,23 @@ function migrateModel(){
   // valeurs par défaut sur des parcelles créées avant le modèle
   state.beds.forEach(b=>{b.medium=b.medium||'terre';b.cover=b.cover||'aucune';
     b.watering=b.watering||(b.reservoirL?'reservoir':'drainage');});
+  /* Récupération des données saisies quand ensoleillement et espacement vivaient encore
+     dans l'inspection : on ne perd pas ce qui a déjà été mesuré. */
+  state.beds.forEach(b=>{
+    if(b.sun!=null&&b.sun!=='')return;
+    const ids=state.plantings.filter(pl=>pl.bed===b.id).map(pl=>pl.id);
+    const vals=ids.map(id=>state.insp[id]).filter(i=>i&&isFinite(+i.sun)&&i.sun!=='').map(i=>+i.sun);
+    if(vals.length)b.sun=Math.round(vals.reduce((x,y)=>x+y,0)/vals.length*10)/10;
+  });
+  state.plantings.forEach(pl=>{
+    if(pl.spacing===''||pl.spacing==null){
+      const i=state.insp[pl.id];
+      if(i&&i.space!==''&&i.space!=null)pl.spacing=String(i.space);
+      else pl.spacing='';
+    }
+    if(pl.variety===undefined)pl.variety=null;
+    if(pl.dtm===undefined)pl.dtm=null;
+  });
 }
 /* Résolution : espèce + plantation → objet « plante » de la forme attendue par tout le reste */
 function resolvePlanting(pl){
@@ -905,7 +945,8 @@ function resolvePlanting(pl){
   const nm=sp.name||pl.id;
   return{
     id:pl.id,species:pl.species,planting:pl,sp,
-    name:pl.label?`${nm} — ${pl.label}`:nm,
+    name:(pl.variety?`${nm} « ${pl.variety} »`:nm)+(pl.label?` — ${pl.label}`:''),
+    variety:pl.variety||null,
     icon:sp.icon||'🌱',sub:pl.sub||'',
     stages:sp.stages||['Croissance'],dur:sp.dur||null,phases:sp.phases||null,
     waterEvery:sp.waterEvery||null,sowDate:pl.sowDate||null,
@@ -914,7 +955,7 @@ function resolvePlanting(pl){
     arch:sp.arch||'fruit',fam:sp.fam||'autres',phOpt:sp.phOpt||null,nTarget:sp.nTarget||null,
     resow:sp.resow||null,pollen:sp.pollen||null,camg:sp.camg||null,dtm:sp.dtm||null,
     vol:pl.vol||null,volL:pl.volL||null,bed:pl.bed||null,sowing:pl.sowing||'direct',
-    count:pl.count||null,spacing:pl.spacing||'',origin:pl.origin||'',
+    count:pl.count||null,spacing:(pl.spacing==null?'':pl.spacing),varDtm:pl.dtm||null,origin:pl.origin||'',
     water:pl.water||'',watch:pl.watch||[],structural:pl.structural||[],
     checks:pl.checks||[],flag:pl.flag||null,stage:0};
 }
@@ -1557,7 +1598,7 @@ const DIAG=[
   adj:{waterDelta:-1}},
 
  {id:'etiolement',sev:2,cause:"Manque de lumière (étiolement)",
-  on:c=>c.signs.includes('etirees')||(isFinite(+c.i.sun)&&c.i.sun!==''&&+c.i.sun<4),
+  on:c=>c.signs.includes('etirees')||(bedSun(c.p)!=null&&bedSun(c.p)<4),
   why:"Des tiges longues, fines, penchées vers la lumière signalent un déficit lumineux : la plante investit dans la hauteur au lieu de la robustesse. Sous 4 h de soleil direct, les légumes-fruits (tomate, maïs, courge) ne peuvent pas produire normalement.",
   fix:["Déplacer au plein soleil tant que le plant est jeune, motte intacte — attention : les cultures à pivot supportent mal le déplacement.","Dégager ce qui fait de l'ombre (feuillage voisin, structure).","À défaut : réserver ce coin aux feuillages et aux aromatiques, qui tolèrent moins de 6 h."],
   src:"UC Master Gardeners, Placer County (cultures sous 6 h de soleil) ; contenu déjà présent dans l'app."},
@@ -1726,7 +1767,8 @@ const DIAG=[
   src:"Contenu déjà sourcé dans l'app pour le buis : U. Maryland, U. Kentucky, Morton Arboretum, UGA."},
 
  {id:'espacement',sev:2,cause:"Plants trop serrés",
-  on:c=>{const A=archOf(c.p);return A.spaceMin!=null&&c.i.space!==''&&c.i.space!=null&&isFinite(+c.i.space)&&+c.i.space<A.spaceMin;},
+  on:c=>{const A=archOf(c.p),sp=c.p.spacing;
+    return A.spaceMin!=null&&sp!==''&&sp!=null&&isFinite(+sp)&&+sp<A.spaceMin;},
   why:c=>`Des plants trop rapprochés se concurrencent pour l'eau, la lumière et les éléments : aucun n'atteint sa taille normale, et l'air circule mal entre eux, ce qui favorise les maladies foliaires. Pour cette culture, l'espacement visé est de ${archOf(c.p).spaceTxt}.`,
   fix:c=>c.arch==='root'||c.arch==='bulb'
     ? ["Éclaircir sans attendre : garder le sujet le plus vigoureux et couper les autres AU RAS DU SOL (arracher déchirerait les racines voisines).","Mieux vaut peu de beaux sujets que beaucoup de petits — le rendement total est supérieur.","L'an prochain : semer plus clair pour limiter l'éclaircissage."]
@@ -1969,7 +2011,7 @@ function addBed(){
   if(el.style.display==='none'){el.style.display='';inp.focus();return;}
   const n=(inp.value||'').trim();
   if(!n){toast('Donne un nom à la parcelle.');inp.focus();return;}
-  state.beds.push({id:newBedId(),name:n,medium:'terre',cover:'aucune',watering:'drainage',reservoirL:null,area:null,volume:null,ph:'',phDate:'',om:'',history:[]});
+  state.beds.push({id:newBedId(),name:n,medium:'terre',cover:'aucune',watering:'drainage',reservoirL:null,area:null,volume:null,sun:null,ph:'',phDate:'',om:'',history:[]});
   inp.value='';el.style.display='none';
   save();renderBeds();renderRot();toast('Parcelle ajoutée.');
 }
@@ -2089,6 +2131,7 @@ function renderBeds(){
       `<span class="chip f">${M.ic} ${M.lab}${(M.basis==='surface'?(b.area?' '+b.area+' m²':''):(b.volume?' '+b.volume+' L':''))}</span>`,
       `<span class="chip w">${CV.ic} ${CV.lab}</span>`,
       `<span class="chip w">${W.ic} ${W.lab}${b.reservoirL?' '+b.reservoirL+' L':''}</span>`,
+      b.sun?`<span class="chip ${(+b.sun>=6)?'f':'w'}">☀️ ${b.sun} h</span>`:'',
       M.rotation?(v?`<span class="chip ${v.lvl==='bon'?'f':'w'}">${v.ic} pH ${b.ph}</span>`:`<span class="chip w">pH non mesuré</span>`):'',
       `<span class="chip f">${ps.length} plante${ps.length>1?'s':''}</span>`,
       warns.length?`<span class="chip w">⚠️ rotation</span>`:''
@@ -2122,6 +2165,12 @@ function renderBeds(){
       <div class="field" style="margin-bottom:10px"><label>${(MEDIUM[b.medium||'terre']||MEDIUM.terre).basis==='surface'?'Superficie (m²)':'Volume de substrat (L)'}</label>
         <input type="number" min="0" step="0.1" inputmode="decimal" value="${((MEDIUM[b.medium||'terre']||MEDIUM.terre).basis==='surface'?b.area:b.volume)||''}" placeholder="ex. 2,5"
           onchange="setBedField('${b.id}','${(MEDIUM[b.medium||'terre']||MEDIUM.terre).basis==='surface'?'area':'volume'}',parseFloat(this.value)||null)"></div>
+      <div class="field" style="margin-bottom:10px"><label>Ensoleillement (h de soleil direct)</label>
+        <div class="hint">Compté sur une journée dégagée. C'est une propriété de l'emplacement : elle vaut pour toutes les cultures de cette parcelle.</div>
+        <input type="number" min="0" max="16" step="0.5" inputmode="decimal" value="${b.sun||''}" placeholder="ex. 6"
+          onchange="setBedField('${b.id}','sun',parseFloat(this.value)||null)">
+        ${(()=>{const sv=sunVerdict(isFinite(+b.sun)&&b.sun!==''?+b.sun:null);
+          return sv?`<div class="hint" style="margin-top:6px;color:${sv.lvl==='bon'?'var(--leaf-d)':sv.lvl==='limite'?'var(--amber)':'#eb8981'}">${sv.ic} ${sv.txt}</div>`:''})()}</div>
       <div class="field" style="margin-bottom:10px"><label>Couverture du sol</label>
         <div class="hint">Toute couverture fait barrière aux éclaboussures qui remontent les spores sur les feuilles basses. Un géotextile est perméable : il ne bloque que la lumière.</div>
         <select onchange="setBedField('${b.id}','cover',this.value)">
@@ -2754,6 +2803,31 @@ function renderToday(){
     const k=taskKey(['soin',p.id,ph,isoWeek()]);
     if(kind){const t=actionTiming(kind);add('Soins & phases',t.good?'prio':'',t.ic,`${p.name} · ${ph} — ${t.verb}`,`${info.care[0]} ${t.advice}`,p.id,k);}
     else add('Soins & phases','','🌿',`${p.name} · ${ph}`,info.care[0],p.id,k);});
+  /* ===== CONTRÔLES DE CONFIGURATION =====
+     Certains problèmes sont connaissables SANS inspecter : un emplacement à 3 h de soleil ou
+     des plants à 5 cm d'écart sont des faits déclarés, pas des symptômes à observer. Le
+     moteur de diagnostic, lui, ne s'exécute que sur une inspection : ces contrôles-là vivent
+     donc à part, et se déclenchent dès la saisie de la configuration. */
+  state.beds.forEach(b=>{
+    const sv=sunVerdict(isFinite(+b.sun)&&b.sun!==''?+b.sun:null);if(!sv||sv.lvl==='bon')return;
+    const gourmands=plantsOfBed(b.id).filter(p=>['fruit','vine','grass'].indexOf(archKey(p))>=0&&!cycleOver(p));
+    if(!gourmands.length)return;
+    add('Inspection',sv.lvl==='bas'?'prio':'',sv.ic,
+      `${b.name} — ${b.sun} h de soleil pour ${gourmands.length} culture${gourmands.length>1?'s':''} exigeante${gourmands.length>1?'s':''}`,
+      `${sv.txt} Concerné${gourmands.length>1?'es':''} : ${gourmands.map(p=>p.name).join(', ')}. `
+      +(sv.lvl==='bas'
+        ? "Déplacer est encore possible tant que les plants sont jeunes et la motte intacte — sauf pour les cultures à pivot, qui supportent mal le dérangement. Sinon, réserve cet emplacement aux feuillages l'an prochain."
+        : "Attends-toi à un rendement réduit et à une maturité retardée. Dégage ce qui fait de l'ombre si c'est possible."),
+      null,taskKey(['soleil',b.id,b.sun]));
+  });
+  activePlants().forEach(p=>{
+    const A=archOf(p),sp=p.spacing;
+    if(A.spaceMin==null||sp===''||sp==null||!isFinite(+sp)||+sp>=A.spaceMin)return;
+    if(cycleOver(p))return;
+    add('Inspection','','📏',`${p.name} — plants trop serrés`,
+      `Espacement déclaré : ${(SPACE_OPTS.find(o=>o[0]===String(sp))||['','—'])[1].toLowerCase()}, alors que cette culture demande ${A.spaceTxt}. Trop serrés, les plants se concurrencent pour l'eau et la lumière et aucun n'atteint sa taille ; l'air circule mal, ce qui favorise les maladies foliaires. Éclaircis en coupant les plus faibles AU RAS DU SOL — arracher déchirerait les racines des voisins.`,
+      p.id,taskKey(['espacement',p.id,sp]));
+  });
   // INSPECTION — problèmes actifs issus des inspections saisies, puis rappel de tournée
   activePlants().forEach(p=>{
     const d=dg(p); if(d.none||!d.findings.length)return;
@@ -2939,6 +3013,11 @@ function stateBlock(p){
       ${C.expected.inPhase!=null?`<br><span class="note" style="font-weight:400">calendrier : ${C.expected.inPhase} j</span>`:''}
       ${C.actual.since?`<br><span class="note" style="font-weight:400">${C.actual.since.txt}</span>`:''}</span></div>
     ${C.actual.h?`<div class="diff"><span class="d-k">${archOf(p).hLab.replace(' (cm)','')}</span><span class="d-v">${C.actual.h} cm${gr?` <span class="note" style="font-weight:400">(${gr.perWeek>=0?'+':''}${gr.perWeek} cm/sem.)</span>`:''}</span></div>`:''}
+    ${(()=>{const v=varietyOutlook(p);if(!v)return '';
+      return `<div class="diff"><span class="d-k">Maturité de la variété</span><span class="d-v">${v.dtm} j → ${fmtDate(v.maturity)}
+        <br><span class="note" style="font-weight:400;color:${v.ok?'var(--leaf-d)':'#eb8981'}">${v.ok
+          ? `${v.margin} j de marge avant le gel${v.frost.src==='prévision'?' annoncé':' moyen'}`
+          : `<b>${-v.margin} j de retard sur le gel</b> — cette variété n'a pas le temps`}</span></span></div>`;})()}
     <p class="note" style="margin:8px 0 0">${C.expected.marker
       ? `À ce stade, tu devrais voir : <b>${C.expected.marker.toLowerCase()}</b>.`:''}
       ${C.gap!=null&&C.gap<0?" L'app a recalé arrosage et fertilisation sur le stade réellement observé, pas sur le calendrier.":''}
@@ -3007,7 +3086,11 @@ function plantBody(p){
         <p class="note" style="margin:0 0 6px"><b>${C.ic} ${C.lab}</b> — ${C.note}<br><b>${V.ic} ${V.lab}</b> — ${V.note}<br><b>${W.ic} ${W.lab}</b> — ${W.note}</p>
         <p class="note" style="margin:0">${b?`<b>${b.name}</b>`:'<b>Non rattachée à une parcelle</b> — rattache-la dans Saison › Sol pour suivre pH et rotation.'}
         ${f?`<br><span style="color:${f.ok?'var(--leaf-d)':'var(--amber)'}">${f.txt}</span>`:(b&&inGround(p)?'<br>pH non renseigné pour cette parcelle.':(inGround(p)?'':'<br>Substrat de contenant : ni le pH de parcelle ni la rotation ne s\'y appliquent — c\'est le renouvellement du terreau qui compte.'))}
-        <br>Famille : ${fam.ic} ${fam.lab} — ${fam.need}.</p></div>`})()}
+        <br>Famille : ${fam.ic} ${fam.lab} — ${fam.need}.
+        ${(()=>{const sv=sunVerdict(bedSun(p));return sv
+          ? `<br><span style="color:${sv.lvl==='bon'?'var(--leaf-d)':sv.lvl==='limite'?'var(--amber)':'#eb8981'}">${sv.ic} ${bedSun(p)} h de soleil — ${sv.txt}</span>`
+          : `<br>Ensoleillement non mesuré pour cette parcelle.`;})()}
+        ${p.spacing!==''&&p.spacing!=null?`<br>Espacement : ${(SPACE_OPTS.find(o=>o[0]===String(p.spacing))||['','—'])[1]}${archOf(p).spaceTxt?` (visé : ${archOf(p).spaceTxt})`:''}`:''}</p></div>`})()}
     <div class="pill-row"><span class="pill">Soleil : ${p.sun}</span>
       <span class="pill">Dernier engrais : ${isFinite(fed)?fed+' j':'—'}</span>
       <span class="pill">Dernier arrosage : ${isFinite(wat)?wat+' j':'—'}</span></div>
@@ -3275,9 +3358,8 @@ function inspFields(p){
     txt:`${sowingOf(p).ic} ${sowingOf(p).lab} — ${sowingOf(p).note} <i>Se modifie sur la fiche de la culture.</i>`}
   ];
   if(has('nb'))F.push({k:'nb',g:'c',t:'num',lab:'Nombre de plants de cette culture',ph:'ex. 8',max:999});
-  if(has('space'))F.push({k:'space',g:'c',t:'sel',lab:'Espacement entre plants',
-    hint:`Pour cette culture, vise ${A.spaceTxt}. Trop serré, les plants se concurrencent et aucun n'atteint sa taille.`,
-    opts:SPACE_OPTS});
+  if(has('space'))F.push({k:'_space',g:'c',t:'info',lab:'Espacement entre plants',
+    txt:`${p.spacing!==''&&p.spacing!=null?(SPACE_OPTS.find(o=>o[0]===String(p.spacing))||['','non renseigné'])[1]:'non renseigné'} — vise ${A.spaceTxt}. <i>Se modifie sur la fiche de la culture.</i>`});
   if(has('rows'))F.push({k:'rows',g:'c',t:'sel',lab:'Disposition au sol',
     hint:"Cette culture est pollinisée par le VENT : la forme de la plantation décide du remplissage des épis.",
     opts:[['','—'],['bloc','Bloc compact de 3 rangs ou plus'],['2rangs','Deux rangs'],
@@ -3285,13 +3367,15 @@ function inspFields(p){
   if(has('polli'))F.push({k:'polli',g:'c',t:'sel',lab:'Pollinisateurs observés (abeilles, bourdons)',
     hint:"Fleurs mâles et femelles séparées : sans insecte, la fleur femelle avorte.",
     opts:[['','—'],['oui','Oui, réguliers'],['peu','Rares'],['non','Aucun']]});
-  F.push({k:'sun',g:'c',t:'num',lab:'Heures de soleil direct (mesurées)',ph:'ex. 5',max:24,
-    hint:"Compté sur une journée dégagée, pas estimé de mémoire."});
+  {const sv=sunVerdict(bedSun(p)),b=bedOf(p);
+   F.push({k:'_sun',g:'c',t:'info',lab:'Ensoleillement',
+    txt:sv?`${sv.ic} ${bedSun(p)} h de soleil direct — ${sv.txt} <i>Propriété de la parcelle « ${b?b.name:''} ».</i>`
+        :`Non mesuré. <i>À renseigner sur la parcelle (Saison › Sol) : c'est une propriété de l'emplacement, pas une observation du jour.</i>`});}
   F.push({k:'note',g:'c',t:'txt',lab:'Notes libres'});
   return F;
 }
 /* clés possibles, tous archétypes confondus — sert à la sauvegarde et à la remise à zéro */
-const INSP_KEYS=['date','h','marks','vigor','color','signs','soil','roots','nb','space','rows','polli','sun','pests','note'];
+const INSP_KEYS=['date','h','marks','vigor','color','signs','soil','roots','nb','rows','polli','pests','note'];
 function inspTarget(){const s=document.getElementById('inspPlant');return s?byId(s.value):null;}
 function fillInspSelect(){
   const sel=document.getElementById('inspPlant');if(!sel)return;
@@ -3665,8 +3749,17 @@ function openPlantForm(id){
     <div class="field"><label>Date de semis / mise en terre</label>
       <div class="hint">Elle pilote le calcul de la phase attendue et la comparaison au premier gel. La phase, elle, ne se saisit jamais : l'app la déduit de tes observations.</div>
       <input type="date" id="pf_sow" value="${pl&&pl.sowDate?pl.sowDate:today}"></div>
+    <div class="field"><label>Variété</label>
+      <div class="hint">Facultatif, mais c'est la variété qui décide du nombre de jours à maturité — le chiffre déterminant dans une saison courte.</div>
+      <input type="text" id="pf_variety" placeholder="ex. Sugar Baby, Silver Queen" value="${pl&&pl.variety?String(pl.variety).replace(/"/g,'&quot;'):''}"></div>
+    <div class="field"><label>Jours à maturité de cette variété</label>
+      <div class="hint">Indiqué sur le sachet. Laisse vide pour utiliser la valeur générique de l'espèce${sps.length?` (${(state.species[(pl&&pl.species)||sps[0].id]||{}).dtm||'—'} j)`:''}.</div>
+      <input type="number" id="pf_dtm" min="0" max="400" placeholder="ex. 78" value="${pl&&pl.dtm?pl.dtm:''}"></div>
     <div class="field"><label>Nombre de plants</label>
       <input type="number" id="pf_count" min="0" max="999" placeholder="ex. 6" value="${pl&&pl.count?pl.count:''}"></div>
+    <div class="field"><label>Espacement entre plants</label>
+      <div class="hint">Décision de plantation, pas une observation : trop serré, les plants se concurrencent et aucun n'atteint sa taille.</div>
+      <select id="pf_spacing">${SPACE_OPTS.map(([v,l])=>`<option value="${v}"${String((pl&&pl.spacing)||'')===v?' selected':''}>${l}</option>`).join('')}</select></div>
     <div class="field"><label>Volume par arrosage (litres)</label>
       <div class="hint">Sert au calcul exact de l'azote apporté. Laisse vide si tu ne sais pas.</div>
       <input type="number" id="pf_volL" min="0" step="0.5" placeholder="ex. 5" value="${pl&&pl.volL?pl.volL:''}"></div>
@@ -3686,7 +3779,8 @@ function savePlanting(){
   if(!bed){toast('Crée d\'abord une parcelle dans Saison › Sol.');return;}
   const data={species:sid,label:(g('label')||'').trim()||null,bed,
     sowDate:g('sow')||new Date().toISOString().slice(0,10),sowing:g('sowing')||'direct',
-    count:num(g('count')),volL:num(g('volL'))};
+    count:num(g('count')),volL:num(g('volL')),
+    variety:(g('variety')||'').trim()||null,dtm:num(g('dtm')),spacing:g('spacing')||''};
   if(editingId){
     const pl=state.plantings.find(x=>x.id===editingId);if(!pl)return;
     Object.assign(pl,data);

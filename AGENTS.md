@@ -131,6 +131,25 @@ Accesseurs : `mediumOf(p)`, `coverOf(p)`, `wateringOf(p)`, `reservoirL(p)`, `sow
 **Une même espèce peut être cultivée dans plusieurs parcelles** : autant de cultures
 pointant vers la même espèce, sans dupliquer l'agronomie.
 
+### Où vit chaque donnée (⚠️ ne pas déplacer sans raison)
+- **Ensoleillement → PARCELLE** (`bed.sun`, `bedSun(p)`, `sunVerdict()`). C'est une propriété
+  de l'emplacement : le demander à chaque inspection et pour chaque culture d'une même
+  parcelle était redondant et pouvait se contredire.
+- **Espacement → CULTURE** (`planting.spacing`). C'est une décision de plantation, pas une
+  observation.
+- **Variété → CULTURE** (`planting.variety`, `planting.dtm`). `dtmOf(p)` fait primer la
+  variété sur l'espèce. ⚠️ Sur l'objet résolu, la variété est `varDtm` et l'espèce `dtm` :
+  les fusionner faisait écraser la valeur de l'espèce par un null.
+  `varietyOutlook(p)` = date de semis + jours à maturité vs `frostInfo()` → marge ou retard.
+- **Inspection = uniquement ce qui s'OBSERVE** : marqueurs, hauteur, couleur, signes, sol,
+  racines, ravageurs. Tout fait déclaré (configuration) appartient à la parcelle ou à la culture.
+
+### Contrôles de configuration (hors moteur de diagnostic)
+`DIAG` ne s'exécute que sur une inspection. Or un emplacement à 3 h de soleil ou des plants à
+5 cm d'écart sont connaissables **sans inspecter**. Ces contrôles vivent donc directement dans
+`renderToday()` (clés `soleil|<parcelle>|<h>` et `espacement|<culture>|<niveau>`) et se
+déclenchent dès la saisie de la configuration. Ne pas les réintégrer à `DIAG`.
+
 ### Durée dans la phase : DÉDUITE elle aussi
 `phaseStart(p)` encadre la transition avec l'historique : la dernière inspection montrant un
 stade antérieur = borne basse, la première montrant le stade courant = borne haute, on retient
@@ -319,7 +338,7 @@ des parcelles créées dans la même milliseconde, et rattachait toutes les cult
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v26`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v27`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.
