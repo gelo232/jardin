@@ -135,6 +135,38 @@ plus lu après la migration.
 **CRUD** : `openPlantForm` / `savePlanting` / `duplicatePlanting` / `deletePlanting`.
 La date de mise en terre est modifiable — c'est elle qui pilote tout le moteur de phase.
 
+## 4sexies. Contenant & couverture (deux axes INDÉPENDANTS)
+
+`CONTAINER` (terre · planche · bac · reserve) et `COVER` (nue · paillis · geotextile · film)
+sont deux propriétés physiques distinctes, portées par la PLANTATION. On peut pailler une
+planche surélevée ou poser un film sur de la pleine terre.
+
+- `rainReaches(p)` — **pleine** (sol en place + couverture perméable), **partielle**
+  (contenant : interception du feuillage, faible emprise), **nulle** (film imperméable, ou
+  pot à réserve). Pilote le report d'arrosage après une pluie : report complet / de moitié /
+  aucun.
+- `coverProtects(p)` — toute couverture fait barrière aux éclaboussures qui transportent les
+  spores du sol vers les feuilles basses. `diseaseRisk()` abaisse le score de façon
+  **graduée** (−1 si une partie est couverte, −2 si tout l'est), jamais jusqu'à zéro : le
+  mildiou circule aussi par voie aérienne.
+- `inGround(p)` — rotation et pH de parcelle ne s'appliquent QU'au sol en place. Un contenant
+  est exclu de `bedFamiliesThisYear()`, de `phFitFor()` et de la liste de rattachement.
+- `containerOf(p).basis` — **surface** (L/m² × surface de parcelle) ou **volume** (pas de
+  calcul au m² : consigne d'extension « arroser jusqu'à écoulement par le fond »).
+
+⚠️ **On code la direction documentée, jamais un coefficient inventé.** Aucune source
+d'extension ne chiffre la captation de pluie par type de contenant ; les ordres de grandeur
+qui circulent (pots séchant 3–4× plus vite, bacs 40–60 %) viennent de blogs horticoles et ne
+sont **pas** utilisés dans les calculs.
+
+⚠️ **Géotextile ≠ film plastique.** Le géotextile (polypropylène tissé/non tissé, structure
+poreuse) est PERMÉABLE : il ne bloque que la lumière (Illinois Extension). Le film de
+paillage polyéthylène est IMPERMÉABLE : l'eau ruisselle, les planches sont bombées pour
+l'évacuer, et le goutte-à-goutte est posé sous le film (Alabama Coop. Ext., NC State Ext.,
+NMSU). Les fiches `mais_geo` / `tomate_geo` affirmaient à tort que « l'eau ne pénètre qu'au
+trou » : corrigé, avec un test pratique proposé au jardinier pour lever le doute.
+Réduction des éclaboussures par le sol couvert : Iowa State Ext., NC State Ext., CSU Ext.
+
 ## 4quinquies. Volumes, saison, hivernage
 
 - **Dose réelle** : `appliedLiters(p)` = demi-réservoir pour un pot à réserve, sinon
@@ -281,7 +313,7 @@ La date de mise en terre est modifiable — c'est elle qui pilote tout le moteur
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v23`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v24`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.

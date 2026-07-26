@@ -599,16 +599,16 @@ const SEED_PLANTINGS=[
     {q:"Feuilles jaunissant en V depuis la pointe",fix:"Carence d'azote : applique la recette végétative (le maïs est très gourmand en azote)."}
    ],
    flag:{type:'',txt:"⚠️ Le maïs exige le plein soleil (6 h+). Sous le feuillage, attends-toi à des plants étirés et des épis maigres ; déplace-en au soleil tant qu'ils sont petits (motte intacte, il supporte mal le dérangement racinaire). Variétés mêlées : Double Sweet / Ruby / sweet (~75–80 j) arrivent à temps ; Silver Queen (~88–92 j) est juste ; Glass Gem (~110 j, récolté sec/ornemental) semé en juin court fort après le gel du ~7 oct. Le plant le plus avancé (~20 cm) a été démarré à l'intérieur fin avril."}},
-  {id:'mais_geo',vol:"≈ 3–5 L versés lentement au trou de plantation (l'eau ne passe qu'au trou)",icon:'🌽',name:'Maïs — sous géotextile',sub:'semé ~30 mai · entre les tomates',
+  {id:'mais_geo',vol:"≈ 3–5 L par pied, versés au pied à travers la toile (elle est perméable)",icon:'🌽',name:'Maïs — sous géotextile',sub:'semé ~30 mai · entre les tomates',
    stages:['Levée','Végétatif','Montaison','Soies','Épis'],stage:1,recipe:'vegetatif',feedDays:13,sun:'plein soleil',tender:false,
-   water:"À travers la membrane, l'eau ne pénètre qu'au trou de plantation : arrose lentement, directement au pied.",
+   water:"Le géotextile est PERMÉABLE : l'eau et l'air le traversent, il ne bloque que la lumière. Arrose normalement, au pied ; la pluie recharge le sol comme ailleurs. Son vrai bénéfice ici : il couvre le sol et supprime les éclaboussures qui projettent les spores sur les feuilles basses.",
    watch:["Concurrence avec les tomates pour la lumière et l'azote"],
    structural:["Maïs et tomate sont tous deux gourmands : surveille que le maïs ne soit pas étouffé par le feuillage des tomates."],
    checks:[
     {q:"Maïs étouffé / ombragé par le feuillage des tomates voisines",fix:"Dégage ou rabats le feuillage des tomates qui ombrage le maïs ; les deux sont gourmands en azote."},
-    {q:"Eau qui ne pénètre qu'au trou de plantation (géotextile)",fix:"Arrose lentement, directement au pied ; nourris uniquement en solution liquide versée au pied (pas d'épandage de surface)."}
+    {q:"Doute sur la perméabilité de la toile",fix:"Verse un litre d'eau dessus et regarde : un géotextile (polypropylène tissé ou non-tissé) l'absorbe en quelques secondes — il laisse passer eau et air, seule la lumière est bloquée. Si l'eau stagne ou ruisselle, ce n'est pas un géotextile mais un FILM plastique imperméable : dans ce cas l'eau n'entre qu'aux trous de plantation, la pluie ne recharge pas la planche, et il faut arroser au pied sans jamais compter sur les averses. Corrige alors la couverture dans la fiche de la plantation."}
    ],
-   flag:{type:'',txt:"La membrane empêche l'épandage de surface : nourris uniquement en solution liquide versée au pied. Parfait pour le doseur."}},
+   flag:{type:'',txt:"🧵 Géotextile perméable : l'eau, l'air et les engrais liquides le traversent — pas besoin de le soulever pour arroser. L'épandage d'engrais solide en surface, lui, reste inefficace (les granulés restent sur la toile) : la solution liquide versée au pied est la bonne méthode. Bénéfice majeur et souvent sous-estimé : le sol couvert supprime les éclaboussures, principale voie de contamination des feuilles basses par le mildiou."}},
   {id:'tomate_bac',vol:"≈ 3–5 L par bac, jusqu'à écoulement par le fond (les bacs sèchent vite)",icon:'🍅',name:'Tomates cerises — bacs',sub:'cerises · semé fin mai–juin · bacs',
    stages:['Semis','Végétatif','Boutons','Floraison','Fruits','Récolte'],stage:1,recipe:'jeune',feedDays:12,sun:'plein soleil',tender:false,
    water:"Les bacs sèchent vite : vérifie chaque jour, arrose en profondeur quand les 2–3 premiers cm sont secs. Régularité = pas de cul noir.",
@@ -621,9 +621,9 @@ const SEED_PLANTINGS=[
     {q:"Bords de feuilles bruns/secs",fix:"Excès de sels : lessive le substrat à l'eau claire et réduis la dose d'engrais."}
    ],
    flag:{type:'',txt:"🩹 Tes 2 plants cassés : (1) la tige couchée encore reliée qui repousse vers le haut — attelle-la à un tuteur (lien souple, au-dessus et au-dessous de la cassure), elle cicatrise en 2–4 sem. ; pas d'engrais le temps de la reprise. (2) La tête cassée et desséchée — coupe sous le sec dans le bois sain, puis laisse un gourmand sous la cassure devenir la nouvelle tête (tuteure-le)."}},
-  {id:'tomate_geo',vol:"≈ 4–6 L au trou de plantation, en profondeur",icon:'🍅',name:'Tomates — géotextile',sub:'Roma/jaune/brune · semé ~23 mai',
+  {id:'tomate_geo',vol:"≈ 4–6 L par pied, au pied et en profondeur",icon:'🍅',name:'Tomates — géotextile',sub:'Roma/jaune/brune · semé ~23 mai',
    stages:['Semis','Végétatif','Boutons','Floraison','Fruits','Récolte'],stage:1,recipe:'jeune',feedDays:12,sun:'plein soleil',tender:false,
-   water:"La membrane garde l'humidité mais bloque l'arrosage de surface : verse lentement au trou de plantation. Avantage : pas d'éclaboussures = moins de mildiou.",
+   water:"Le géotextile est perméable : arrose normalement au pied, l'eau le traverse. Il limite l'évaporation et, surtout, supprime les éclaboussures de terre sur les feuilles basses — la principale voie d'entrée du mildiou.",
    watch:["Mildiou dès fin juillet (taches brunes huileuses)","Cul noir si arrosage irrégulier"],
    structural:["Tuteurage dès maintenant.","Effeuillage des feuilles basses.","Pince les gourmands sur variétés indéterminées."],
    checks:[
@@ -739,6 +739,65 @@ const SEED_PLANTINGS=[
    ],
    flag:{type:'',txt:"🌳 Choc de transplantation. Récupération ≈ 1 an par pouce (2,5 cm) de diamètre de tronc (Morton Arboretum). Les 2 sujets sans feuilles ne sont pas forcément morts : fais le test de l'ongle avant toute conclusion. Priorités : eau profonde régulière, paillis, ombre, AUCUN engrais. Ne taille que le bois mort confirmé."}},
 ];
+/* ===== DEUX AXES PHYSIQUES : CONTENANT & COUVERTURE DU SOL =====
+   Ils sont INDÉPENDANTS : on peut pailler une planche surélevée, poser un film sur de la
+   pleine terre, ou laisser un pot à nu. Chacun pilote des choses différentes.
+
+   CONTENANT → vitesse de dessèchement, captation de la pluie, base de calcul du besoin en
+   eau (m² au sol vs litres de substrat), et applicabilité de la rotation et du pH de parcelle.
+   Sources : le feuillage intercepte une partie de la pluie avant qu'elle n'atteigne le
+   terreau, et un contenant abrité (auvent, arbre, balcon) en reçoit encore moins — d'où la
+   consigne d'arroser les pots MÊME après une pluie qui paraissait abondante. Le volume de
+   substrat commande l'autonomie.
+
+   COUVERTURE → infiltration de la pluie et protection contre les éclaboussures.
+   • Géotextile / toile de paysage : polypropylène tissé ou non-tissé, structure poreuse,
+     PERMÉABLE à l'eau et à l'air — il ne bloque que la lumière (Illinois Extension).
+   • Film de paillage polyéthylène : IMPERMÉABLE. L'eau ruisselle, les planches sont bombées
+     pour évacuer la pluie, et le goutte-à-goutte est posé SOUS le film : l'eau n'entre qu'aux
+     trous de plantation (Alabama Coop. Ext., NC State Ext., NMSU).
+   • Toute couverture (paille, feuilles, papier, plastique, géotextile) fait barrière aux
+     éclaboussures qui transportent les spores du sol vers les feuilles basses — c'est l'effet
+     le mieux établi (Iowa State Ext., NC State Ext., CSU Ext.).
+
+   ⚠️ On code la DIRECTION documentée, pas des coefficients : aucune source d'extension ne
+   donne de facteur chiffré de captation de pluie par type de contenant. Les ordres de
+   grandeur qui circulent (pots séchant 3–4× plus vite, bacs 40–60 %) viennent de blogs
+   horticoles, pas de publications validées : ils ne sont donc PAS utilisés dans les calculs. */
+const CONTAINER={
+  terre:{lab:'Pleine terre',ic:'🌍',rain:'pleine',basis:'surface',rotation:true,
+    note:"La pluie recharge normalement le sol. Le besoin en eau se calcule à la surface."},
+  planche:{lab:'Planche surélevée',ic:'🟫',rain:'pleine',basis:'surface',rotation:true,
+    note:"Sèche plus vite que la pleine terre (parois exposées, sol plus chaud, drainage rapide) mais reçoit la pluie normalement."},
+  bac:{lab:'Bac / pot sans réserve',ic:'🪴',rain:'partielle',basis:'volume',rotation:false,
+    note:"Volume de substrat limité et pluie partiellement interceptée : vérifier le substrat même après une averse."},
+  reserve:{lab:'Pot à réserve d\'eau',ic:'🪣',rain:'nulle',basis:'volume',rotation:false,
+    note:"La pluie n'atteint pratiquement pas le réservoir : c'est son niveau qui commande, pas la météo."}
+};
+const COVER={
+  nue:{lab:'Sol nu',ic:'⬜',infil:'pleine',splash:false,
+    note:"Rien ne freine les éclaboussures : c'est la configuration la plus exposée aux maladies foliaires du bas."},
+  paillis:{lab:'Paillis organique',ic:'🌾',infil:'pleine',splash:true,
+    note:"Perméable, limite l'évaporation et fait barrière aux éclaboussures porteuses de spores."},
+  geotextile:{lab:'Géotextile perméable',ic:'🧵',infil:'pleine',splash:true,
+    note:"Tissu polypropylène à structure poreuse : laisse passer l'eau et l'air, ne bloque que la lumière. Protège des éclaboussures."},
+  film:{lab:'Film plastique imperméable',ic:'🛢️',infil:'trou',splash:true,
+    note:"L'eau ruisselle et n'entre qu'aux trous de plantation : la pluie ne recharge pas la planche. Protège des éclaboussures et réchauffe le sol."}
+};
+function containerOf(p){return CONTAINER[(p&&p.container)||'terre']||CONTAINER.terre;}
+function coverOf(p){return COVER[(p&&p.cover)||'nue']||COVER.nue;}
+/* la pluie recharge-t-elle réellement cette plantation ? */
+function rainReaches(p){
+  const c=containerOf(p),v=coverOf(p);
+  if(c.rain==='nulle')return 'nulle';
+  if(v.infil==='trou')return 'nulle';         // film imperméable : l'eau est évacuée du rang
+  if(c.rain==='partielle')return 'partielle'; // contenant : interception + faible emprise
+  return 'pleine';
+}
+/* le sol est-il couvert ? (protection documentée contre les éclaboussures) */
+function coverProtects(p){return coverOf(p).splash===true;}
+/* la rotation et le pH de parcelle ont-ils un sens ici ? */
+function inGround(p){return containerOf(p).rotation===true;}
 /* ===== MODÈLE ESPÈCE / PLANTATION =====
    L'app décrivait un jardin figé : 14 entrées codées en dur, dates de semis en 2026,
    agronomie recopiée pour chaque emplacement (mais_ombre et mais_geo dupliquaient huit
@@ -786,6 +845,9 @@ function buildSeedPlantings(){
     label:(sp.name.split('—')[1]||'').trim()||null,
     sub:sp.sub,sowDate:SOW_DATE[sp.id]||null,
     bed:null,count:null,spacing:'',origin:'',
+    container:sp.selfWater?'reserve':(/bac/i.test(sp.name+' '+(sp.sub||''))?'bac':(sp.ornamental?'terre':'terre')),
+    cover:(/g[ée]otextile/i.test(sp.name+' '+(sp.sub||''))?'geotextile':'nue'),
+    potVol:null,
     vol:sp.vol||null,volL:null,selfWater:sp.selfWater||null,
     water:sp.water,watch:(sp.watch||[]).slice(),structural:(sp.structural||[]).slice(),
     checks:(sp.checks||[]).slice(),flag:sp.flag||null,builtin:true}));
@@ -794,7 +856,12 @@ function migrateModel(){
   if(!state.species||!Object.keys(state.species).length)state.species=buildSeedSpecies();
   if(!state.plantings||!state.plantings.length)state.plantings=buildSeedPlantings();
   // les parcelles déjà rattachées le restent
-  state.plantings.forEach(pl=>{if(!pl.bed&&state.plantBed[pl.id])pl.bed=state.plantBed[pl.id];});
+  state.plantings.forEach(pl=>{
+    if(!pl.bed&&state.plantBed[pl.id])pl.bed=state.plantBed[pl.id];
+    // déduction des deux axes pour les sauvegardes antérieures
+    if(!pl.container)pl.container=pl.selfWater?'reserve':(/bac/i.test((pl.label||'')+' '+(pl.sub||''))?'bac':'terre');
+    if(!pl.cover)pl.cover=/g[ée]otextile/i.test((pl.label||'')+' '+(pl.sub||''))?'geotextile':'nue';
+  });
 }
 /* Résolution : espèce + plantation → objet « plante » de la forme attendue par tout le reste */
 function resolvePlanting(pl){
@@ -811,6 +878,7 @@ function resolvePlanting(pl){
     arch:sp.arch||'fruit',fam:sp.fam||'autres',phOpt:sp.phOpt||null,nTarget:sp.nTarget||null,
     resow:sp.resow||null,pollen:sp.pollen||null,camg:sp.camg||null,dtm:sp.dtm||null,
     vol:pl.vol||null,volL:pl.volL||null,selfWater:pl.selfWater||null,bed:pl.bed||null,
+    container:pl.container||'terre',cover:pl.cover||'nue',potVol:pl.potVol||null,
     count:pl.count||null,spacing:pl.spacing||'',origin:pl.origin||'',
     water:pl.water||'',watch:pl.watch||[],structural:pl.structural||[],
     checks:pl.checks||[],flag:pl.flag||null,stage:0};
@@ -961,15 +1029,23 @@ function waterPlan(p){
   const last=state.waters[p.id];
   let due=new Date((last?new Date(last).getTime()+eff*oneDay:today.getTime()));due.setHours(0,0,0,0);
   let rainDay=null;
-  if(daily){
+  /* La pluie ne reporte le tour que là où elle atteint vraiment les racines.
+     pleine    → report complet (pleine terre / planche, sol nu, paillis ou géotextile perméable)
+     partielle → report de moitié seulement (contenant : interception du feuillage, faible emprise)
+     nulle     → aucun report (film imperméable : l'eau est évacuée du rang ; pot à réserve) */
+  const reach=rainReaches(p);
+  if(daily&&reach!=='nulle'){
+    const share=reach==='partielle'?0.5:1;
     for(const d of daily){
       const dd=new Date(d.date);dd.setHours(0,0,0,0);
       if(dd<today)continue;
       if(dd.getTime()>due.getTime()+oneDay)break;
-      if(d.rainSum>=5||d.rainProb>=60){due=new Date(dd.getTime()+eff*oneDay);due.setHours(0,0,0,0);rainDay=dd;}
+      if(d.rainSum>=5||d.rainProb>=60){
+        const add=Math.max(1,Math.round(eff*share));
+        due=new Date(dd.getTime()+add*oneDay);due.setHours(0,0,0,0);rainDay=dd;}
     }
   }
-  return {due,diff:Math.round((due-today)/oneDay),eff,baseEvery:e,rainDay};
+  return {due,diff:Math.round((due-today)/oneDay),eff,baseEvery:e,rainDay,rainReach:reach};
 }
 /* MODE d'arrosage d'un pot à réserve d'eau (sub-irrigation par mèche).
    Où verser l'eau : dans le RÉSERVOIR, pas sur les feuilles ni sur les copeaux.
@@ -994,8 +1070,13 @@ function waterFreqLine(p){
   let tags='';
   if(wp.eff<wp.baseEvery)tags+=` · <span style="color:var(--amber)">resserré (chaleur)</span>`;
   else if(wp.eff>wp.baseEvery)tags+=` · <span class="note">espacé (temps frais)</span>`;
-  if(wp.rainDay)tags+=` · <span style="color:var(--salt)">pluie le ${fmtDate(wp.rainDay)} = arrosage</span>`;
-  return `<div class="freq">💧 Environ <b>tous les ${e} j</b> · ${when}${tags}<br><span class="note">S'ajuste à la météo : la pluie reporte le tour, la chaleur le resserre.</span></div>`;
+  if(wp.rainDay)tags+=` · <span style="color:var(--salt)">pluie le ${fmtDate(wp.rainDay)} = ${wp.rainReach==='partielle'?'report partiel':'arrosage'}</span>`;
+  const R={pleine:"La pluie recharge normalement : elle reporte le tour.",
+    partielle:"Contenant : le feuillage intercepte une partie de la pluie et l'emprise au sol est faible. Le report n'est que partiel — vérifie le substrat même après une averse.",
+    nulle:coverOf(p).infil==='trou'
+      ? "Film imperméable : l'eau ruisselle et n'entre qu'aux trous de plantation. La pluie ne recharge pas cette planche, le tour d'arrosage n'est donc PAS reporté."
+      : "Pot à réserve : la pluie n'atteint pas le réservoir. C'est son niveau qui commande, pas la météo."}[wp.rainReach];
+  return `<div class="freq">💧 Environ <b>tous les ${e} j</b> · ${when}${tags}<br><span class="note">${containerOf(p).ic} ${containerOf(p).lab} · ${coverOf(p).ic} ${coverOf(p).lab}. ${R} La chaleur resserre le tour.</span></div>`;
 }
 function feedFreqLine(p,noF){
   if(noF)return `<div class="freq">⚗️ Pas d'apport à ce stade (maturation / repos)</div>`;
@@ -1711,6 +1792,7 @@ function phVerdict(ph){
 }
 /* Adéquation entre le pH d'une parcelle et une culture donnée */
 function phFitFor(p,ph){
+  if(!inGround(p))return null;   // substrat de contenant : le pH de la parcelle ne le concerne pas
   const o=p.phOpt;if(!o||ph==null||!isFinite(+ph))return null;
   const v=+ph;
   if(v>=o[0]&&v<=o[1])return{ok:true,txt:`pH ${v} — dans la plage idéale (${o[0]}–${o[1]}).`};
@@ -1750,7 +1832,9 @@ function bedOf(p){const id=(p&&p.bed)||state.plantBed[p&&p.id];return id?bedById
 function plantsOfBed(id){return activePlants().filter(p=>bedOf(p)&&bedOf(p).id===id);}
 /* familles cultivées cette année dans une parcelle (déduites des plantes assignées) */
 function bedFamiliesThisYear(id){
-  const set=new Set();plantsOfBed(id).forEach(p=>{const f=p.fam;if(f&&f!=='autres')set.add(f)});
+  /* Un contenant n'entre PAS dans la rotation : son substrat se renouvelle, il ne porte pas
+     la mémoire des pathogènes du sol, et le pH mesuré dans la terre du jardin ne le concerne pas. */
+  const set=new Set();plantsOfBed(id).filter(inGround).forEach(p=>{const f=p.fam;if(f&&f!=='autres')set.add(f)});
   return Array.from(set);
 }
 /* alerte rotation : la famille cultivée cette année l'a-t-elle été depuis moins de 3 ans ? */
@@ -1829,7 +1913,8 @@ function renderBeds(){
   if(!state.beds.length){
     el.innerHTML=`<div class="card"><div class="empty">Aucune parcelle. Crée-en une par zone de culture (un bac, une plate-bande, un coin du potager) pour y noter le pH et suivre la rotation.</div></div>`;return;}
   const today=new Date().toISOString().slice(0,10);
-  const unassigned=activePlants().filter(p=>!state.plantBed[p.id]&&!p.selfWater&&!p.ornamental);
+  // seules les cultures en pleine terre / planche se rattachent à une parcelle
+  const unassigned=activePlants().filter(p=>!bedOf(p)&&inGround(p)&&!p.ornamental);
   el.innerHTML=state.beds.map(b=>{
     const v=phVerdict(b.ph), ps=plantsOfBed(b.id), warns=rotWarnings(b);
     const age=b.phDate?daysSince(b.phDate+'T00:00'):null;
@@ -1886,7 +1971,7 @@ function renderBeds(){
               const fit=phFitFor(p,b.ph),fam=famOf(p);
               return `<div style="padding:8px 0;border-bottom:1px solid var(--line)">
                 <div style="display:flex;align-items:center;gap:8px">
-                  <span style="flex:1;font-weight:600;font-size:13.5px">${p.icon} ${p.name}</span>
+                  <span style="flex:1;font-weight:600;font-size:13.5px">${p.icon} ${p.name}${inGround(p)?'':' <span class="chip w">contenant — hors rotation</span>'}</span>
                   <button class="btn ghost sm" style="padding:3px 9px" onclick="assignPlant('${p.id}','')">Détacher</button></div>
                 <div class="note" style="margin-top:3px">${fam.ic} ${fam.lab}${fit?` · <span style="color:${fit.ok?'var(--leaf-d)':'var(--amber)'}">${fit.txt}</span>`:''}</div>
               </div>`;}).join('')
@@ -2200,6 +2285,8 @@ function diseaseRisk(){
   // pas de risque à annoncer s'il n'y a aucune culture sensible en végétation
   const S=plantsAtRisk().filter(p=>['fruit','vine','grass','bulb','root'].indexOf(archKey(p))>=0);
   if(!S.length)return null;
+  // sol couvert = barrière aux éclaboussures qui remontent les spores sur les feuilles basses
+  const exposed=S.filter(p=>!coverProtects(p)),covered=S.length-exposed.length;
   const n=w.daily.slice(0,5);if(!n.length||n[0].rhMax==null)return null;
   let mildew=0,powdery=0;
   n.forEach(d=>{
@@ -2208,7 +2295,13 @@ function diseaseRisk(){
     if(d.rhMean>=70&&d.rhMean<85&&d.tmax>=20&&d.tmax<=30&&d.rainSum<2)powdery+=1;
   });
   const lvl=v=>v>=6?'élevé':v>=3?'modéré':'faible';
-  return{mildew:lvl(mildew),powdery:lvl(powdery),mScore:mildew,pScore:powdery};
+  /* Le sol couvert fait barrière aux éclaboussures : on abaisse le risque proportionnellement
+     à la part des cultures sensibles réellement protégées — jamais jusqu'à zéro, car le
+     mildiou se propage aussi par voie aérienne. Réponse graduée, pas de coefficient inventé. */
+  if(covered===S.length){mildew=Math.max(0,mildew-2);powdery=Math.max(0,powdery-1);}
+  else if(covered>0){mildew=Math.max(0,mildew-1);}
+  return{mildew:lvl(mildew),powdery:lvl(powdery),mScore:mildew,pScore:powdery,
+    exposed:exposed.map(p=>p.name),covered,total:S.length,allCovered:covered===S.length};
 }
 /* Bilan hydrique : ET₀ (évapotranspiration de référence FAO) moins la pluie prévue.
    1 mm de déficit = 1 litre d'eau à apporter par m² de sol. Rend l'arrosage quantitatif. */
@@ -2375,7 +2468,11 @@ function renderToday(){
   if(dr&&(dr.mildew==='élevé'||dr.mildew==='modéré')){
     add('Urgent',dr.mildew==='élevé'?'prio':'','🍄',
       `Risque de mildiou ${dr.mildew} sur les 5 prochains jours`,
-      "Humidité élevée et températures de 15–25 °C annoncées : conditions favorables. En préventif, c'est maintenant que ça se joue — effeuille le bas des tomates, aère les plants, arrose STRICTEMENT au pied et le matin pour que le feuillage sèche vite. Une fois les taches installées, il est trop tard. Indice indicatif, pas un modèle validé.");
+      `Humidité élevée et températures de 15–25 °C annoncées : conditions favorables. En préventif, c'est maintenant que ça se joue — effeuille le bas, aère les plants, arrose STRICTEMENT au pied et le matin pour que le feuillage sèche vite. `
+      +(dr.exposed&&dr.exposed.length
+        ? `<b>Sol nu chez : ${dr.exposed.join(', ')}</b> — c'est là que le risque est le plus élevé : les gouttes rebondissent sur la terre et projettent les spores sur les feuilles basses. Un paillis de 5–7 cm fait barrière (paille, feuilles déchiquetées, papier ou film).`
+        : `Tes cultures sensibles sont toutes couvertes (paillis, géotextile ou film) : la barrière aux éclaboussures joue déjà, le risque est abaissé d'autant.`)
+      +` Une fois les taches installées, il est trop tard. Indice indicatif, pas un modèle validé.`);
   }
   if(dr&&dr.powdery==='élevé'){
     add('Urgent','','⚪',"Risque d'oïdium élevé",
@@ -2392,10 +2489,18 @@ function renderToday(){
   // besoin en eau chiffré : ET0 (évapotranspiration de référence) moins la pluie prévue
   const wb=waterBalance(7);
   if(wb&&wb.deficit>0){
-    const withArea=state.beds.filter(b=>b.area>0);
-    const detail=withArea.length
-      ? ' Pour tes parcelles : '+withArea.map(b=>`<b>${b.name} ${Math.round(wb.deficit*b.area)} L</b>`).join(', ')+'.'
+    /* Le calcul en L/m² ne vaut QUE pour le sol en place : un contenant ne s'arrose pas au
+       mètre carré. Pour eux, la règle d'extension est « arroser jusqu'à écoulement par le
+       fond » — aucune source ne donne de conversion ET₀ → litres par pot, on ne l'invente pas. */
+    const ground=activePlants().filter(p=>containerOf(p).basis==='surface');
+    const bedsOn=state.beds.filter(b=>b.area>0);  // une parcelle est par définition du sol en place
+    const filmed=ground.filter(p=>rainReaches(p)==='nulle');
+    let detail=bedsOn.length
+      ? ' Pour tes parcelles en pleine terre : '+bedsOn.map(b=>`<b>${b.name} ${Math.round(wb.deficit*b.area)} L</b>`).join(', ')+'.'
       : ' Renseigne la surface de tes parcelles (Saison › Sol) pour convertir ce chiffre en litres.';
+    if(filmed.length)detail+=` ⚠️ Sous film imperméable (${filmed.map(p=>p.name).join(', ')}), la pluie annoncée ne compte pas : il faut apporter la totalité de l'évapotranspiration (${wb.et0} mm), pas seulement le déficit.`;
+    const pots=activePlants().filter(p=>containerOf(p).basis==='volume'&&!p.selfWater);
+    if(pots.length)detail+=` Les contenants (${pots.map(p=>p.name).join(', ')}) ne se calculent pas au m² : arrose jusqu'à écoulement par le fond, et vérifie-les plus souvent que la pleine terre.`;
     add('Arrosage','','📐',`Besoin en eau : ≈ ${wb.deficit} L/m² sur 7 jours`,
       `Évapotranspiration prévue ${wb.et0} mm, pluie attendue ${wb.rain} mm → déficit de ${wb.deficit} mm. 1 mm = 1 litre par m².${detail} Mieux vaut deux arrosages profonds qu'un filet quotidien : l'eau doit descendre là où sont les racines.`);}
   else if(wb)add('Arrosage','','🌧️',"Pluie suffisante cette semaine",
@@ -2642,9 +2747,11 @@ function plantBody(p){
     <div class="pact"><h4>🛠️ Entretien · ${phName}</h4><ul>${(info.care||[]).map(x=>`<li>${x}</li>`).join('')}</ul></div>
     ${p.flag?`<div class="flag ${p.flag.type}">${p.flag.txt}${p.flag.type==='iron'?(()=>{const t=actionTiming('foliar');return `<br><span class="note" style="display:block;margin-top:7px">🕑 Si pulvérisation foliaire (fer chélaté) : ${t.good?`<b style="color:var(--leaf-d)">c'est le bon moment (${t.short})</b>`:`<b style="color:var(--amber)">${t.short}</b>`} — stomates ouverts tôt le matin (&lt;9 h 30) ou en soirée (&gt;18 h 30), jamais en plein soleil.`})():''}</div>`:''}
     ${(()=>{const b=bedOf(p),f=b?phFitFor(p,b.ph):null;const fam=famOf(p);
-      return `<div class="pact"><h4>🧱 Parcelle & sol</h4>
+      const C=containerOf(p),V=coverOf(p);
+      return `<div class="pact"><h4>🧱 Situation & sol</h4>
+        <p class="note" style="margin:0 0 6px"><b>${C.ic} ${C.lab}</b> — ${C.note}<br><b>${V.ic} ${V.lab}</b> — ${V.note}</p>
         <p class="note" style="margin:0">${b?`<b>${b.name}</b>`:'<b>Non rattachée à une parcelle</b> — rattache-la dans Saison › Sol pour suivre pH et rotation.'}
-        ${f?`<br><span style="color:${f.ok?'var(--leaf-d)':'var(--amber)'}">${f.txt}</span>`:(b?'<br>pH non renseigné pour cette parcelle.':'')}
+        ${f?`<br><span style="color:${f.ok?'var(--leaf-d)':'var(--amber)'}">${f.txt}</span>`:(b&&inGround(p)?'<br>pH non renseigné pour cette parcelle.':(inGround(p)?'':'<br>Substrat de contenant : ni le pH de parcelle ni la rotation ne s\'y appliquent — c\'est le renouvellement du terreau qui compte.'))}
         <br>Famille : ${fam.ic} ${fam.lab} — ${fam.need}.</p></div>`})()}
     <div class="pill-row"><span class="pill">Soleil : ${p.sun}</span>
       <span class="pill">Dernier engrais : ${isFinite(fed)?fed+' j':'—'}</span>
@@ -3279,6 +3386,15 @@ function openPlantForm(id){
       <div class="field" style="flex:1"><label>Surface (m²)</label>
         <input type="number" id="pf_area" min="0" step="0.1" placeholder="ex. 1,5" value="${pl&&pl.area?pl.area:''}"></div>
     </div>
+    <div class="field"><label>Type de contenant</label>
+      <div class="hint">Décide de la captation de la pluie, de la base de calcul du besoin en eau, et de l'applicabilité de la rotation et du pH de parcelle.</div>
+      <select id="pf_container">${Object.entries(CONTAINER).map(([k,c])=>`<option value="${k}"${(pl&&pl.container||'terre')===k?' selected':''}>${c.ic} ${c.lab}</option>`).join('')}</select></div>
+    <div class="field"><label>Couverture du sol</label>
+      <div class="hint">Un géotextile est perméable (il ne bloque que la lumière) ; un film plastique est imperméable et l'eau n'entre qu'aux trous. Toute couverture fait barrière aux éclaboussures porteuses de spores.</div>
+      <select id="pf_cover">${Object.entries(COVER).map(([k,c])=>`<option value="${k}"${(pl&&pl.cover||'nue')===k?' selected':''}>${c.ic} ${c.lab}</option>`).join('')}</select></div>
+    <div class="field"><label>Volume de substrat (litres, si contenant)</label>
+      <div class="hint">Le volume commande l'autonomie en eau : plus il est grand, plus l'arrosage s'espace.</div>
+      <input type="number" id="pf_potVol" min="0" step="1" placeholder="ex. 30" value="${pl&&pl.potVol?pl.potVol:''}"></div>
     <div class="field"><label>Volume par arrosage (litres)</label>
       <div class="hint">Sert au calcul exact de l'azote apporté et au besoin en eau. Laisse vide si tu ne sais pas.</div>
       <input type="number" id="pf_volL" min="0" step="0.5" placeholder="ex. 5" value="${pl&&pl.volL?pl.volL:''}"></div>
@@ -3298,13 +3414,15 @@ function savePlanting(){
   const num=v=>{const n=parseFloat(v);return isFinite(n)&&n>0?n:null;};
   const data={species:sid,label:(g('label')||'').trim()||null,bed:g('bed')||null,
     sowDate:g('sow')||new Date().toISOString().slice(0,10),origin:g('origin')||'',
-    count:num(g('count')),area:num(g('area')),volL:num(g('volL')),selfWater:num(g('res'))};
+    count:num(g('count')),area:num(g('area')),volL:num(g('volL')),selfWater:num(g('res')),
+    container:g('container')||'terre',cover:g('cover')||'nue',potVol:num(g('potVol'))};
   if(editingId){
     const pl=state.plantings.find(x=>x.id===editingId);if(!pl)return;
     Object.assign(pl,data);
     if(pl.volL&&!pl.vol)pl.vol=`≈ ${pl.volL} L par arrosage`;
     toast('Plantation mise à jour.');
   }else{
+    if(data.selfWater&&data.container!=='reserve')data.container='reserve'; // cohérence
     state.plantings.push(Object.assign({id:newPlantingId(),sub:'',vol:data.volL?`≈ ${data.volL} L par arrosage`:null,
       water:'',watch:[],structural:[],checks:[],flag:null,builtin:false},data));
     toast('Plantation créée.');
