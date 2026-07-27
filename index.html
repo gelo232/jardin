@@ -3094,7 +3094,7 @@ function pgroup(p,key,icon,title,sub,inner,openByDefault){
   const k=p.id+'.'+key;
   const open=(state.plantFold[k]!==undefined)?state.plantFold[k]:!!openByDefault;
   return `<details class="fgrp" ${open?'open':''} ontoggle="setPlantFold('${k}',this.open)">
-    <summary>${icon} ${title}${sub?` <span class="fg-n">${sub}</span>`:''}</summary>
+    <summary onclick="event.stopPropagation()">${icon} ${title}${sub?` <span class="fg-n">${sub}</span>`:''}</summary>
     <div class="fgrp-b">${inner}</div></details>`;
 }
 function setPlantFold(k,open){state.plantFold[k]=open;store.set('plantFold',state.plantFold);}
@@ -3171,7 +3171,7 @@ function plantBody(p){
   }
   const act=dg(p).none?[]:dg(p).findings.filter(f=>f.sev>=2);
   const checksBlock=(p.checks&&p.checks.length)?(act.length
-    ? `<details class="fgrp"><summary>🔎 Points de contrôle génériques <span class="fg-n">le diagnostic prime</span></summary>
+    ? `<details class="fgrp"><summary onclick="event.stopPropagation()">🔎 Points de contrôle génériques <span class="fg-n">le diagnostic prime</span></summary>
        <div class="fgrp-b"><p class="note" style="margin:0 0 8px">Repères valables en l'absence de diagnostic. En cas de désaccord avec le diagnostic issu de ton inspection, <b>c'est le diagnostic qui fait foi</b> : il s'appuie sur ce que tu as réellement observé.</p>
        ${p.checks.map(c=>`<div style="margin-bottom:8px"><p style="margin:0;font-weight:600">▢ ${c.q}</p><p style="margin:1px 0 0;font-size:13.5px;color:var(--ink-soft)">→ ${c.fix}</p></div>`).join('')}</div></details>`
     : `<div class="pact"><h4>🔎 À vérifier → solution</h4>
@@ -3290,9 +3290,12 @@ function flashHighlight(el){el.classList.remove('flash');void el.offsetWidth;el.
 function focusPlant(id){
   if(!byId(id))return;
   go('plants');
-  let key=null;
-  CATEGORIES.forEach((cat,i)=>{if(cat.ids.includes(id))key='c'+i;});
-  if(key===null){const used=new Set();CATEGORIES.forEach(c=>c.ids.forEach(x=>used.add(x)));if(!used.has(id))key='others';}
+  /* Les catégories dérivent désormais de la FAMILLE de l'espèce (CAT_ORDER) : l'ancien
+     tableau CATEGORIES a disparu au refactor et cette fonction levait une ReferenceError,
+     ce qui rendait inopérant tout lien « Programme → fiche plante ». */
+  const p=byId(id);let key=null;
+  CAT_ORDER.forEach(([fam],i)=>{if(p.fam===fam)key='c'+i;});
+  if(key===null)key='others';
   if(key){const catEl=document.getElementById('cat_'+key);
     if(catEl&&!catEl.classList.contains('open')){catEl.classList.add('open');state.catFold[key]=true;store.set('catFold',state.catFold);}}
   openPlant(id);

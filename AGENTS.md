@@ -62,6 +62,17 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
    Section **Sauvegarde** : `exportData()` / `importData()` (JSON portable des données).
 
 ## 4pre. Pièges relevés en audit (⚠️ à ne pas réintroduire)
+- **Propagation d'événement dans une carte cliquable.** `.card.plant` porte
+  `onclick="toggle(id)"` sur TOUT le bloc : n'importe quel élément interactif ajouté à
+  l'intérieur (bouton, `<summary>`, champ) doit couper la propagation, sinon il referme la
+  fiche au lieu d'agir. Pour un `<details>`, poser `onclick="event.stopPropagation()"` sur le
+  **`<summary>`**, jamais sur le `<details>` (cela bloquerait aussi les boutons internes).
+  Même règle pour `.task.clickable`.
+- **Symbole supprimé lors d'un refactor mais encore référencé.** `CATEGORIES` avait disparu
+  au profit de `CAT_ORDER` : `focusPlant()` levait une ReferenceError et TOUS les liens
+  « Programme → fiche plante » étaient morts, sans message visible. Après un refactor,
+  balayer les identifiants non définis (en retirant chaînes et commentaires, sinon le texte
+  français noie le résultat).
 - **Tables héritées** (`STAGE_DUR`, `SOW_DATE`, `WATER_EVERY`, `RESOW`, `POLLEN`, `CAMG`,
   `PH_OPT`, `N_TARGET`, `PLANT_FAM`, `PLANT_ARCH`, `PEREN`) : indexées par les ids d'origine.
   Une plantation créée dans l'app a un id `plN` qui n'y figure pas → toujours passer par
@@ -395,7 +406,7 @@ des parcelles créées dans la même milliseconde, et rattachait toutes les cult
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v30`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v31`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.
