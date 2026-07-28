@@ -217,6 +217,8 @@
   .fgrp[open]>summary::after{transform:rotate(180deg)}
   .fgrp>summary .fg-n{font-size:11px;color:var(--ink-soft);font-weight:600}
   .fgrp-b{padding:0 14px 12px}
+  /* champ conditionnel : n'apparaît que si le signe dont il dépend est coché */
+  .depf{border-left:2px solid var(--leaf);padding-left:11px;margin-left:1px}
   select{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' stroke='%239fb1d0' stroke-width='1.6' fill='none'/></svg>");background-repeat:no-repeat;background-position:right 13px center}
   .btn{display:block;width:100%;text-align:center;background:var(--leaf);color:#07131f;border:0;border-radius:11px;padding:13px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;margin-top:4px}
   .btn.ghost{background:transparent;color:var(--leaf);border:1px solid var(--leaf)}
@@ -635,10 +637,10 @@ const SEED_PLANTINGS=[
   {id:'courge',vol:"≈ 8–10 L par pied (gros buveur), au sol",icon:'🎃',name:'Courges',sub:'semé ~23 mai · boutons visibles',
    stages:['Semis','Végétatif','Boutons','Floraison','Fruits','Récolte'],stage:2,recipe:'fleur',feedDays:12,sun:'plein soleil',tender:false,
    water:"Gros besoins en eau. Arrose au pied, jamais sur le feuillage (oïdium garanti sinon).",
-   watch:["Oïdium : feutrage blanc sur les feuilles","Premières fleurs mâles puis femelles (petite courge à la base)"],
+   watch:["Taches blanches sur les feuilles : passe le doigt dessus. Ça s'efface comme de la farine → oïdium. Ça ne part pas et ça suit les nervures → panachure de la variété, normale.","Premières fleurs mâles puis femelles (petite courge à la base)"],
    structural:["À la floraison : pollinise à la main au pinceau le matin si peu d'abeilles.","Glisse une planchette ou de la paille sous les jeunes fruits."],
    checks:[
-    {q:"Feutrage blanc sur les feuilles (oïdium)",fix:"Arrose au pied jamais sur le feuillage, aère, retire les feuilles atteintes."},
+    {q:"Feutrage blanc poudreux sur les feuilles (oïdium)",fix:"D'abord le test du doigt : si le blanc ne part pas et suit exactement les nervures, c'est la panachure de la variété — rien à faire. S'il s'efface comme de la farine, c'est l'oïdium : arrose au pied, aère, et ne coupe QUE les feuilles dont plus de la moitié du limbe est blanchie ou qui ont déjà jauni sous le feutrage — jamais plus du tiers du feuillage en une fois, et jamais une feuille qui ombrage un fruit. Saisis l'étendue en Inspection : l'app calcule le nombre exact de feuilles à retirer aujourd'hui."},
     {q:"Jeunes fruits qui jaunissent et avortent",fix:"Pollinisation incomplète : pollinise à la main au pinceau le matin (fleur mâle → femelle)."},
     {q:"Fruit en contact avec le sol humide",fix:"Glisse une planchette ou de la paille dessous pour éviter la pourriture."}
    ],flag:null},
@@ -650,6 +652,7 @@ const SEED_PLANTINGS=[
    checks:[
     {q:"Croissance qui stagne (nuits sous 15 °C)",fix:"Paillage sombre, coin le plus chaud, protège les nuits fraîches (<12 °C)."},
     {q:"Racines détrempées",fix:"Laisse sécher la surface entre deux arrosages ; le melon déteste l'excès d'eau."},
+    {q:"Feutrage blanc poudreux sur les feuilles (oïdium)",fix:"Comme toutes les cucurbitacées. Test du doigt d'abord : le blanc qui suit les nervures et ne s'efface pas est variétal, pas une maladie. Sinon, ne coupe que les feuilles couvertes à plus de la moitié ou déjà jaunies, jamais plus du tiers du feuillage à la fois. Saisis l'étendue en Inspection pour le compte exact."},
     {q:"Trous dans les feuilles / feuilles rongées",fix:"Même ravageurs que la pastèque (chrysomèle, altises, limaces) : voile anti-insectes jusqu'à la floraison, ramassage, terre de diatomée ; surveille le flétrissement bactérien."}
    ],
    flag:{type:'cold',txt:"❄️ Cantaloup semé en pleine terre ~23 mai : ~100 j depuis le semis avant maturité, donc récolte espérée début–mi-septembre seulement si l'été reste chaud (course contre le gel du ~7 oct). Donne-lui le coin le plus chaud, paillage sombre, protège sous 12 °C la nuit."}},
@@ -660,7 +663,8 @@ const SEED_PLANTINGS=[
    structural:["Stade le plus vulnérable : fertilisation très diluée seulement."],
    checks:[
     {q:"Trous dans les feuilles / feuilles rongées (au stade 2 feuilles)",fix:"Inspecte le dessous des feuilles et le sol tôt le matin ou au crépuscule. Coupables probables au Québec : chrysomèle rayée du concombre (petit coléoptère jaune et noir), altises (criblage de petits trous <3 mm, « shot-hole »), limaces (traces luisantes, dégâts la nuit). Solutions : voile anti-insectes sur arceaux dès maintenant et jusqu'à la floraison (le retirer alors pour la pollinisation), ramassage manuel, terre de diatomée sèche autour du pied, pièges à bière contre les limaces, et garder le tour du pied propre (les ravageurs hivernent dans les débris). ⚠️ La chrysomèle transmet le flétrissement bactérien des cucurbitacées : interviens vite, les semis tolèrent peu de dégâts."},
-    {q:"Coup de froid (stade 2 feuilles, très fragile)",fix:"Maximise la chaleur : paillage sombre, mur exposé sud, protection sous 12 °C la nuit."}
+    {q:"Coup de froid (stade 2 feuilles, très fragile)",fix:"Maximise la chaleur : paillage sombre, mur exposé sud, protection sous 12 °C la nuit."},
+    {q:"Feutrage blanc poudreux sur les feuilles (oïdium)",fix:"Comme toutes les cucurbitacées. Test du doigt d'abord : le blanc qui suit les nervures et ne s'efface pas est variétal, pas une maladie. Sinon, ne coupe que les feuilles couvertes à plus de la moitié ou déjà jaunies, jamais plus du tiers du feuillage à la fois. Saisis l'étendue en Inspection pour le compte exact."}
    ],
    flag:{type:'cold',txt:"❄️ La plus à risque : pastèque semée de graine fin mai/juin au Québec, ~110 j jusqu'à maturité → mûrir avant le gel (~7 oct) est incertain. Maximise la chaleur (paillage sombre, mur exposé sud, protection des nuits fraîches). Les variétés hâtives type Sugar Baby (~75–80 j depuis repiquage) sont les seules réalistes ici."}},
   {id:'persil',vol:"≈ 0,5–1 L (pot), jusqu'à léger écoulement ; sol frais",icon:'🌿',name:'Persil',sub:'frisé + plat · semé ~23 mai',
@@ -1405,7 +1409,7 @@ const ARCH={
   hHint:"Mesure la liane la plus longue, du collet à son extrémité.",
   nColor:['bas_pale','Feuilles les plus ANCIENNES (près du collet) jaunes uniformément'],
   colorHint:"La carence d'azote décolore d'abord les vieilles feuilles près du collet, sans motif en V.",
-  signs:[['feutrage',"Feutrage blanc poudreux sur le dessus des feuilles"],
+  signs:[['feutrage',"Taches ou feutrage blanc sur le dessus des feuilles"],
    ['avorte',"Jeunes fruits qui jaunissent et tombent"],
    ['fletri_tige',"Flétrissement brutal d'une tige entière"],
    ['culnoir',"Extrémité du fruit noire et molle"]],
@@ -1610,6 +1614,127 @@ function stateComparison(p){
     gap:obs==null?null:obs-mdl,
     source:obs==null?'calendrier':'observation'};
 }
+/* ===== OÏDIUM DES CUCURBITACÉES : « les feuilles les plus atteintes », CHIFFRÉ =====
+   « Retire les feuilles atteintes » ne veut rien dire tant qu'on n'a pas dit LESQUELLES.
+   Sur une courge en juillet, presque toutes les feuilles portent quelques pastilles :
+   les retirer coûterait bien plus de photosynthèse que la maladie n'en fait perdre.
+   Le critère embarqué ici est donc un SEUIL DE SURFACE, pas une impression.
+
+   Faits qui fondent les seuils :
+   • Une feuille de cucurbitacée reste bénéficiaire tant que le feutrage couvre moins de la
+     MOITIÉ du limbe. Au-delà, l'assimilation s'effondre et la feuille n'est plus guère
+     qu'une usine à spores → seuil de retrait : > 50 % de limbe blanchi, OU feuille déjà
+     jaunie / brunie / sèche sous le feutrage.
+   • Seuil de DÉPISTAGE (quand commencer à traiter) : une feuille symptomatique sur 50
+     vieilles feuilles examinées, dessus ET dessous. Passé ce stade, un produit de contact
+     ne fait plus que courir derrière l'infection.
+   • Plafond d'effeuillage : jamais plus du TIERS du feuillage en une fois. Au-delà, le plant
+     perd plus en assimilation qu'il ne gagne en assainissement, et les fruits découverts
+     brûlent au soleil — le feuillage est leur seul ombrage.
+   • Le blanc qui SUIT EXACTEMENT LES NERVURES et ne s'efface pas au doigt est la panachure
+     argentée variétale de nombreuses courges et courgettes : ce n'est pas une maladie.
+     Le test du doigt est le seul geste qui sépare les deux, et il évite d'effeuiller un
+     plant parfaitement sain.
+   Sources : recommandations « cucurbit powdery mildew » des services d'extension
+   nord-américains (seuil de dépistage 1 feuille sur 50 ; soufre et bicarbonate en contact). */
+const OID_RUB=[['','— pas encore testé —'],
+ ['part',"Elle s'efface comme de la farine, la feuille est verte dessous"],
+ ['reste',"Elle ne part pas, et le blanc suit exactement les nervures"]];
+/* échelle de surface : c'est elle qui décide si une feuille se coupe ou se garde */
+const OID_COVER=[['','— étendue non précisée —'],
+ ['p05',"Quelques pastilles rondes isolées (< 2 cm), verte partout ailleurs"],
+ ['p25',"Taches nombreuses, mais la feuille reste verte aux trois quarts"],
+ ['p50',"Le blanc couvre entre le quart et la moitié du limbe"],
+ ['p75',"Plus de la MOITIÉ du limbe est blanchie"],
+ ['sec',"Feuille blanchie puis jaunie / brunie, sèche ou cassante"]];
+const OID_WHERE=[['','—'],
+ ['basses',"Seulement les vieilles feuilles du bas"],
+ ['milieu',"Le bas et le milieu du plant"],
+ ['sommet',"Jusqu'aux jeunes feuilles du sommet"]];
+/* Le critère de retrait, énoncé UNE SEULE FOIS et réutilisé partout (fiche plante,
+   Programme, diagnostic) : c'est la réponse à « c'est quoi, les feuilles les plus atteintes ? ». */
+const OID_CRIT="une feuille se retire quand <b>plus de la moitié de son limbe est blanchie</b>, ou qu'elle a déjà <b>jauni, bruni ou séché</b> sous le feutrage — à ce stade elle ne nourrit plus la plante, elle ne fait que produire des spores. En dessous de la moitié, la feuille reste bénéficiaire : on la garde, <b>même tachée</b>.";
+const OID_ORDER="Prends les plus vieilles et les plus basses d'abord : le foyer part toujours de là. Laisse en place toute feuille qui <b>ombrage un fruit</b>, même atteinte — un fruit découvert brûle au soleil.";
+const OID_CAP="jamais plus du <b>tiers</b> du feuillage en une seule fois, sinon le plant perd plus en photosynthèse qu'il ne gagne en assainissement.";
+const OID_HOW="Coupe au sécateur à la base du pétiole, par temps sec et le matin (les plaies sèchent avant la nuit) ; sac fermé aux ordures, pas au compost froid, qui ne détruit pas les spores. Désinfecte la lame entre deux plants.";
+/* Traitements de contact — toujours DESSUS ET DESSOUS des feuilles, tous les 7–10 j
+   et après chaque pluie, en respectant l'étiquette du produit. */
+const OID_TREAT=[
+ "<b>Soufre mouillable</b> — le plus efficace des produits de contact, mais <b>jamais au-dessus de 29 °C</b> (brûlure du feuillage), ni sur plant assoiffé, ni dans les deux semaines qui suivent une huile.",
+ "<b>Bicarbonate de potassium ≈ 5 g/L</b> + un mouillant (2–3 ml/L de savon noir ou d'huile végétale) : c'est le mouillant qui fait tenir la bouillie sur une feuille poilue de courge. Le bicarbonate de soude est moins efficace et apporte du sodium au sol.",
+ "<b>Huile horticole ou huile de neem</b> — action curative de contact ; à ne jamais mélanger au soufre ni appliquer en pleine chaleur.",
+ "<b>Lait dilué</b> (1 volume pour 9 d'eau) — effet réel mais irrégulier : à réserver au préventif."
+];
+/* Ce que le jardinier a réellement précisé sur le feutrage (null s'il n'en a pas signalé). */
+function oidObs(p){
+  const i=lastInsp(p);
+  if(!i||!Array.isArray(i.signs)||i.signs.indexOf('feutrage')<0)return null;
+  const num=v=>{const n=parseFloat(v);return isFinite(n)&&n>=0?Math.round(n):null;};
+  const cov=OID_COVER.find(o=>o[0]===(i.oidCover||''))||OID_COVER[0];
+  return{rub:i.oidRub||'',cover:cov[0],coverLab:cov[1],
+    tot:num(i.oidTot),bad:num(i.oidBad),where:i.oidWhere||''};
+}
+/* Plan d'effeuillage CHIFFRÉ. Renvoie null tant que les deux nombres manquent : l'app dit
+   alors ce qui lui manque plutôt que d'inventer un chiffre.
+   ⚠️ Les deux saisies se recoupent et ne peuvent pas se contredire à l'écran : l'échelle de
+   surface porte sur la feuille LA PLUS atteinte, donc si celle-ci dépasse la moitié du limbe,
+   il y a par construction au moins une feuille au-delà du seuil de retrait. */
+function oidCull(p){
+  const o=oidObs(p);
+  if(!o||o.rub==='reste')return null;
+  if(o.tot==null||o.tot<=0||o.bad==null)return null;
+  const floor=(o.cover==='p75'||o.cover==='sec')?1:0;
+  const bad=Math.min(Math.max(o.bad,floor),o.tot);
+  const cap=Math.max(1,Math.floor(o.tot/3));   // plafond du tiers, au moins une feuille
+  const today=Math.min(bad,cap);
+  return{tot:o.tot,bad,cap,today,rest:bad-today,keep:o.tot-bad,
+    share:Math.round(bad/o.tot*100)};
+}
+/* Gravité retenue. 0 = rien d'exploitable (panachure variétale, ou étendue ET comptage
+   absents). Une seule feuille très atteinte n'est PAS un cas avancé : ce qui fait basculer
+   en sévérité 3, c'est la généralisation — le tiers du feuillage au-delà du seuil, ou un
+   feutrage monté jusqu'aux jeunes feuilles du sommet. */
+function oidGrade(p){
+  const o=oidObs(p);
+  if(!o||o.rub==='reste')return 0;
+  const cu=oidCull(p);
+  let g={p05:1,p25:1,p50:2,p75:2,sec:2}[o.cover]||0;
+  // une feuille comptée au-delà du seuil vaut le seuil, même si l'échelle n'a pas été remplie
+  if(cu&&cu.bad>0)g=Math.max(g,2);
+  if(!g)return 0;
+  if(g>=2&&((cu&&cu.share>=33)||o.where==='sommet'))g=3;
+  return g;
+}
+/* La phrase exacte, chiffrée dès que l'app dispose des nombres. */
+function oidCullText(p){
+  const cu=oidCull(p);
+  if(!cu)return `<b>Quelles feuilles retirer</b> : ${OID_CRIT} ${OID_ORDER} Plafond : ${OID_CAP} `
+    +`Renseigne « nombre de feuilles du plant » et « combien dépassent le seuil » dans l'Inspection : l'app donnera alors le nombre exact à couper aujourd'hui.`;
+  if(!cu.bad)return `<b>Aucune feuille à retirer aujourd'hui</b> : sur les ${cu.tot} feuilles du plant, aucune n'a franchi le seuil — ${OID_CRIT} `
+    +`Le sécateur ne sert à rien tant que ce seuil n'est pas atteint : ce sont le traitement et l'aération qui font le travail.`;
+  return `<b>Retire aujourd'hui ${cu.today} feuille${cu.today>1?'s':''}</b> sur les ${cu.tot} du plant : ${OID_CRIT} ${OID_ORDER}`
+   +(cu.rest
+     ? ` Tu en as déclaré ${cu.bad} au-delà du seuil, mais le plafond du jour est de ${cu.cap} : ${OID_CAP} Les ${cu.rest} restantes se couperont 7 jours plus tard.`
+     : ` Les ${cu.keep} autres restent en place, même tachées.`)
+   +` ${OID_HOW}`;
+}
+/* Bloc de la fiche plante — rendu EN DIRECT et non figé dans le diagnostic mémoïsé :
+   l'heure d'application et le vent changent dans la journée, le comptage non. */
+function oidCullBlock(p){
+  const o=oidObs(p);if(!o)return '';
+  if(o.rub==='reste')return `<div class="pact"><h4>⚪ Marbrure variétale — rien à couper</h4>
+    <p class="note" style="margin:0">Le blanc suit les nervures et ne s'efface pas au doigt : c'est la panachure argentée de la variété, pas de l'oïdium. Ces feuilles sont fonctionnelles, les retirer serait une perte sèche.</p></div>`;
+  const t=actionTiming('foliar'),cu=oidCull(p),w=state.wx;
+  return `<div class="pact"><h4>✂️ Oïdium — quelles feuilles retirer, exactement</h4>
+    <p style="margin:0 0 7px">${oidCullText(p)}</p>
+    ${cu?`<div class="diff"><span class="d-k">Feuilles du plant</span><span class="d-v">${cu.tot}</span></div>
+      <div class="diff"><span class="d-k">Au-delà du seuil de retrait</span><span class="d-v">${cu.bad} — soit ${cu.share} % du feuillage</span></div>
+      <div class="diff"><span class="d-k">À couper aujourd'hui</span><span class="d-v"><b>${cu.today}</b> (plafond du jour : ${cu.cap})</span></div>
+      ${cu.rest?`<div class="diff"><span class="d-k">Dans 7 jours</span><span class="d-v">${cu.rest}</span></div>`:''}
+      <div class="diff"><span class="d-k">À garder en place</span><span class="d-v">${cu.keep} feuille${cu.keep>1?'s':''} encore bénéficiaire${cu.keep>1?'s':''}</span></div>`:''}
+    <p class="note" style="margin:7px 0 4px">🕑 Si tu traites (pulvérisation foliaire) : ${t.good?`<b style="color:var(--leaf-d)">c'est le bon moment (${t.short})</b>`:`<b style="color:var(--amber)">${t.short}</b>`}${windOK()?'':` · <b style="color:var(--amber)">vent ${w&&w.wind!=null?w.wind+' km/h':'trop fort'} : pas de pulvérisation au-delà de 12 km/h</b>`} — dessus ET dessous des feuilles, tous les 7–10 j et après chaque pluie.</p>
+    <ul>${OID_TREAT.map(x=>`<li>${x}</li>`).join('')}</ul></div>`;
+}
 /* ===== BASE DE DIAGNOSTIC =====
    sev : 3 = bloquant, 2 = à corriger, 1 = bénin (aucune action).
    on(c) : condition de déclenchement. adj : effet sur le programme. */
@@ -1702,11 +1827,62 @@ const DIAG=[
   fix:["Retirer et JETER les feuilles atteintes — jamais au composteur.","Aérer : éclaircir le feuillage bas, espacer, ne pas travailler dans les plants mouillés.","Arroser strictement au pied, jamais sur le feuillage, et le matin pour que tout sèche vite.","Pailler : le paillis empêche les éclaboussures qui remontent les spores du sol sur les feuilles."],
   src:"Contenu déjà sourcé dans l'app (fiches tomate)."},
 
- {id:'oidium',sev:2,cause:"Oïdium (feutrage blanc poudreux)",
-  on:c=>c.signs.includes('feutrage')&&c.arch==='vine',
-  why:"Feutrage blanc farineux sur le dessus des feuilles, typique des cucurbitacées en fin d'été. Contrairement au mildiou, il se développe aussi par temps sec, favorisé par l'air confiné et les écarts de température.",
-  fix:["Retirer les feuilles les plus atteintes, aérer.","Arroser au pied, jamais sur le feuillage.","Ne pas fertiliser fortement en azote : un feuillage tendre et dense aggrave l'infection."],
+ /* ⚠️ Le blanc qui suit les nervures et ne s'efface pas N'EST PAS une maladie : c'est la
+    panachure argentée variétale. Règle bénigne, qui ne change RIEN — et qui doit être posée
+    avant toute conclusion d'oïdium, sinon l'app fait effeuiller un plant sain. */
+ {id:'panachure',sev:1,cause:"Marbrure blanche variétale (bénin — ce n'est pas de l'oïdium)",
+  on:c=>c.arch==='vine'&&c.signs.includes('feutrage')&&c.i.oidRub==='reste',
+  why:"Le blanc ne s'efface pas au doigt et dessine exactement le réseau des nervures : c'est la panachure argentée normale de beaucoup de variétés de courges, courgettes et potirons — un décollement de l'épiderme au-dessus des nervures, présent dès la sortie de la feuille. L'oïdium, lui, fait des pastilles rondes indépendantes des nervures, et s'efface comme de la farine.",
+  fix:["Aucune action : ce n'est ni une maladie ni un signe de faiblesse.","Surtout ne pas effeuiller pour cela — ces feuilles sont pleinement fonctionnelles.","Le vrai oïdium reste à surveiller par ailleurs : pastilles rondes poudreuses qui s'effacent au doigt, d'abord sur les vieilles feuilles du bas."],
+  src:"Distinction panachure variétale / oïdium documentée par les services d'extension (Cucurbita spp.)."},
+
+ /* Feutrage signalé mais étendue non précisée : l'app dit ce qui lui manque pour chiffrer,
+    au lieu de servir un « retire les feuilles atteintes » que personne ne sait appliquer. */
+ {id:'oidium',sev:2,cause:"Oïdium (feutrage blanc poudreux) — étendue à préciser",
+  on:c=>c.arch==='vine'&&c.signs.includes('feutrage')&&oidGrade(c.p)===0&&c.i.oidRub!=='reste',
+  why:"Feutrage blanc farineux sur le dessus des feuilles, typique des cucurbitacées en fin d'été. Contrairement au mildiou, il se développe aussi par temps sec, favorisé par l'air confiné et les écarts de température. Reste à savoir jusqu'où il est allé : c'est l'étendue, et elle seule, qui décide quelles feuilles se coupent.",
+  fix:c=>[oidCullText(c.p),
+   "Complète les trois précisions d'oïdium dans l'Inspection (test du doigt, surface de la feuille la plus atteinte, nombre de feuilles) : l'app en déduit le nombre exact à couper aujourd'hui et ce qui attend la semaine prochaine.",
+   "En attendant : aérer le plant, arroser au pied, jamais sur le feuillage."],
   src:"Contenu déjà sourcé dans l'app (fiches courge / cucurbitacées)."},
+
+ /* Début : le seuil de dépistage est franchi, mais AUCUNE feuille n'atteint le seuil de
+    retrait. Le geste utile est le traitement, pas le sécateur — le dire explicitement. */
+ {id:'oidium_debut',sev:2,cause:"Oïdium au tout début (foyers isolés)",
+  on:c=>c.arch==='vine'&&c.signs.includes('feutrage')&&oidGrade(c.p)===1,
+  why:c=>`Pastilles blanches encore isolées : l'infection est à son stade le plus facile à contenir, et le seuil de dépistage (une feuille symptomatique sur cinquante) est franchi. Aucune feuille n'est encore assez couverte pour valoir d'être coupée — à ce stade, effeuiller coûte de la photosynthèse sans rien enlever à l'inoculum, qui est déjà dans l'air.`,
+  fix:c=>[oidCullText(c.p),
+   "C'est maintenant que le traitement de contact est rentable : "+OID_TREAT[1],
+   "Autres produits possibles : "+OID_TREAT[0],
+   "Aérer : supprimer quelques vieilles feuilles du bas qui traînent au sol, arroser au pied et le matin.",
+   "Ne pas forcer sur l'azote : un feuillage tendre et dense est nettement plus sensible."],
+  src:"Seuil de dépistage et produits de contact : recommandations d'extension sur l'oïdium des cucurbitacées."},
+
+ /* Installé : des feuilles franchissent le seuil de retrait → effeuillage ciblé et chiffré. */
+ {id:'oidium_installe',sev:2,cause:"Oïdium installé (feutrage étendu)",
+  on:c=>c.arch==='vine'&&c.signs.includes('feutrage')&&oidGrade(c.p)===2,
+  why:"Le feutrage couvre désormais une part notable du limbe des feuilles les plus touchées. Les cucurbitacées perdent leurs feuilles du bas en premier ; tant que le sommet reste vert, les fruits continuent de grossir. L'objectif n'est plus d'éradiquer mais de retarder la défoliation jusqu'à la récolte.",
+  fix:c=>[oidCullText(c.p),
+   "Traiter dans la foulée, dessus ET dessous des feuilles restantes : "+OID_TREAT[1],
+   "Renouveler tous les 7–10 jours et après chaque pluie ; "+OID_TREAT[0],
+   "Arroser au pied et le matin, sans laisser le plant s'assoiffer : un plant en stress hydrique décroche beaucoup plus vite."],
+  adj:{feedDelta:3},
+  src:"Recommandations d'extension sur l'oïdium des cucurbitacées (gestion de fin de saison)."},
+
+ /* Avancé : défoliation en cours. Le risque bascule du feuillage vers les FRUITS (coup de
+    soleil, arrêt du grossissement). L'app le dit franchement plutôt que d'entretenir l'espoir. */
+ {id:'oidium_avance',sev:3,cause:"Oïdium avancé — défoliation en cours",
+  on:c=>c.arch==='vine'&&c.signs.includes('feutrage')&&oidGrade(c.p)===3,
+  why:c=>{const cu=oidCull(c.p);
+    return (cu?`${cu.bad} feuilles sur ${cu.tot} (${cu.share} %) ont franchi le seuil de retrait. `:'')
+    +"À ce niveau, le feuillage ne suit plus : les fruits cessent de grossir, mûrissent mal et se retrouvent exposés au soleil sans ombrage. Le plant ne redeviendra pas sain cette saison — l'enjeu est de tenir jusqu'à la récolte, pas de guérir.";},
+  fix:c=>[oidCullText(c.p),
+   "⚠️ Ne pas mettre les fruits à nu : garder toute feuille qui en ombrage un, sinon coup de soleil sur la peau. C'est la raison même du plafond du tiers.",
+   "Traiter ce qui reste de vert, dessus et dessous : "+OID_TREAT[0],
+   "Récolter dès que les fruits sont mûrs (peau dure, pédoncule liégeux) plutôt que d'attendre : la plante n'a plus de quoi les finir.",
+   "Nettoyer complètement les fanes en fin de saison et ne pas replanter de cucurbitacée au même endroit l'an prochain."],
+  adj:{feedDelta:3},
+  src:"Recommandations d'extension sur l'oïdium des cucurbitacées (défoliation, coup de soleil sur fruit)."},
 
  {id:'ravageurs',sev:2,cause:"Ravageurs (dégâts de morsure)",
   on:c=>c.signs.includes('trous')||c.i.pests==='insectes'||c.i.pests==='limaces',
@@ -2830,11 +3006,25 @@ function renderToday(){
       +` Une fois les taches installées, il est trop tard. Indice indicatif, pas un modèle validé.`,
       null,taskKey(['mildiou',isoWeek(),dr.mildew]));
   }
-  if(dr&&dr.powdery==='élevé'){
-    add('Urgent','','⚪',"Risque d'oïdium élevé",
-      "Nuits humides et journées chaudes et sèches : conditions typiques de l'oïdium sur cucurbitacées. Aère les plants, évite l'excès d'azote (feuillage tendre = plus sensible), arrose au pied.",
-      null,taskKey(['oidium',isoWeek()]));
+  if(dr&&(dr.powdery==='élevé'||dr.powdery==='modéré')){
+    const tf=actionTiming('foliar');
+    add('Urgent',dr.powdery==='élevé'?'prio':'','⚪',`Risque d'oïdium ${dr.powdery} sur les 5 prochains jours`,
+      "Nuits humides et journées chaudes et sèches : conditions typiques de l'oïdium des cucurbitacées — contrairement au mildiou, il n'a pas besoin de feuillage mouillé. "
+      +"<b>Comment savoir qu'il faut agir</b> : examine une cinquantaine de vieilles feuilles du bas, <b>dessus et dessous</b>. Dès qu'UNE seule porte une pastille poudreuse, le seuil est franchi et c'est le moment de traiter — après, un produit de contact ne fait plus que courir derrière l'infection. "
+      +"Aère les plants, évite l'excès d'azote (feuillage tendre = plus sensible), arrose au pied. "
+      +`Si tu traites : ${tf.good?`<b style="color:var(--leaf-d)">c'est le bon moment (${tf.short})</b>`:`<b style="color:var(--amber)">${tf.short}</b>`}`
+      +`${windOK()?'':` · <b style="color:var(--amber)">vent ${w.wind} km/h, pas de pulvérisation au-delà de 12 km/h</b>`}. `
+      +"Feutrage déjà visible ? Saisis-le en Inspection : l'app dira exactement quelles feuilles couper. Indice indicatif, pas un modèle validé.",
+      null,taskKey(['oidium',isoWeek(),dr.powdery]));
   }
+  /* Effeuillage sanitaire échelonné : ce que le plafond du tiers a laissé pour la semaine
+     suivante. Tâche distincte du diagnostic — c'est un deuxième passage, à une autre date. */
+  activePlants().forEach(p=>{
+    const cu=oidCull(p);if(!cu||!cu.rest)return;
+    add('Soins & phases','','✂️',`${p.name} — ${cu.rest} feuille${cu.rest>1?'s':''} encore à retirer`,
+      `Tu as déclaré ${cu.bad} feuilles au-delà du seuil sur ${cu.tot}, et le plafond d'un passage est de ${cu.cap} (le tiers du feuillage) : ${OID_CAP} Une fois le premier passage fait, coupe les ${cu.rest} restantes 7 jours plus tard, le temps que le plant compense. Même critère : ${OID_CRIT}`,
+      p.id,taskKey(['effeuillage',p.id,(lastInsp(p)||{}).ts||'']));
+  });
   overwinterTasks(add);   // rentrer / ressortir les plantes en pot
   // ARROSAGE — proposé au MOMENT OPPORTUN de la journée (heure + chaleur du jour)
   const waterDue=activePlants().filter(p=>{const wp=waterPlan(p);return wp&&wp.diff<=0;});
@@ -3202,7 +3392,7 @@ function plantBody(p){
     ${pgroup(p,'etat','📊','État',st.sev>=0&&st.txt?st.txt:p.stages[curStage(p)],stateBlock(p)+inspBanner(p)+durBlock,true)}
     ${pgroup(p,'eau','💧','Arrosage',waterEvery(p)?`tous les ${waterEvery(p)} j`:'à réduire',wat,false)}
     ${pgroup(p,'nutri','⚗️','Nutrition',noF?'aucun apport':r.name,fert,false)}
-    ${pgroup(p,'diag','🔎','Diagnostic & contrôles',(dg(p).findings||[]).filter(f=>f.sev>=2).length?'points identifiés':'',checksBlock+watch,false)}
+    ${pgroup(p,'diag','🔎','Diagnostic & contrôles',(dg(p).findings||[]).filter(f=>f.sev>=2).length?'points identifiés':'',oidCullBlock(p)+checksBlock+watch,false)}
     ${pgroup(p,'soin','🛠️','Entretien',phName,care,false)}
     ${pgroup(p,'situ','🧱','Situation & sol',bedOf(p)?bedOf(p).name:'sans parcelle',situ,false)}
     ${p.flag?`<div class="flag ${p.flag.type}">${p.flag.txt}${p.flag.type==='iron'?(()=>{const t=actionTiming('foliar');return `<br><span class="note" style="display:block;margin-top:7px">🕑 Si pulvérisation foliaire (fer chélaté) : ${t.good?`<b style="color:var(--leaf-d)">c'est le bon moment (${t.short})</b>`:`<b style="color:var(--amber)">${t.short}</b>`} — stomates ouverts tôt le matin (&lt;9 h 30) ou en soirée (&gt;18 h 30), jamais en plein soleil.`})():''}</div>`:''}
@@ -3477,6 +3667,26 @@ function inspFields(p){
    {k:'_sowing',g:'c',t:'info',lab:'Semis',
     txt:`${sowingOf(p).ic} ${sowingOf(p).lab} — ${sowingOf(p).note} <i>Se modifie sur la fiche de la culture.</i>`}
   ];
+  /* Oïdium des cucurbitacées : précisions qui n'apparaissent QUE si le feutrage est coché.
+     Sans elles, l'app ne peut que répéter « retire les feuilles atteintes » ; avec elles,
+     elle nomme le seuil et compte les feuilles. Voir le module OÏDIUM (oidCull). */
+  if(archKey(p)==='vine'){
+    const at=F.findIndex(f=>f.k==='signs')+1;
+    F.splice(at,0,
+     {k:'oidRub',g:'s',t:'sel',dep:'feutrage',lab:"Feutrage blanc : passe le doigt sur une tache",
+      hint:"Le seul geste qui sépare une maladie d'une marbrure variétale. L'oïdium s'efface comme de la farine ; la panachure argentée de beaucoup de courges ne part pas et suit les nervures — dans ce cas il n'y a rien à faire, et surtout rien à couper.",
+      opts:OID_RUB},
+     {k:'oidCover',g:'s',t:'sel',dep:'feutrage',lab:"Sur la feuille la PLUS atteinte, quelle surface est blanchie ?",
+      hint:"C'est cette étendue qui décide si une feuille se coupe ou se garde : au-delà de la moitié du limbe, la feuille ne nourrit plus la plante. Juge la feuille la plus touchée, pas la moyenne.",
+      opts:OID_COVER},
+     {k:'oidTot',g:'s',t:'num',dep:'feutrage',lab:"Nombre de feuilles du plant (estimation)",ph:'ex. 24',max:999,
+      hint:"Une estimation suffit : elle sert uniquement à plafonner l'effeuillage au tiers du feuillage."},
+     {k:'oidBad',g:'s',t:'num',dep:'feutrage',lab:"Combien dépassent la moitié du limbe blanchie, ou sont déjà jaunies / sèches ?",ph:'ex. 3',max:999,
+      hint:"Ce sont exactement celles-là, « les feuilles les plus atteintes ». L'app en déduit combien couper aujourd'hui et combien attendront la semaine prochaine."},
+     {k:'oidWhere',g:'s',t:'sel',dep:'feutrage',lab:"Jusqu'où le feutrage est-il monté ?",
+      hint:"Tant qu'il reste cantonné aux vieilles feuilles du bas, les fruits continuent de grossir normalement.",
+      opts:OID_WHERE});
+  }
   if(has('nb'))F.push({k:'nb',g:'c',t:'num',lab:'Nombre de plants de cette culture',ph:'ex. 8',max:999});
   if(has('space'))F.push({k:'_space',g:'c',t:'info',lab:'Espacement entre plants',
     txt:`${p.spacing!==''&&p.spacing!=null?(SPACE_OPTS.find(o=>o[0]===String(p.spacing))||['','non renseigné'])[1]:'non renseigné'} — vise ${A.spaceTxt}. <i>Se modifie sur la fiche de la culture.</i>`});
@@ -3495,7 +3705,8 @@ function inspFields(p){
   return F;
 }
 /* clés possibles, tous archétypes confondus — sert à la sauvegarde et à la remise à zéro */
-const INSP_KEYS=['date','h','marks','vigor','color','signs','soil','roots','nb','rows','polli','pests','note'];
+const INSP_KEYS=['date','h','marks','vigor','color','signs','soil','roots','nb','rows','polli','pests',
+  'oidRub','oidCover','oidTot','oidBad','oidWhere','note'];
 function inspTarget(){const s=document.getElementById('inspPlant');return s?byId(s.value):null;}
 function fillInspSelect(){
   const sel=document.getElementById('inspPlant');if(!sel)return;
@@ -3511,7 +3722,7 @@ function renderInspForm(){
   const GRP=[['m','📏 Mesures','hauteur, stade, vigueur'],
              ['s','🍃 Symptômes','couleur, signes visibles, ravageurs'],
              ['c','🌱 Contexte','sol, racines, lumière']];
-  const fieldHTML=f=>{
+  const rawField=f=>{
     const hint=f.hint?`<div class="hint">${f.hint}</div>`:'';
     if(f.t==='marks'){
       const M=markersFor(p),marks=Array.isArray(i.marks)?i.marks:[];
@@ -3528,7 +3739,7 @@ function renderInspForm(){
         <div class="hint" style="margin-top:6px">Le calendrier calcule actuellement : <b>${mdl}</b>.</div></div>`;
     }
     if(f.t==='multi')return `<div class="field"><label>${f.lab}</label>${hint}
-      ${f.opts.map(([v,l])=>`<label class="chk ${signs.includes(v)?'on':''}"><input type="checkbox" value="${v}" ${signs.includes(v)?'checked':''} onchange="this.parentNode.classList.toggle('on',this.checked)"> <span>${l}</span></label>`).join('')}</div>`;
+      ${f.opts.map(([v,l])=>`<label class="chk ${signs.includes(v)?'on':''}"><input type="checkbox" value="${v}" ${signs.includes(v)?'checked':''} onchange="this.parentNode.classList.toggle('on',this.checked);syncDeps()"> <span>${l}</span></label>`).join('')}</div>`;
     if(f.t==='sel')return `<div class="field"><label>${f.lab}</label>${hint}
       <select id="if_${f.k}">${f.opts.map(([v,l])=>`<option value="${v}"${(i[f.k]||'')===v?' selected':''}>${l}</option>`).join('')}</select></div>`;
     if(f.t==='num')return `<div class="field"><label>${f.lab}</label>${hint}
@@ -3540,6 +3751,13 @@ function renderInspForm(){
     return `<div class="field"><label>${f.lab}</label>${hint}
       <textarea id="if_${f.k}" placeholder="Ce que tu remarques et qui n'entre dans aucune case.">${i[f.k]||''}</textarea></div>`;
   };
+  /* Champ conditionnel (`dep`) : une question de détail ne s'affiche que si le signe dont
+     elle dépend est coché. Les précisions d'oïdium n'ont aucun sens sans feutrage constaté. */
+  const fieldHTML=f=>{
+    const h=rawField(f);
+    if(!f.dep)return h;
+    return `<div class="depf" data-dep="${f.dep}"${signs.includes(f.dep)?'':' hidden'}>${h}</div>`;
+  };
   // formulaire découpé en 3 sections repliables : on ne voit jamais 15 champs d'un coup,
   // et la première (les mesures) est ouverte par défaut car c'est celle qui recale le programme
   el.innerHTML=`<div class="flag" style="margin-bottom:12px">${p.icon} <b>${p.name}</b> — traité comme <b>${A.lab}</b>. Les questions ci-dessous sont celles qui ont un sens pour ce type de culture.</div>`
@@ -3550,9 +3768,17 @@ function renderInspForm(){
       <summary>${lab} <span class="fg-n">${filled?filled+' renseigné'+(filled>1?'s':''):sub}</span></summary>
       <div class="fgrp-b">${fs.map(fieldHTML).join('')}</div></details>`;}).join('')
    +`<button class="btn ghost" style="margin-bottom:14px" onclick="removePlant('${p.id}')">🗑️ Retirer « ${p.name} » du jardin</button>`;
+  syncDeps();
   renderPhotos();
   renderInspHistory();
   renderInspResult();
+}
+/* affiche/masque les questions de détail selon les signes cochés (sans re-rendre le
+   formulaire : une saisie en cours ne doit jamais être perdue par un simple clic) */
+function syncDeps(){
+  const on={};
+  document.querySelectorAll('#inspForm .chk input:not([data-mark])').forEach(x=>{on[x.value]=x.checked;});
+  document.querySelectorAll('#inspForm .depf').forEach(d=>{d.hidden=!on[d.dataset.dep];});
 }
 /* raccourci : consigner un plant en bonne santé en un seul geste (cas le plus fréquent) */
 function markHealthy(){
@@ -3564,6 +3790,7 @@ function markHealthy(){
      stade, pas des symptômes. Les effacer ferait régresser la phase au calendrier. */
   document.querySelectorAll('#inspForm .chk input:not([data-mark]):checked')
     .forEach(x=>{x.checked=false;x.parentNode.classList.remove('on')});
+  syncDeps();  // les questions de détail suivent les signes décochés
   saveInsp(); // le bouton annonce une observation faite : il l'enregistre pour de bon
 }
 /* aperçu immédiat : le jardinier voit la phase se déduire pendant qu'il coche */

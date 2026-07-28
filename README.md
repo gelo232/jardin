@@ -13,6 +13,14 @@ pertinents changent selon le type de plante. L'app en déduit les causes probabl
 phase, recette d'engrais, intervalle d'arrosage, fréquence des apports. L'observation de
 terrain prime toujours sur le calendrier de semis.
 
+Un conseil que le jardinier ne sait pas appliquer n'en est pas un. Exemple traité de bout
+en bout : l'**oïdium des cucurbitacées**. Plutôt que « retire les feuilles atteintes »,
+l'app fait d'abord distinguer la maladie de la panachure argentée variétale (test du
+doigt), puis nomme le seuil de retrait — plus de la moitié du limbe blanchie, ou feuille
+déjà jaunie — et **compte les feuilles** : combien couper aujourd'hui, combien attendront
+la semaine prochaine, plafonnées au tiers du feuillage, en gardant celles qui ombragent
+un fruit.
+
 Thème recalé sur [kgw.afronim.com](https://kgw.afronim.com) : navy `#1c2341` + cyan
 `#6ec6d8`, police Montserrat, icônes Bootstrap Icons.
 

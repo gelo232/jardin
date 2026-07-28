@@ -149,6 +149,53 @@ catégorie : ne pas l'emporter en réécrivant `plantBody()`.
   mais `byId()` continue de le résoudre et son journal + ses inspections sont conservés
   (restauration depuis l'onglet Inspection).
 
+## 4bis-oid. Oïdium des cucurbitacées : « les feuilles les plus atteintes », CHIFFRÉ
+
+Cas d'école de la règle « ne jamais donner un conseil qu'on ne sait pas appliquer ».
+L'app disait « retire les feuilles atteintes » — inapplicable : sur une courge en juillet,
+presque toutes en portent. Module dédié (constantes `OID_*` + `oidObs` / `oidCull` /
+`oidGrade` / `oidCullText` / `oidCullBlock`), placé juste avant `DIAG`.
+
+- **Seuil de retrait** (`OID_CRIT`, énoncé UNE fois, réutilisé partout) : une feuille se
+  coupe quand **plus de la moitié du limbe est blanchie** ou qu'elle a **jauni / bruni /
+  séché** sous le feutrage. En dessous, elle reste bénéficiaire : on la garde, même tachée.
+- **Plafond** (`OID_CAP`) : jamais plus du **tiers** du feuillage en une fois ; le reste
+  7 jours plus tard. Le plant perdrait plus en photosynthèse qu'il ne gagne en assainissement,
+  et les fruits découverts brûlent au soleil.
+- **Exception** (`OID_ORDER`) : ne jamais retirer une feuille qui **ombrage un fruit**.
+- **Seuil de dépistage** : 1 feuille symptomatique sur 50 vieilles feuilles, dessus ET
+  dessous → porté par la tâche météo « risque d'oïdium » du Programme.
+- ⚠️ **Test du doigt d'abord** : le blanc qui suit exactement les nervures et ne s'efface pas
+  est la **panachure argentée variétale** de beaucoup de courges — pas une maladie. Règle
+  `panachure` (sev 1, ne change RIEN) qui court-circuite tout le reste (`oidRub==='reste'`).
+  Sans elle, l'app faisait effeuiller un plant sain.
+- **Inspection** : 5 champs `oidRub` / `oidCover` / `oidTot` / `oidBad` / `oidWhere`, ajoutés
+  au seul archétype `vine`, **conditionnels** (`dep:'feutrage'`, wrapper `.depf`, `syncDeps()`)
+  — ils n'apparaissent que si le signe est coché, et se remasquent avec `markHealthy()`.
+  `syncDeps()` bascule l'attribut `hidden` sans re-rendre le formulaire : re-rendre perdrait
+  la saisie en cours.
+- **Chiffrage** (`oidCull`) : `cap = max(1, ⌊tot/3⌋)`, `today = min(bad, cap)`, `rest` pour la
+  semaine suivante. Renvoie **null** tant que les deux nombres manquent — l'app dit alors ce
+  qui lui manque au lieu d'inventer un chiffre.
+- ⚠️ **Les deux saisies se recoupent, elles ne doivent jamais se contredire à l'écran** :
+  l'échelle porte sur la feuille LA PLUS atteinte, donc `cover ∈ {p75, sec}` impose
+  `bad ≥ 1` ; symétriquement `bad > 0` impose une gravité ≥ 2 même si l'échelle est vide.
+- **Gravité** (`oidGrade`) : 1 début · 2 installé · 3 avancé. Une seule feuille très atteinte
+  n'est PAS un cas avancé : ce qui fait basculer en 3 est la **généralisation** (≥ 33 % du
+  feuillage au-delà du seuil, ou feutrage monté jusqu'au sommet). Quatre règles `DIAG`
+  mutuellement exclusives : `oidium` (étendue à préciser) · `oidium_debut` (traiter, **ne
+  rien couper** — le dire explicitement) · `oidium_installe` · `oidium_avance` (sev 3 :
+  protéger les fruits du coup de soleil, récolter, ne pas entretenir de faux espoir).
+- **Effet programme** : `feedDelta:+3` sur installé/avancé (l'excès d'azote aggrave), **aucun**
+  `waterDelta` — le problème est l'air confiné, pas le sol, et un plant assoiffé décroche plus
+  vite. Non-action délibérée.
+- **`oidCullBlock(p)`** (fiche plante, section Diagnostic) est rendu **en direct** et non figé
+  dans `fix` : l'heure de pulvérisation (`actionTiming('foliar')`) et le vent (`windOK()`)
+  changent dans la journée, le comptage non. Inversement `oidCullText()` **peut** vivre dans
+  `fix` car il ne dépend que de l'inspection — donc il se propage automatiquement au
+  Programme via `worst.fix[0]`.
+- Tâche `effeuillage|<culture>|<ts>` : les feuilles laissées par le plafond du tiers.
+
 ## 4-0. MODÈLE DE DONNÉES (⚠️ lire en premier)
 
     JARDIN
@@ -406,7 +453,7 @@ des parcelles créées dans la même milliseconde, et rattachait toutes les cult
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v31`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v32`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.
