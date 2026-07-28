@@ -1045,10 +1045,36 @@ function migrateModel(){
     if(pl.dtmFrom===undefined)pl.dtmFrom=null;
     if(pl.plantDate===undefined)pl.plantDate=null;
   });
-  /* Correction de données : le catalogue d'espèces vit dans localStorage et ne se reconstruit
-     pas au démarrage. Une espèce reclassée vivace (thym) doit donc être corrigée ici, sinon
-     les installations existantes gardent l'ancienne valeur pour toujours. */
-  Object.keys(PEREN).forEach(sid=>{if(state.species[sid])state.species[sid].peren=true;});
+  syncSeedContent();
+}
+/* ===== RESYNCHRONISATION DU CONTENU LIVRÉ AVEC L'APP (⚠️ sinon toute correction est morte) =====
+   Le catalogue d'espèces et les plantations d'origine sont construits UNE SEULE FOIS, puis
+   vivent dans `localStorage`. Toute correction apportée ensuite aux tables du code — agronomie,
+   soins de phase, texte d'un point de contrôle — restait donc invisible sur une installation
+   existante : « étête ~1 mois avant le gel » continuait de sortir tous les jours parce que la
+   copie enregistrée ne portait pas la fenêtre temporelle qu'on venait d'ajouter, et le critère
+   d'effeuillage des courges gardait son ancienne formulation.
+   On resynchronise donc à chaque démarrage ce qui appartient à l'APP, et rien d'autre :
+   • les espèces livrées — agronomie complète ; les cultures ajoutées par le jardinier
+     (`custom`) ne sont JAMAIS touchées ;
+   • le contenu ÉDITORIAL des plantations d'origine (arrosage, à surveiller, entretien, points
+     de contrôle, encart) — jamais ses données à lui : parcelle, dates, variété, effectif,
+     espacement, volume, journal.
+   ⚠️ Toute correction future d'une table de contenu ne se propagera QUE par ici. */
+function syncSeedContent(){
+  const seedSp=buildSeedSpecies();
+  Object.keys(seedSp).forEach(sid=>{
+    const cur=state.species[sid];
+    if(!cur){state.species[sid]=seedSp[sid];return;}
+    if(cur.custom)return;
+    Object.assign(cur,seedSp[sid]);
+  });
+  const seedPl={};buildSeedPlantings().forEach(x=>{seedPl[x.id]=x;});
+  state.plantings.forEach(pl=>{
+    const sd=seedPl[pl.id];if(!sd||!pl.builtin)return;
+    pl.water=sd.water;pl.watch=sd.watch.slice();pl.structural=sd.structural.slice();
+    pl.checks=sd.checks.slice();pl.flag=sd.flag;pl.sub=sd.sub;
+  });
 }
 /* Résolution : espèce + plantation → objet « plante » de la forme attendue par tout le reste */
 function resolvePlanting(pl){

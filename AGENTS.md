@@ -359,6 +359,22 @@ la phase courante.
 donc un conseil neuf. `renderTaskArchive()` liste les conseils clos et permet de les rétablir.
 ⚠️ Tout nouveau conseil doit recevoir une clé, sinon il n'est pas clôturable.
 
+### ⚠️⚠️ Le contenu livré vit dans localStorage — toute correction est MORTE sans resync
+Piège le plus coûteux du projet, découvert en constatant qu'un correctif pourtant vérifié
+« ne changeait rien » chez l'utilisateur. `state.species` et `state.plantings` sont construits
+**une seule fois** (`if(!state.species...)`) puis persistés. Corriger une table du code
+— agronomie, soins de phase, `checks`, `watch` — n'a donc **aucun effet** sur une installation
+existante : elle relit sa copie. Le soin « étête ~1 mois avant le gel » continuait de sortir
+tous les jours parce que la copie enregistrée ne portait pas la fenêtre qu'on venait d'ajouter.
+`syncSeedContent()` (appelée par `migrateModel`) resynchronise à chaque démarrage **ce qui
+appartient à l'app** : les espèces livrées (agronomie complète) et le contenu éditorial des
+plantations d'origine (`water`, `watch`, `structural`, `checks`, `flag`, `sub`). Elle ne touche
+JAMAIS les cultures ajoutées par le jardinier (`custom`) ni ses données (parcelle, dates,
+variété, effectif, espacement, volume, journal, inspections, récoltes).
+⚠️ **Toute correction future d'une table de contenu ne se propagera que par là.** Et un test
+qui part d'un `localStorage` vide ne peut PAS voir ce défaut : le rejouer avec un catalogue
+rétrogradé fait partie de la vérification.
+
 ### ⚠️ Pertinence temporelle du Programme — audit complet
 Chaque entrée du Programme doit être vraie **au moment où elle s'affiche**. Sept défauts
 corrigés, tous vérifiés en rejouant l'app à huit dates de l'année (mai → janvier) :
@@ -570,7 +586,7 @@ des parcelles créées dans la même milliseconde, et rattachait toutes les cult
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v35`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v36`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.
