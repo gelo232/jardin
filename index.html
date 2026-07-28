@@ -24,6 +24,12 @@
   .bi-journal-text::before{content:"\f444"}
   .bi-chevron-right::before{content:"\f285"}
   :root{
+    /* ⚠️ L'interface est sombre : SANS cette déclaration, le navigateur considère la page
+       comme claire et dessine tous ses widgets natifs en clair — liste déroulante des
+       <select>, calendrier des <input type=date>, flèches des <input type=number>,
+       barres de défilement. Le texte des options héritant de la couleur claire du select,
+       elles s'affichaient blanc sur blanc : TOUS les menus étaient illisibles à l'ouverture. */
+    color-scheme:dark;
     /* palette recalée sur kgw.afronim.com : navy #1c2341 + cyan #6ec6d8 + blanc */
     --paper:#10172e; --card:#1c2341; --card-2:#262f54;
     --ink:#eef3fb; --ink-soft:#9fb1d0; --line:#33406b;
@@ -217,7 +223,19 @@
   .fgrp[open]>summary::after{transform:rotate(180deg)}
   .fgrp>summary .fg-n{font-size:11px;color:var(--ink-soft);font-weight:600}
   .fgrp-b{padding:0 14px 12px}
-  select{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' stroke='%239fb1d0' stroke-width='1.6' fill='none'/></svg>");background-repeat:no-repeat;background-position:right 13px center}
+  /* champ conditionnel : n'apparaît que si le signe dont il dépend est coché */
+  .depf{border-left:2px solid var(--leaf);padding-left:11px;margin-left:1px}
+  /* ⚠️ padding-right : le chevron est dessiné à 13 px du bord sur 12 px de large. Avec le
+     padding commun de 12 px, les libellés longs (« Bac du fond — 🪴bac · 🍂paillis · … »)
+     passaient SOUS la flèche. Il faut réserver la place du chevron. */
+  select{padding-right:34px;text-overflow:ellipsis;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' stroke='%239fb1d0' stroke-width='1.6' fill='none'/></svg>");background-repeat:no-repeat;background-position:right 13px center}
+  /* la liste déroulante native n'hérite pas toujours du select : on la peint explicitement */
+  select option,select optgroup{background:var(--card-2);color:var(--ink)}
+  select optgroup{font-weight:700;color:var(--ink-soft)}
+  /* un menu verrouillé doit SE VOIR : sans cela il paraît simplement cassé quand on le touche */
+  select:disabled{opacity:.55;cursor:not-allowed;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 16 16'><path d='M4 7V5a4 4 0 018 0v2h1v8H3V7h1zm2 0h4V5a2 2 0 10-4 0v2z' fill='%239fb1d0'/></svg>")}
   .btn{display:block;width:100%;text-align:center;background:var(--leaf);color:#07131f;border:0;border-radius:11px;padding:13px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;margin-top:4px}
   .btn.ghost{background:transparent;color:var(--leaf);border:1px solid var(--leaf)}
   .btn.sm{padding:9px;font-size:13px;width:auto;display:inline-block;padding-left:16px;padding-right:16px}
@@ -313,10 +331,11 @@
 
   <!-- PLANTES -->
   <section id="plants">
-    <p class="eyebrow">13 cultures + arbustes déco</p>
+    <p class="eyebrow" id="plantsCount">Mes cultures</p>
     <h2 class="title">Mes plantes</h2>
     <div id="plantList"></div>
     <div id="plantForm" style="display:none;margin-top:14px"></div>
+    <div id="speciesForm" style="display:none;margin-top:14px"></div>
     <div id="trashWrap" style="margin-top:16px"></div>
   </section>
 
@@ -413,12 +432,12 @@
     <p class="eyebrow">À partir de tes sels purs</p>
     <h2 class="title">Doseur d'engrais</h2>
     <div class="card card-pad">
-      <div class="field"><label>Pour quelle plante / quel objectif ?</label><select id="mixPlant" onchange="renderMix()"></select></div>
-      <div class="field" style="margin-bottom:0"><label>Volume de l'arrosoir</label>
+      <div class="field"><label for="mixPlant">Pour quelle plante / quel objectif ?</label><select id="mixPlant" onchange="renderMix()"></select></div>
+      <div class="field" style="margin-bottom:0"><label for="canSize">Volume de l'arrosoir</label>
         <div style="display:flex;gap:8px">
           <input type="number" id="canSize" min="0.25" step="0.25" value="10" inputmode="decimal"
                  placeholder="ex. 8" oninput="setCan()" style="flex:1">
-          <select id="canUnit" onchange="setCan()" style="width:auto;flex:none">
+          <select id="canUnit" aria-label="Unité du volume d'arrosoir" onchange="setCan()" style="width:auto;flex:none">
             <option value="L">litres</option>
             <option value="galUS">gallons US</option>
             <option value="galImp">gallons imp.</option>
@@ -480,8 +499,8 @@
       </div>
       <div class="field" style="margin-bottom:10px"><label for="hvQual">Qualité</label>
         <select id="hvQual">
-          <option value="">—</option><option>Excellente</option><option>Bonne</option>
-          <option>Moyenne</option><option>Décevante</option></select></div>
+          <option value="">—</option><option value="Excellente">Excellente</option><option value="Bonne">Bonne</option>
+          <option value="Moyenne">Moyenne</option><option value="Décevante">Décevante</option></select></div>
       <div class="field" style="margin-bottom:10px"><label for="hvNote">Note</label>
         <input type="text" id="hvNote" placeholder="goût, calibre, problème rencontré…"></div>
       <button class="btn" onclick="addHarvest()">＋ Enregistrer la récolte</button>
@@ -635,10 +654,10 @@ const SEED_PLANTINGS=[
   {id:'courge',vol:"≈ 8–10 L par pied (gros buveur), au sol",icon:'🎃',name:'Courges',sub:'semé ~23 mai · boutons visibles',
    stages:['Semis','Végétatif','Boutons','Floraison','Fruits','Récolte'],stage:2,recipe:'fleur',feedDays:12,sun:'plein soleil',tender:false,
    water:"Gros besoins en eau. Arrose au pied, jamais sur le feuillage (oïdium garanti sinon).",
-   watch:["Oïdium : feutrage blanc sur les feuilles","Premières fleurs mâles puis femelles (petite courge à la base)"],
+   watch:["Taches blanches sur les feuilles : passe le doigt dessus. Ça s'efface comme de la farine → oïdium. Ça ne part pas et ça suit les nervures → panachure de la variété, normale.","Premières fleurs mâles puis femelles (petite courge à la base)"],
    structural:["À la floraison : pollinise à la main au pinceau le matin si peu d'abeilles.","Glisse une planchette ou de la paille sous les jeunes fruits."],
    checks:[
-    {q:"Feutrage blanc sur les feuilles (oïdium)",fix:"Arrose au pied jamais sur le feuillage, aère, retire les feuilles atteintes."},
+    {q:"Feutrage blanc poudreux sur les feuilles (oïdium)",fix:"D'abord le test du doigt : si le blanc ne part pas et suit exactement les nervures, c'est la panachure de la variété — rien à faire. S'il s'efface comme de la farine, c'est l'oïdium : arrose au pied, aère, et ne coupe QUE les feuilles dont plus de la moitié du limbe est blanchie ou qui ont déjà jauni sous le feutrage — jamais plus du tiers du feuillage en une fois, et jamais une feuille qui ombrage un fruit. Saisis l'étendue en Inspection : l'app calcule le nombre exact de feuilles à retirer aujourd'hui."},
     {q:"Jeunes fruits qui jaunissent et avortent",fix:"Pollinisation incomplète : pollinise à la main au pinceau le matin (fleur mâle → femelle)."},
     {q:"Fruit en contact avec le sol humide",fix:"Glisse une planchette ou de la paille dessous pour éviter la pourriture."}
    ],flag:null},
@@ -650,6 +669,7 @@ const SEED_PLANTINGS=[
    checks:[
     {q:"Croissance qui stagne (nuits sous 15 °C)",fix:"Paillage sombre, coin le plus chaud, protège les nuits fraîches (<12 °C)."},
     {q:"Racines détrempées",fix:"Laisse sécher la surface entre deux arrosages ; le melon déteste l'excès d'eau."},
+    {q:"Feutrage blanc poudreux sur les feuilles (oïdium)",fix:"Comme toutes les cucurbitacées. Test du doigt d'abord : le blanc qui suit les nervures et ne s'efface pas est variétal, pas une maladie. Sinon, ne coupe que les feuilles couvertes à plus de la moitié ou déjà jaunies, jamais plus du tiers du feuillage à la fois. Saisis l'étendue en Inspection pour le compte exact."},
     {q:"Trous dans les feuilles / feuilles rongées",fix:"Même ravageurs que la pastèque (chrysomèle, altises, limaces) : voile anti-insectes jusqu'à la floraison, ramassage, terre de diatomée ; surveille le flétrissement bactérien."}
    ],
    flag:{type:'cold',txt:"❄️ Cantaloup semé en pleine terre ~23 mai : ~100 j depuis le semis avant maturité, donc récolte espérée début–mi-septembre seulement si l'été reste chaud (course contre le gel du ~7 oct). Donne-lui le coin le plus chaud, paillage sombre, protège sous 12 °C la nuit."}},
@@ -660,7 +680,8 @@ const SEED_PLANTINGS=[
    structural:["Stade le plus vulnérable : fertilisation très diluée seulement."],
    checks:[
     {q:"Trous dans les feuilles / feuilles rongées (au stade 2 feuilles)",fix:"Inspecte le dessous des feuilles et le sol tôt le matin ou au crépuscule. Coupables probables au Québec : chrysomèle rayée du concombre (petit coléoptère jaune et noir), altises (criblage de petits trous <3 mm, « shot-hole »), limaces (traces luisantes, dégâts la nuit). Solutions : voile anti-insectes sur arceaux dès maintenant et jusqu'à la floraison (le retirer alors pour la pollinisation), ramassage manuel, terre de diatomée sèche autour du pied, pièges à bière contre les limaces, et garder le tour du pied propre (les ravageurs hivernent dans les débris). ⚠️ La chrysomèle transmet le flétrissement bactérien des cucurbitacées : interviens vite, les semis tolèrent peu de dégâts."},
-    {q:"Coup de froid (stade 2 feuilles, très fragile)",fix:"Maximise la chaleur : paillage sombre, mur exposé sud, protection sous 12 °C la nuit."}
+    {q:"Coup de froid (stade 2 feuilles, très fragile)",fix:"Maximise la chaleur : paillage sombre, mur exposé sud, protection sous 12 °C la nuit."},
+    {q:"Feutrage blanc poudreux sur les feuilles (oïdium)",fix:"Comme toutes les cucurbitacées. Test du doigt d'abord : le blanc qui suit les nervures et ne s'efface pas est variétal, pas une maladie. Sinon, ne coupe que les feuilles couvertes à plus de la moitié ou déjà jaunies, jamais plus du tiers du feuillage à la fois. Saisis l'étendue en Inspection pour le compte exact."}
    ],
    flag:{type:'cold',txt:"❄️ La plus à risque : pastèque semée de graine fin mai/juin au Québec, ~110 j jusqu'à maturité → mûrir avant le gel (~7 oct) est incertain. Maximise la chaleur (paillage sombre, mur exposé sud, protection des nuits fraîches). Les variétés hâtives type Sugar Baby (~75–80 j depuis repiquage) sont les seules réalistes ici."}},
   {id:'persil',vol:"≈ 0,5–1 L (pot), jusqu'à léger écoulement ; sol frais",icon:'🌿',name:'Persil',sub:'frisé + plat · semé ~23 mai',
@@ -905,8 +926,14 @@ function varietyRec(p){
   return varietiesOf(pl.species).find(v=>v.n===pl.variety)||null;
 }
 /* convention applicable : celle de la variété, sinon celle de l'espèce (défaut : semis) */
+/* Convention de comptage : la variété prime, puis la saisie manuelle de la plantation, puis
+   la convention portée par l'ESPÈCE (renseignée pour les cultures ajoutées depuis le
+   catalogue : un poivron se compte du repiquage, un radis du semis). ⚠️ Champ distinct
+   `spDtmFrom` sur l'objet résolu — fusionner espèce et plantation faisait écraser la valeur
+   de l'espèce par un null (même piège que dtm / varDtm). */
 function dtmFrom(p){const v=varietyRec(p);if(v&&v.from)return v.from;
-  const pl=p&&p.planting;return(pl&&pl.dtmFrom)||'semis';}
+  const pl=p&&p.planting;
+  return(pl&&pl.dtmFrom)||(p&&p.spDtmFrom)||'semis';}
 /* date de référence du décompte, selon la convention ET le mode de semis réel */
 function maturityRef(p){
   const pl=p&&p.planting;if(!pl)return null;
@@ -1018,6 +1045,36 @@ function migrateModel(){
     if(pl.dtmFrom===undefined)pl.dtmFrom=null;
     if(pl.plantDate===undefined)pl.plantDate=null;
   });
+  syncSeedContent();
+}
+/* ===== RESYNCHRONISATION DU CONTENU LIVRÉ AVEC L'APP (⚠️ sinon toute correction est morte) =====
+   Le catalogue d'espèces et les plantations d'origine sont construits UNE SEULE FOIS, puis
+   vivent dans `localStorage`. Toute correction apportée ensuite aux tables du code — agronomie,
+   soins de phase, texte d'un point de contrôle — restait donc invisible sur une installation
+   existante : « étête ~1 mois avant le gel » continuait de sortir tous les jours parce que la
+   copie enregistrée ne portait pas la fenêtre temporelle qu'on venait d'ajouter, et le critère
+   d'effeuillage des courges gardait son ancienne formulation.
+   On resynchronise donc à chaque démarrage ce qui appartient à l'APP, et rien d'autre :
+   • les espèces livrées — agronomie complète ; les cultures ajoutées par le jardinier
+     (`custom`) ne sont JAMAIS touchées ;
+   • le contenu ÉDITORIAL des plantations d'origine (arrosage, à surveiller, entretien, points
+     de contrôle, encart) — jamais ses données à lui : parcelle, dates, variété, effectif,
+     espacement, volume, journal.
+   ⚠️ Toute correction future d'une table de contenu ne se propagera QUE par ici. */
+function syncSeedContent(){
+  const seedSp=buildSeedSpecies();
+  Object.keys(seedSp).forEach(sid=>{
+    const cur=state.species[sid];
+    if(!cur){state.species[sid]=seedSp[sid];return;}
+    if(cur.custom)return;
+    Object.assign(cur,seedSp[sid]);
+  });
+  const seedPl={};buildSeedPlantings().forEach(x=>{seedPl[x.id]=x;});
+  state.plantings.forEach(pl=>{
+    const sd=seedPl[pl.id];if(!sd||!pl.builtin)return;
+    pl.water=sd.water;pl.watch=sd.watch.slice();pl.structural=sd.structural.slice();
+    pl.checks=sd.checks.slice();pl.flag=sd.flag;pl.sub=sd.sub;
+  });
 }
 /* Résolution : espèce + plantation → objet « plante » de la forme attendue par tout le reste */
 function resolvePlanting(pl){
@@ -1034,6 +1091,7 @@ function resolvePlanting(pl){
     sun:sp.sun||'plein soleil',tender:!!sp.tender,ornamental:!!sp.ornamental,peren:!!sp.peren,
     arch:sp.arch||'fruit',fam:sp.fam||'autres',phOpt:sp.phOpt||null,nTarget:sp.nTarget||null,
     resow:sp.resow||null,pollen:sp.pollen||null,camg:sp.camg||null,dtm:sp.dtm||null,
+    spDtmFrom:sp.dtmFrom||null,custom:!!sp.custom,
     vol:pl.vol||null,volL:pl.volL||null,bed:pl.bed||null,sowing:pl.sowing||'direct',
     count:pl.count||null,spacing:(pl.spacing==null?'':pl.spacing),varDtm:pl.dtm||null,origin:pl.origin||'',
     water:pl.water||'',watch:pl.watch||[],structural:pl.structural||[],
@@ -1054,69 +1112,69 @@ function activePlants(){return PLANTS.filter(p=>!isRemoved(p));}
    Tout l'affichage (détail plante, doseur, aujourd'hui, plan) lit la PHASE EN COURS. */
 const maisPh=[
  {r:'jeune',water:"Sol frais, jamais détrempé (les graines pourrissent en sol froid humide).",watch:["Fonte des semis si excès d'eau"],care:["Éclaircis à 1 plant tous les 25–30 cm"]},
- {r:'vegetatif',water:"Arrosages réguliers ; gros besoins en eau dès la croissance.",watch:["À l'ombre : tiges étirées, croissance lente"],care:["Garde-les serrés EN BLOC (pollinisation par le vent)","Butte légèrement le pied"]},
- {r:'vegetatif',water:"Ne laisse pas sécher en profondeur.",watch:["Feuilles jaunes en V → manque d'azote"],care:["Apport d'azote soutenu (gros consommateur)"]},
- {r:'fleur',water:"CRUCIAL : ne jamais laisser sécher pendant la pollinisation (sinon grains manquants).",watch:["Soies brunes trop tôt = mauvaise pollinisation"],care:["Secoue les tiges le matin pour disperser le pollen","Passe au P-K"]},
+ {r:'vegetatif',water:"Arrosages réguliers ; gros besoins en eau dès la croissance.",watch:["À l'ombre : tiges étirées, croissance lente"],care:[{t:"Garde-les serrés EN BLOC (pollinisation par le vent)",note:true},"Butte légèrement le pied"]},
+ {r:'vegetatif',water:"Ne laisse pas sécher en profondeur.",watch:["Feuilles jaunes en V → manque d'azote"],care:[{t:"Apport d'azote soutenu (gros consommateur)",auto:true}]},
+ {r:'fleur',water:"CRUCIAL : ne jamais laisser sécher pendant la pollinisation (sinon grains manquants).",watch:["Soies brunes trop tôt = mauvaise pollinisation"],care:["Secoue les tiges le matin pour disperser le pollen",{t:"Passe au P-K",auto:true}]},
  {r:'aucun',water:"Eau régulière jusqu'à la récolte ; stoppe l'engrais.",watch:["Stade laiteux : un grain percé rend un jus laiteux"],care:["Récolte quand les soies brunissent et le grain est laiteux"]},
 ];
 const tomatePh=[
  {r:'jeune',water:"Régulier, sans détremper ; arrose au pied.",watch:["Tiges longues et molles → trop d'azote ou manque de lumière"],care:["Installe le tuteur tant que le plant est petit"]},
  {r:'vegetatif',water:"Arrosage profond dès que les 2–3 premiers cm sèchent ; régularité = pas de cul noir.",watch:["Feuilles enroulées → à-coups d'eau"],care:["Tuteure et attache","Coupe les feuilles à moins de 25 cm du sol"]},
- {r:'fleur',water:"Régularité essentielle pendant la nouaison.",watch:["Chute des fleurs si nuits <10° ou chaleur >32°"],care:["Passe au P-K (floraison)","Pince les gourmands sur variétés indéterminées"]},
+ {r:'fleur',water:"Régularité essentielle pendant la nouaison.",watch:["Chute des fleurs si nuits <10° ou chaleur >32°"],care:[{t:"Passe au P-K (floraison)",auto:true},"Pince les gourmands sur variétés indéterminées"]},
  {r:'fleur',water:"Eau constante : les à-coups font noircir/éclater les fruits.",watch:["Cul noir (tache noire au bas) = irrégularité d'eau/calcium"],care:["Effeuille sous les premiers bouquets (anti-mildiou)"]},
- {r:'fleur',water:"Régulier ; réduis un peu en fin de grossissement pour le goût.",watch:["Mildiou dès fin juillet (taches brunes huileuses)","Fentes si pluie après sécheresse"],care:["Étête ~1 mois avant le gel pour mûrir les fruits restants"]},
- {r:'fleur',water:"Espacé ; presque rien en fin de récolte.",watch:["Gel annoncé → récolte tous les fruits, même verts"],care:["Récolte au fur et à mesure","Avant le gel : cueille tout, fais mûrir les verts au chaud"]},
+ {r:'fleur',water:"Régulier ; réduis un peu en fin de grossissement pour le goût.",watch:["Mildiou dès fin juillet (taches brunes huileuses)","Fentes si pluie après sécheresse"],care:[{t:"Étête ~1 mois avant le gel pour mûrir les fruits restants",when:'preGel30'}]},
+ {r:'fleur',water:"Espacé ; presque rien en fin de récolte.",watch:["Gel annoncé → récolte tous les fruits, même verts"],care:["Récolte au fur et à mesure",{t:"Avant le gel : cueille tout, fais mûrir les verts au chaud",when:'preGel10'}]},
 ];
 const cucurbitPh=[
  {r:'jeune',water:"Sol chaud et humide sans excès ; déteste les racines détrempées.",watch:["Stagne sous 15° la nuit"],care:["Paillage sombre pour réchauffer le sol"]},
  {r:'vegetatif',water:"Régulier ; laisse sécher la surface entre deux.",watch:["Croissance lente si nuits fraîches"],care:["Pince la tige après 4–5 feuilles pour ramifier"]},
  {r:'fleur',water:"Constant à la floraison et à la nouaison.",watch:["Fleurs mâles d'abord, puis femelles (petit fruit à la base)"],care:["Pollinise au pinceau le matin si peu d'abeilles","Limite à 3–4 fruits/plant (saison courte)"]},
  {r:'fleur',water:"Soutenu pendant le grossissement.",watch:["Pourriture au contact du sol humide"],care:["Glisse une planche/paille sous chaque fruit"]},
- {r:'aucun',water:"RÉDUIS l'eau en fin de mûrissement (concentre le sucre) ; stoppe l'engrais.",watch:["Melon : parfum sucré + détachement facile = mûr","Pastèque : vrille près du fruit sèche + dessous jaune = mûr"],care:["Laisse mûrir au soleil ; n'arrose presque plus"]},
+ {r:'aucun',water:"RÉDUIS l'eau en fin de mûrissement (concentre le sucre) ; stoppe l'engrais.",watch:["Melon : parfum sucré + détachement facile = mûr","Pastèque : vrille près du fruit sèche + dessous jaune = mûr"],care:[{t:"Laisse mûrir au soleil ; n'arrose presque plus",note:true}]},
 ];
 const PH={
   mais_ombre:maisPh, mais_geo:maisPh,
   tomate_bac:tomatePh, tomate_geo:tomatePh,
   melon:cucurbitPh, pasteque:cucurbitPh,
   courge:[
-   {r:'jeune',water:"Régulier au pied, jamais sur le feuillage.",watch:["Fonte des semis si froid/humide"],care:["Espace bien (les courges s'étalent)"]},
+   {r:'jeune',water:"Régulier au pied, jamais sur le feuillage.",watch:["Fonte des semis si froid/humide"],care:[{t:"Espace bien (les courges s'étalent)",note:true}]},
    {r:'vegetatif',water:"Gros besoins en eau, toujours au pied.",watch:["Oïdium (feutrage blanc) par temps humide"],care:["Paille pour garder l'humidité"]},
-   {r:'fleur',water:"Constant ; évite le stress hydrique.",watch:["Fleurs mâles d'abord, puis femelles"],care:["Passe au P-K"]},
+   {r:'fleur',water:"Constant ; évite le stress hydrique.",watch:["Fleurs mâles d'abord, puis femelles"],care:[{t:"Passe au P-K",auto:true}]},
    {r:'fleur',water:"Régulier pendant la nouaison.",watch:["Fruits qui avortent = pollinisation incomplète"],care:["Pollinise au pinceau le matin si peu d'abeilles"]},
    {r:'fleur',water:"Soutenu pendant le grossissement.",watch:["Pourriture au sol humide"],care:["Glisse une planchette sous les jeunes fruits"]},
    {r:'aucun',water:"Réduis l'eau en fin de mûrissement ; stoppe l'engrais.",watch:["Courge d'hiver : peau dure + pédoncule liégeux = mûre"],care:["Récolte avant le gel ; laisse un bout de pédoncule","Ressuie ~10 j au soleil pour la conservation"]},
   ],
   persil:[
-   {r:'jeune',water:"Surface humide jusqu'à la levée (lente, 2–3 sem.).",watch:["Sèche en surface = germination ratée"],care:["Patience : le persil lève lentement"]},
-   {r:'jeune',water:"Frais et régulièrement humide ; mi-ombre l'été.",watch:["Montée en graine si stress/chaleur"],care:["Apport léger seulement (peu gourmand)"]},
+   {r:'jeune',water:"Surface humide jusqu'à la levée (lente, 2–3 sem.).",watch:["Sèche en surface = germination ratée"],care:[{t:"Patience : le persil lève lentement",note:true}]},
+   {r:'jeune',water:"Frais et régulièrement humide ; mi-ombre l'été.",watch:["Montée en graine si stress/chaleur"],care:[{t:"Apport léger seulement (peu gourmand)",auto:true}]},
    {r:'jeune',water:"Régulier ; ne dessèche pas.",watch:["Jaunissement si pot trop petit ou excès d'eau"],care:["Récolte les tiges extérieures d'abord, garde le cœur"]},
   ],
   thym:[
-   {r:'jeune',water:"À peine humide jusqu'à la levée ; jamais détrempé.",watch:["Pourrit en sol lourd/humide"],care:["Levée et croissance lentes — normal"]},
-   {r:'jeune',water:"Laisse bien sécher entre deux arrosages (méditerranéen).",watch:["Collet qui jaunit = excès d'eau"],care:["Apport très rare (l'azote dilue l'arôme)","Pince pour ramifier"]},
+   {r:'jeune',water:"À peine humide jusqu'à la levée ; jamais détrempé.",watch:["Pourrit en sol lourd/humide"],care:[{t:"Levée et croissance lentes — normal",note:true}]},
+   {r:'jeune',water:"Laisse bien sécher entre deux arrosages (méditerranéen).",watch:["Collet qui jaunit = excès d'eau"],care:[{t:"Apport très rare (l'azote dilue l'arôme)",auto:true},"Pince pour ramifier"]},
    {r:'aucun',water:"Tolère la sécheresse ; arrose peu.",watch:["Se dégarnit du bois avec l'âge → rabats au printemps"],care:["Récolte avant la floraison (arôme maximal)"]},
   ],
   carotte:[
-   {r:'jeune',water:"Surface constamment humide jusqu'à la levée (14–21 j) ; planche/jute par-dessus.",watch:["Croûte sèche = levée ratée"],care:["Sème clair pour limiter l'éclaircissage"]},
+   {r:'jeune',water:"Surface constamment humide jusqu'à la levée (14–21 j) ; planche/jute par-dessus.",watch:["Croûte sèche = levée ratée"],care:[{t:"Sème clair pour limiter l'éclaircissage",note:true}]},
    {r:'racine',water:"Régulier et profond ; l'irrégularité fait fendre.",watch:["Feuillage abondant + racine fine → trop d'azote"],care:["Éclaircis à 3–4 cm entre carottes"]},
-   {r:'racine',water:"Profond et constant pendant le grossissement.",watch:["Racines fourchues → sol caillouteux ou fumier frais","Épaules vertes → recouvre de terre"],care:["Faible azote, un peu de potassium"]},
+   {r:'racine',water:"Profond et constant pendant le grossissement.",watch:["Racines fourchues → sol caillouteux ou fumier frais","Épaules vertes → recouvre de terre"],care:[{t:"Faible azote, un peu de potassium",auto:true}]},
    {r:'aucun',water:"Modéré ; inutile de forcer.",watch:["Se conservent en terre ; récolte avant gel fort"],care:["Récolte au besoin, les plus grosses d'abord"]},
   ],
   ail:[
-   {r:'vegetatif',water:"Sol frais et régulier au départ.",watch:["Démarrage lent au printemps"],care:["Azote utile pour bâtir le feuillage"]},
+   {r:'vegetatif',water:"Sol frais et régulier au départ.",watch:["Démarrage lent au printemps"],care:[{t:"Azote utile pour bâtir le feuillage",auto:true}]},
    {r:'vegetatif',water:"Régulier pendant la croissance du feuillage.",watch:["Plus de feuilles = plus gros bulbe"],care:["Désherbe : l'ail déteste la concurrence"]},
-   {r:'racine',water:"Réduis à mesure que le bulbe se forme.",watch:["Feuilles du bas jaunes = bulbaison","Scape (col dur) à couper"],care:["STOPPE l'azote (sinon feuilles, petit bulbe)","Coupe le scape pour gonfler le bulbe"]},
+   {r:'racine',water:"Réduis à mesure que le bulbe se forme.",watch:["Feuilles du bas jaunes = bulbaison","Scape (col dur) à couper"],care:[{t:"STOPPE l'azote (sinon feuilles, petit bulbe)",auto:true},"Coupe le scape pour gonfler le bulbe"]},
    {r:'aucun',water:"ARRÊTE l'arrosage ~2 sem. avant la récolte.",watch:["Récolte quand 1/3 à 1/2 des feuilles du bas ont bruni"],care:["Récolte par temps sec, fais sécher (curing) 2–3 sem. à l'ombre aérée"]},
   ],
   citron:[
-   {r:'agrumes',water:"Laisse sécher les 3–4 premiers cm puis arrose à fond ; jamais les pieds dans l'eau.",watch:["Feuilles jaunes à nervures vertes → fer/magnésium","Chute des feuilles → eau irrégulière ou froid"],care:["Jeune plant : vise la croissance, étête vers 40–50 cm pour ramifier","Dehors plein soleil l'été, rentre avant 10°"]},
-   {r:'agrumes',water:"Régulier pendant la floraison.",watch:["Chute des fleurs si stress hydrique/courant d'air"],care:["Des années avant la 1re floraison pour un semis — patience"]},
-   {r:'agrumes',water:"Constant pendant la formation des fruits.",watch:["Chute de jeunes fruits = normal (le plant en garde quelques-uns)"],care:["Apport régulier sans chlore"]},
-   {r:'agrumes',water:"Régulier ; maturation lente (plusieurs mois).",watch:["Le fruit met des mois à colorer"],care:["Patience : maturation longue"]},
+   {r:'agrumes',water:"Laisse sécher les 3–4 premiers cm puis arrose à fond ; jamais les pieds dans l'eau.",watch:["Feuilles jaunes à nervures vertes → fer/magnésium","Chute des feuilles → eau irrégulière ou froid"],care:[{t:"Jeune plant : vise la croissance, étête vers 40–50 cm pour ramifier",when:'haut40'},{t:"Dehors plein soleil l'été, rentre avant 10°",note:true}]},
+   {r:'agrumes',water:"Régulier pendant la floraison.",watch:["Chute des fleurs si stress hydrique/courant d'air"],care:[{t:"Des années avant la 1re floraison pour un semis — patience",note:true}]},
+   {r:'agrumes',water:"Constant pendant la formation des fruits.",watch:["Chute de jeunes fruits = normal (le plant en garde quelques-uns)"],care:[{t:"Apport régulier sans chlore",auto:true}]},
+   {r:'agrumes',water:"Régulier ; maturation lente (plusieurs mois).",watch:["Le fruit met des mois à colorer"],care:[{t:"Patience : maturation longue",note:true}]},
   ],
   ananas:[
-   {r:'ananas',water:"Laisse bien sécher entre deux ; un peu d'eau au cœur de la rosette.",watch:["Pointes brunes → eau calcaire ou excès d'engrais","Croissance très lente — normal"],care:["Brumise par temps sec","Apport mensuel très dilué, sans chlore"]},
-   {r:'ananas',water:"Modéré pendant la floraison (inflorescence rouge/violette).",watch:["La floraison survient vers 16–24 mois"],care:["Si rien après 2 ans : force avec une pomme mûre sous un sac (éthylène)"]},
+   {r:'ananas',water:"Laisse bien sécher entre deux ; un peu d'eau au cœur de la rosette.",watch:["Pointes brunes → eau calcaire ou excès d'engrais","Croissance très lente — normal"],care:[{t:"Brumise par temps sec",when:'airSec'},{t:"Apport mensuel très dilué, sans chlore",auto:true}]},
+   {r:'ananas',water:"Modéré pendant la floraison (inflorescence rouge/violette).",watch:["La floraison survient vers 16–24 mois"],care:[{t:"Si rien après 2 ans : force avec une pomme mûre sous un sac (éthylène)",when:'age2ans'}]},
    {r:'ananas',water:"Régulier pendant le grossissement du fruit.",watch:["~5–6 mois de la fleur au fruit mûr"],care:["Soutiens le fruit s'il penche"]},
   ],
 };
@@ -1135,6 +1193,92 @@ function curRecipe(p){
   if(p.ornamental||isNoFeed(base))return base;
   return RECIPES[a.recipe];}
 function baseRecipe(p){return RECIPES[phaseInfo(p).r]||RECIPES.aucun;}
+/* ===== PERTINENCE D'UN SOIN DE PHASE (⚠️ règle de conception, §4quater) =====
+   Un conseil ne s'affiche que dans sa FENÊTRE UTILE. Les soins de phase étaient tous émis
+   dès l'entrée dans la phase : « étête ~1 mois avant le gel » sortait donc fin juillet, à
+   plus de deux mois du gel — et, pire, seul le PREMIER soin de la phase était émis, si bien
+   qu'un vrai geste (« coupe le scape », « pince les gourmands ») restait invisible derrière
+   une simple description de régime.
+   Un soin peut désormais porter :
+   • `when`  — une condition datée ou d'état, réévaluée à chaque rendu du Programme ;
+   • `note`  — un FAIT, pas un geste. Reste sur la fiche de la plante, ne devient jamais une
+               tâche : « patience, la maturation est longue » n'est pas une action ;
+   • `auto`  — un changement de régime que l'app applique DÉJÀ elle-même (« passe au P-K » :
+               la recette de la phase a changé toute seule). Il explique la recette sur la
+               fiche ; le proposer comme tâche demandait de faire ce qui était déjà fait.
+   Sans marqueur, un soin est un geste valable pendant toute sa phase. */
+const CARE_WHEN={
+  preGel30:{lab:"à environ un mois du gel",
+    ok:()=>{const d=daysToFrost();return d>0&&d<=35;},
+    why:()=>`Le premier gel est attendu dans ${daysToFrost()} j.`},
+  preGel10:{lab:"à l'approche immédiate du gel",
+    ok:()=>{const d=daysToFrost();return !!frostAlert()||(d>0&&d<=12);},
+    why:()=>{const f=frostAlert();return f?`Gel annoncé (${f.tmin} °C).`:`Le premier gel est attendu dans ${daysToFrost()} j.`;}},
+  age2ans:{lab:"passé deux ans de culture",
+    ok:p=>{const a=plantAgeDays(p);return a!=null&&a>=730;},
+    why:p=>`Ce sujet a ${Math.floor(plantAgeDays(p)/365)} ans.`},
+  /* Un geste conditionné à une TAILLE ne se propose que si la taille est atteinte — et elle
+     n'est connue que par l'inspection. Sans mesure, on ne réclame rien. */
+  haut40:{lab:"quand le sujet atteint 40 cm",
+    ok:p=>{const i=lastInsp(p);return !!i&&isFinite(+i.h)&&+i.h>=40;},
+    why:p=>`Mesuré à ${(lastInsp(p)||{}).h} cm à la dernière inspection.`},
+  airSec:{lab:"par temps sec",
+    ok:()=>{const w=state.wx;return !!w&&w.rh!=null&&w.rh<55;},
+    why:()=>`Humidité de l'air à ${state.wx.rh} %.`}
+};
+/* ===== SAISON DE PLEIN AIR TERMINÉE =====
+   Après le gel meurtrier, il n'y a plus rien à entretenir dehors : le sol gèle, les annuelles
+   sont mortes et les vivaces sont en dormance. Arroser, fertiliser ou récolter des herbes en
+   novembre n'a aucun sens. Ne concerne QUE la pleine terre : un pot rentré à l'abri garde son
+   programme, c'est justement là qu'il continue de vivre. */
+function outdoorDormant(){
+  const m=new Date().getMonth()+1;
+  if(m>=11||m<=3)return true;
+  const f=frostInfo();return !!(f&&f.past);
+}
+function dormantFor(p){return inGround(p)&&outdoorDormant();}
+/* De novembre à février, la lumière intérieure est trop faible pour soutenir une croissance :
+   continuer à fertiliser un pot n'apporte rien et accumule des sels dans un substrat que rien
+   ne lessive — c'est exactement le dépôt blanchâtre contre lequel l'app met déjà en garde.
+   L'arrosage, lui, continue : la plante transpire toujours. */
+function lowLightRest(p){const m=new Date().getMonth()+1;
+  return(m>=11||m<=2)&&!inGround(p);}
+function plantAgeDays(p){const s=p&&p.sowDate;if(!s)return null;
+  return Math.floor((Date.now()-new Date(s+'T00:00').getTime())/864e5);}
+/* Une plantation dont la date de semis est DANS LE FUTUR n'existe pas encore au jardin :
+   le modèle de phases la plaçait au stade 0 et l'app réclamait de l'eau, de l'engrais et des
+   soins pour une graine pas encore semée. */
+function notYetSown(p){const s=p&&p.sowDate;if(!s)return false;
+  return new Date(s+'T00:00').getTime()>Date.now();}
+function careOne(c){return(typeof c==='string')?{t:c}:(c&&c.t?c:{t:String(c||'')});}
+/* ⚠️ On lit la phase DIRECTEMENT, pas `phaseInfo().care` : celui-ci retombe sur
+   `p.structural` quand l'espèce n'a pas de soins pour ce stade, et les repères permanents
+   (« tuteurage dès maintenant », « glisse une planchette sous les fruits ») se retrouvaient
+   émis comme tâches quotidiennes — le buis en sortait trois par jour, toute l'année. */
+function careList(p){const arr=p.phases,b=arr&&arr[curStage(p)];
+  return((b&&b.care)||[]).map(careOne);}
+/* Soins réellement actionnables AUJOURD'HUI : ni constat, ni régime automatique, et dont la
+   fenêtre temporelle est ouverte. C'est la seule source des tâches « Soins & phases ». */
+function careDue(p){
+  if(cycleOver(p)||notYetSown(p)||dormantFor(p))return [];
+  return careList(p).filter(c=>{
+    if(c.note||c.auto)return false;
+    if(!c.when)return true;
+    const W=CARE_WHEN[c.when];
+    if(!W)return true;
+    try{return !!W.ok(p)}catch(e){return false}
+  });
+}
+/* état d'un soin, pour la fiche plante : elle montre TOUT, en disant ce qui attend quoi */
+function careState(p,c){
+  if(c.note)return{cls:'note',ic:'ℹ️',txt:'repère, pas une action'};
+  if(c.auto)return{cls:'auto',ic:'⚙️',txt:'déjà appliqué par l\'app (recette de la phase)'};
+  if(c.when){const W=CARE_WHEN[c.when];if(!W)return null;
+    let ok=false;try{ok=!!W.ok(p)}catch(e){}
+    return ok?{cls:'now',ic:'✅',txt:`c'est le moment — ${W.why(p)}`}
+             :{cls:'later',ic:'🕑',txt:`seulement ${W.lab} — pas encore`};}
+  return null;
+}
 function isNoFeed(r){return !(r.urea||r.map||r.mkp||r.kcl||r.sop);}
 
 /* ===== FRÉQUENCES & PROCHAINE DATE ===== */
@@ -1274,7 +1418,216 @@ const SOW_DATE={
   persil:'2026-05-23', carotte:'2026-05-21', thym:'2026-05-23', ail:'2026-04-15',
   citron:'2024-05-01', ananas:'2025-06-01'
 };
-const PEREN={citron:1,ananas:1}; // vivaces : cycles longs, estimations indicatives
+/* ⚠️ thym : rustique jusqu'en zone 4–5, il repart chaque printemps. Marqué annuel, il
+   déclenchait « cycle terminé » tout l'hiver pour une plante bien vivante, et coupait
+   définitivement son arrosage. */
+const PEREN={citron:1,ananas:1,thym:1}; // vivaces : cycles longs, estimations indicatives
+
+/* ===== AJOUTER UNE CULTURE QUE L'APP NE CONNAÎT PAS =====
+   ⚠️ PRINCIPE DIRECTEUR (§4-0) : on ne demande QUE ce que le jardinier est seul à savoir —
+   le nom de sa culture, ce à quoi la plante ressemble, sa famille botanique, et le chiffre
+   imprimé sur son sachet. Modèle de phases, recette par phase, intervalle d'arrosage,
+   fréquence d'apport, plage de pH, cible azote, mode de pollinisation : c'est de l'agronomie,
+   donc à l'app de la produire.
+
+   Deux chemins, dans cet ordre :
+   • CROP_LIBRARY — cultures courantes en zone 5b que l'app sait déjà décrire. Le jardinier
+     choisit un nom, il n'a rien d'autre à renseigner.
+   • Culture entièrement libre — archétype + famille + jours à maturité, le reste est dérivé.
+
+   ⚠️ Le modèle produit est GÉNÉRIQUE et l'app le dit franchement : il n'a pas la finesse des
+   espèces d'origine, calibrées une par une. C'est acceptable ici parce que l'observation de
+   terrain PRIME sur le calendrier (`curStage` = `observedStage` ?? `modelStage`) : dès la
+   première inspection, les marqueurs cochés corrigent le modèle. */
+
+/* Modèle de cycle par archétype.
+   ⚠️ `stages` est ALIGNÉ sur MARKERS[archétype] : un marqueur désigne un INDICE de stade,
+   un décalage rendrait toute la déduction de phase fausse. Ne jamais modifier l'un sans l'autre.
+   `w` = poids des phases qui précèdent la maturité — les jours à maturité du sachet sont
+   répartis dessus, si bien que le modèle est ancré sur le seul chiffre réel dont dispose le
+   jardinier. `harvest` = durée de la dernière phase (récolte / maturation), en jours.
+   `dtm` = repli quand aucun chiffre n'est connu. */
+const ARCH_MODEL={
+ grass:{stages:['Semis','Végétatif','Montaison','Floraison','Récolte'],
+   w:[8,38,16,10],harvest:18,dtm:85,
+   recipes:['jeune','vegetatif','vegetatif','fleur','aucun'],water:[2,2,2,1,2],
+   sun:'plein soleil',pollen:'vent'},
+ fruit:{stages:['Semis','Végétatif','Boutons','Floraison','Fruits','Récolte'],
+   w:[14,28,10,10,25],harvest:35,dtm:80,
+   recipes:['jeune','vegetatif','fleur','fleur','fleur','aucun'],water:[1,2,2,2,2,3],
+   sun:'plein soleil',pollen:'auto'},
+ vine:{stages:['Semis','Végétatif','Boutons','Floraison','Fruits','Récolte'],
+   w:[10,28,12,12,30],harvest:20,dtm:95,
+   recipes:['jeune','vegetatif','fleur','fleur','fleur','aucun'],water:[2,2,2,2,2,4],
+   sun:'plein soleil',pollen:'insectes'},
+ root:{stages:['Semis','Feuillage','Grossissement','Récolte'],
+   w:[16,22,22],harvest:25,dtm:75,
+   recipes:['jeune','racine','racine','aucun'],water:[4,5,5,6],
+   sun:'plein soleil',pollen:null},
+ bulb:{stages:['Plantation','Feuillage','Bulbaison','Maturation'],
+   w:[14,45,35],harvest:20,dtm:110,
+   recipes:['jeune','vegetatif','racine','aucun'],water:[3,4,5,null],
+   sun:'plein soleil',pollen:null},
+ herb:{stages:['Semis','Croissance','Récolte'],
+   w:[21,42],harvest:90,dtm:60,
+   recipes:['jeune','jeune','aucun'],water:[1,2,3],
+   sun:'plein soleil à mi-ombre',pollen:null},
+ potTree:{stages:['Croissance','Floraison','Fruits','Maturation'],
+   w:[1460,60,120],harvest:150,dtm:null,
+   recipes:['jeune','vegetatif','fleur','aucun'],water:[5,6,6,7],
+   sun:'lumière vive',pollen:'auto'},
+ potRosette:{stages:['Croissance','Floraison','Fructification'],
+   w:[600,60],harvest:150,dtm:null,
+   recipes:['jeune','jeune','aucun'],water:[7,8,8],
+   sun:'lumière vive',pollen:null},
+ shrub:{stages:['Reprise'],w:[],harvest:365,dtm:null,
+   recipes:['aucun'],water:[7],sun:'mi-ombre',pollen:null}
+};
+/* Conseils par phase, écrits au niveau de l'ARCHÉTYPE : génériques mais vrais pour toutes
+   les cultures qui partagent cette architecture. Une fiche vide serait pire que ça. */
+const ARCH_GUIDE={
+ grass:[{water:"Surface humide jusqu'à la levée.",watch:["Levée irrégulière si le sol est froid"],care:[{t:"Semer en bloc, jamais en ligne unique : la pollinisation se fait par le vent",note:true}]},
+  {water:"Régulier ; les graminées sont exigeantes en eau et en azote.",watch:["Feuilles basses jaunes en V = azote"],care:["Butter légèrement pour ancrer les tiges"]},
+  {water:"Soutenu : c'est la phase de croissance la plus rapide.",watch:["Verse après un coup de vent"],care:[]},
+  {water:"Ne jamais laisser sécher pendant la floraison.",watch:["Épis mal remplis = pollinisation incomplète"],care:["Secouer les tiges en milieu de matinée si les plants sont peu nombreux"]},
+  {water:"Réduire à l'approche de la récolte.",watch:["Guetter le stade de récolte propre à ta culture"],care:[]}],
+ fruit:[{water:"Régulier au pied, jamais sur le feuillage.",watch:["Fonte des semis si froid et humide"],care:[{t:"Ne pas fertiliser fort avant les vraies feuilles",note:true}]},
+  {water:"Régulier et profond, au pied.",watch:["Feuilles anciennes jaunes = azote"],care:["Tuteurer ou soutenir avant que ce soit nécessaire"]},
+  {water:"Constant : les à-coups font tomber les boutons.",watch:["Chute de boutons = stress hydrique ou thermique"],care:[{t:"Passer à une recette pauvre en azote",auto:true}]},
+  {water:"Constant pendant la nouaison.",watch:["Fleurs qui tombent sans nouer"],care:["Secouer doucement les plants le matin favorise la nouaison"]},
+  {water:"Régulier : l'irrégularité provoque fentes et cul noir.",watch:["Tache noire sous le fruit = calcium mal transporté, donc arrosage irrégulier"],care:["Pailler pour lisser l'humidité du sol"]},
+  {water:"Réduire en fin de maturation, le goût se concentre.",watch:["Récolter avant le premier gel"],care:[]}],
+ vine:[{water:"Régulier au pied, jamais sur le feuillage.",watch:["Fonte des semis si froid et humide"],care:[{t:"Espacer largement : les coureuses s'étalent",note:true}]},
+  {water:"Gros besoins en eau, toujours au pied.",watch:["Feutrage blanc poudreux (oïdium) par air confiné"],care:["Pailler pour garder l'humidité et isoler les fruits du sol"]},
+  {water:"Constant ; éviter tout stress hydrique.",watch:["Fleurs mâles d'abord, femelles ensuite"],care:[{t:"Passer au P-K",auto:true}]},
+  {water:"Régulier pendant la nouaison.",watch:["Jeunes fruits qui jaunissent et tombent = pollinisation incomplète"],care:["Polliniser au pinceau entre 6 h et 10 h si peu d'abeilles"]},
+  {water:"Soutenu pendant le grossissement.",watch:["Pourriture au contact d'un sol humide"],care:["Glisser une planchette ou de la paille sous les fruits"]},
+  {water:"Réduire en fin de mûrissement ; arrêter l'engrais.",watch:["Peau dure et pédoncule liégeux = mûr"],care:[{t:"Récolter avant le gel en laissant un bout de pédoncule",when:'preGel30'}]}],
+ root:[{water:"Surface constamment humide jusqu'à la levée.",watch:["Croûte sèche = levée ratée"],care:[{t:"Semer clair pour limiter l'éclaircissage",note:true}]},
+  {water:"Régulier et profond : l'eau appelle la racine vers le bas.",watch:["⚠️ Un excès d'azote donne un feuillage magnifique et une racine grêle"],care:["Éclaircir tôt : deux racines qui se touchent ne grossissent ni l'une ni l'autre"]},
+  {water:"Régulier : l'alternance sec/détrempé fait éclater les racines.",watch:["Collet vert = racine déchaussée, rebutter"],care:["Butter pour couvrir les collets"]},
+  {water:"Réduire avant l'arrachage.",watch:["Arracher un sujet témoin pour juger du calibre"],care:["Récolter par temps sec"]}],
+ bulb:[{water:"Modéré : un sol détrempé fait pourrir le caïeu.",watch:["Levée irrégulière"],care:["Pailler contre le gel et les mauvaises herbes"]},
+  {water:"Régulier pendant toute la croissance du feuillage.",watch:["Chaque feuille = une tunique du futur bulbe"],care:["Désherber soigneusement : les alliacées supportent mal la concurrence"]},
+  {water:"Régulier jusqu'au grossissement, puis réduire.",watch:["Tige florale rigide au centre : la couper"],care:[{t:"Passer à une recette pauvre en azote",auto:true}]},
+  {water:"Arrêter l'arrosage à l'approche de la récolte.",watch:["Un tiers à la moitié des feuilles brunies = récolte"],care:["Sécher les bulbes à l'ombre et ventilés avant stockage"]}],
+ herb:[{water:"Surface humide jusqu'à la levée.",watch:["Levée parfois lente"],care:[{t:"Semer clair",note:true}]},
+  {water:"Régulier ; ne pas laisser dessécher.",watch:["Montée en graine si stress ou chaleur"],care:[{t:"Apport léger seulement : l'excès d'azote dilue l'arôme et attire les pucerons",auto:true}]},
+  {water:"Régulier pendant toute la période de coupe.",watch:["Une hampe florale annonce la fin de la tendreté"],care:["Récolter le matin, feuilles extérieures d'abord, en gardant le cœur"]}],
+ potTree:[{water:"Laisser sécher les premiers centimètres entre deux arrosages.",watch:["Jeunes feuilles jaunes à nervures vertes = fer ou magnésium"],care:["Rincer le substrat à l'eau claire une fois par mois"]},
+  {water:"Régulier pendant la floraison.",watch:["Chute des boutons si courant d'air ou à-coup d'eau"],care:[]},
+  {water:"Régulier pendant la nouaison.",watch:["Chute physiologique de jeunes fruits : normale"],care:[]},
+  {water:"Réduire en hiver.",watch:["Rentrer avant les premières nuits froides"],care:[]}],
+ potRosette:[{water:"Substrat acide, arrosages espacés.",watch:["Feuilles brunes si le substrat est calcaire"],care:[{t:"Ne pas fertiliser dans les semaines qui suivent un rempotage",note:true}]},
+  {water:"Régulier et léger.",watch:[],care:[]},
+  {water:"Réduire.",watch:[],care:[]}],
+ shrub:[{water:"Eau profonde ≈ 2,5 cm par semaine, sans détremper.",watch:["Test de l'ongle : cambium vert = bois vivant"],care:[{t:"Aucun engrais pendant la reprise : l'azote force un feuillage que les racines abîmées ne peuvent pas nourrir",auto:true}]}]
+};
+/* Ce que la FAMILLE botanique commande. Valeurs indicatives, alignées sur les cultures déjà
+   calibrées de l'app : fréquence d'apport (jours), plage de pH, cible d'azote (g N / saison).
+   ⚠️ brassicacées : pH volontairement plus haut — au-dessus de 7 la hernie du chou est
+   nettement moins agressive. ⚠️ fabacées : cible d'azote quasi nulle, elles le fixent. */
+const FAM_AGRO={
+  solanacees:{feed:12,ph:[6.0,6.8],n:[10,20]},
+  cucurbitacees:{feed:12,ph:[6.0,6.8],n:[10,20]},
+  poacees:{feed:10,ph:[5.8,7.0],n:[8,16]},
+  apiacees:{feed:18,ph:[6.0,6.8],n:[4,8]},
+  alliacees:{feed:16,ph:[6.0,7.0],n:[5,10]},
+  brassicacees:{feed:14,ph:[6.5,7.5],n:[6,12]},
+  fabacees:{feed:28,ph:[6.0,7.0],n:[1,3]},
+  amaranthacees:{feed:14,ph:[6.5,7.5],n:[5,10]},
+  asteracees:{feed:16,ph:[6.0,7.0],n:[4,8]},
+  rosacees:{feed:18,ph:[5.8,6.5],n:[4,8]},
+  lamiacees:{feed:24,ph:[6.0,8.0],n:[2,5]},
+  autres:{feed:14,ph:[6.0,7.0],n:[4,8]}
+};
+/* Répartition des jours à maturité sur les phases qui précèdent la récolte. */
+function speciesCycle(arch,dtm){
+  const M=ARCH_MODEL[arch]||ARCH_MODEL.fruit;
+  if(!M.w.length)return{stages:M.stages.slice(),dur:[M.harvest]};
+  const tot=M.w.reduce((a,b)=>a+b,0);
+  const target=(isFinite(+dtm)&&+dtm>0)?+dtm:M.dtm;
+  const dur=(target?M.w.map(x=>Math.max(3,Math.round(x/tot*target))):M.w.slice()).concat([M.harvest]);
+  return{stages:M.stages.slice(),dur};
+}
+/* Fabrique une espèce complète à partir des seules réponses du jardinier. */
+function makeSpecies(o){
+  const arch=ARCH_MODEL[o.arch]?o.arch:'fruit', fam=FAM[o.fam]?o.fam:'autres';
+  const M=ARCH_MODEL[arch], A=FAM_AGRO[fam]||FAM_AGRO.autres;
+  const{stages,dur}=speciesCycle(arch,o.dtm);
+  /* Les légumineuses fixent leur propre azote : leur servir « croissance végétative » ferait
+     du feuillage au détriment des gousses. La famille corrige donc la recette de l'archétype. */
+  const rec=M.recipes.map(r=>(fam==='fabacees'&&r==='vegetatif')?'jeune':r);
+  const guide=ARCH_GUIDE[arch]||[];
+  const peren=!!o.peren, orn=!!o.ornamental;
+  return{id:o.id,name:(o.name||'Culture').trim(),icon:o.icon||'🌱',arch,fam,
+    stages,dur,
+    waterEvery:M.water.slice(0,stages.length),
+    phases:stages.map((s,i)=>{const g=guide[Math.min(i,guide.length-1)]||{};
+      return{r:orn?'aucun':rec[Math.min(i,rec.length-1)],
+        water:g.water||'',watch:(g.watch||[]).slice(),care:(g.care||[]).slice()};}),
+    feedDays:orn?null:A.feed,recipe:orn?'aucun':rec[0],
+    sun:M.sun,tender:!!o.tender,ornamental:orn,peren,
+    phOpt:A.ph.slice(),nTarget:orn?[0,0]:A.n.slice(),
+    /* fenêtre de ressemis déduite de la sensibilité au gel — pas d'invention par culture */
+    resow:peren?{kind:'vivace',win:"vivace : rien à ressemer, elle repart d'elle-même"}
+      :(arch==='bulb'?{kind:'bulbe',win:"à l'automne pour une récolte l'été suivant, ou tôt au printemps"}
+      :(o.tender?{kind:'chaud',win:"après le dernier gel (~20–25 mai à Montréal), ou 4–6 semaines avant en intérieur"}
+               :{kind:'frais',win:"d'avril à juillet, semis direct — supporte les gelées légères"})),
+    pollen:M.pollen,camg:null,
+    dtm:(isFinite(+o.dtm)&&+o.dtm>0)?Math.round(+o.dtm):null,
+    dtmFrom:o.dtmFrom||'semis',
+    builtin:false,custom:true};
+}
+/* ===== CULTURES COURANTES EN ZONE 5b QUE L'APP SAIT DÉCRIRE =====
+   Choisir un nom ici suffit : famille, architecture, jours à maturité et sensibilité au gel
+   sont connus, tout le reste en découle. Les jours à maturité sont des ordres de grandeur
+   « toutes variétés » — la variété exacte se précise ensuite sur la plantation, et c'est elle
+   qui fera foi (`dtmOf`). */
+const CROP_LIBRARY=[
+ {id:'haricot',name:'Haricot nain',icon:'🫘',arch:'fruit',fam:'fabacees',dtm:55,dtmFrom:'semis',tender:true},
+ {id:'haricot_ram',name:'Haricot grimpant',icon:'🫘',arch:'fruit',fam:'fabacees',dtm:65,dtmFrom:'semis',tender:true},
+ {id:'pois',name:'Pois',icon:'🟢',arch:'fruit',fam:'fabacees',dtm:60,dtmFrom:'semis',tender:false},
+ {id:'concombre',name:'Concombre',icon:'🥒',arch:'vine',fam:'cucurbitacees',dtm:60,dtmFrom:'semis-14',tender:true},
+ {id:'courgette',name:'Courgette',icon:'🥒',arch:'vine',fam:'cucurbitacees',dtm:50,dtmFrom:'semis-14',tender:true},
+ {id:'citrouille',name:'Citrouille',icon:'🎃',arch:'vine',fam:'cucurbitacees',dtm:105,dtmFrom:'semis-14',tender:true},
+ {id:'poivron',name:'Poivron',icon:'🫑',arch:'fruit',fam:'solanacees',dtm:70,dtmFrom:'repiquage',tender:true},
+ {id:'aubergine',name:'Aubergine',icon:'🍆',arch:'fruit',fam:'solanacees',dtm:75,dtmFrom:'repiquage',tender:true},
+ {id:'patate',name:'Pomme de terre',icon:'🥔',arch:'root',fam:'solanacees',dtm:90,dtmFrom:'plantation',tender:true},
+ {id:'laitue',name:'Laitue',icon:'🥬',arch:'herb',fam:'asteracees',dtm:55,dtmFrom:'semis',tender:false},
+ {id:'epinard',name:'Épinard',icon:'🍃',arch:'herb',fam:'amaranthacees',dtm:40,dtmFrom:'semis',tender:false},
+ {id:'roquette',name:'Roquette',icon:'🌱',arch:'herb',fam:'brassicacees',dtm:35,dtmFrom:'semis',tender:false},
+ {id:'bette',name:'Bette à carde',icon:'🍃',arch:'herb',fam:'amaranthacees',dtm:55,dtmFrom:'semis',tender:false},
+ {id:'chou',name:'Chou',icon:'🥬',arch:'herb',fam:'brassicacees',dtm:75,dtmFrom:'repiquage',tender:false},
+ {id:'brocoli',name:'Brocoli',icon:'🥦',arch:'herb',fam:'brassicacees',dtm:65,dtmFrom:'repiquage',tender:false},
+ {id:'kale',name:'Kale (chou frisé)',icon:'🥬',arch:'herb',fam:'brassicacees',dtm:60,dtmFrom:'repiquage',tender:false},
+ {id:'betterave',name:'Betterave',icon:'🟣',arch:'root',fam:'amaranthacees',dtm:55,dtmFrom:'semis',tender:false},
+ {id:'radis',name:'Radis',icon:'🔴',arch:'root',fam:'brassicacees',dtm:28,dtmFrom:'semis',tender:false},
+ {id:'navet',name:'Navet',icon:'⚪',arch:'root',fam:'brassicacees',dtm:50,dtmFrom:'semis',tender:false},
+ {id:'panais',name:'Panais',icon:'🥕',arch:'root',fam:'apiacees',dtm:110,dtmFrom:'semis',tender:false},
+ {id:'oignon',name:'Oignon',icon:'🧅',arch:'bulb',fam:'alliacees',dtm:100,dtmFrom:'semis',tender:false},
+ {id:'poireau',name:'Poireau',icon:'🥬',arch:'bulb',fam:'alliacees',dtm:110,dtmFrom:'repiquage',tender:false},
+ {id:'ciboulette',name:'Ciboulette',icon:'🌿',arch:'herb',fam:'alliacees',dtm:60,dtmFrom:'semis',tender:false,peren:true},
+ {id:'basilic',name:'Basilic',icon:'🌿',arch:'herb',fam:'lamiacees',dtm:60,dtmFrom:'semis',tender:true},
+ {id:'coriandre',name:'Coriandre',icon:'🌿',arch:'herb',fam:'apiacees',dtm:45,dtmFrom:'semis',tender:false},
+ {id:'menthe',name:'Menthe',icon:'🌿',arch:'herb',fam:'lamiacees',dtm:60,dtmFrom:'semis',tender:false,peren:true},
+ {id:'origan',name:'Origan',icon:'🌿',arch:'herb',fam:'lamiacees',dtm:80,dtmFrom:'semis',tender:false,peren:true},
+ {id:'celeri',name:'Céleri',icon:'🥬',arch:'herb',fam:'apiacees',dtm:100,dtmFrom:'repiquage',tender:false},
+ {id:'fraise',name:'Fraisier',icon:'🍓',arch:'fruit',fam:'rosacees',dtm:null,dtmFrom:'plantation',tender:false,peren:true},
+ {id:'framboise',name:'Framboisier',icon:'🍇',arch:'fruit',fam:'rosacees',dtm:null,dtmFrom:'plantation',tender:false,peren:true}
+];
+/* identifiant d'espèce : on compte les existants plutôt que d'utiliser Date.now(), qui
+   produisait des doublons pour deux créations dans la même milliseconde (cf. newBedId). */
+function newSpeciesId(base){
+  const slug=String(base||'culture').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,20)||'culture';
+  if(!state.species[slug])return slug;
+  let n=2;while(state.species[slug+'_'+n])n++;
+  return slug+'_'+n;
+}
+/* une espèce ne se supprime que si plus aucune plantation ne s'y réfère — sinon on
+   effacerait l'agronomie sous les pieds de cultures encore suivies (et de leur journal). */
+function speciesInUse(sid){return state.plantings.some(pl=>pl.species===sid);}
 
 /* ===== CATÉGORIES (regroupement dans l'onglet Plantes) ===== */
 /* Catégories dérivées de la FAMILLE de l'espèce : elles suivent automatiquement
@@ -1282,6 +1635,8 @@ const PEREN={citron:1,ananas:1}; // vivaces : cycles longs, estimations indicati
 const CAT_ORDER=[['solanacees','Légumes-fruits','🍅'],['cucurbitacees','Cucurbitacées','🎃'],
   ['poacees','Maïs','🌽'],['apiacees','Racines & ombellifères','🥕'],['alliacees','Alliacées','🧄'],
   ['brassicacees','Brassicacées','🥬'],['fabacees','Légumineuses','🫘'],
+  ['amaranthacees','Feuilles & betteraves','🍃'],['asteracees','Salades','🥗'],
+  ['rosacees','Petits fruits','🍓'],
   ['lamiacees','Aromatiques','🌿'],['autres','Pots & ornementales','🪴']];
 
 /* ===== RESSEMIS : quand ressemer chaque culture, au plus tôt ===== */
@@ -1405,7 +1760,7 @@ const ARCH={
   hHint:"Mesure la liane la plus longue, du collet à son extrémité.",
   nColor:['bas_pale','Feuilles les plus ANCIENNES (près du collet) jaunes uniformément'],
   colorHint:"La carence d'azote décolore d'abord les vieilles feuilles près du collet, sans motif en V.",
-  signs:[['feutrage',"Feutrage blanc poudreux sur le dessus des feuilles"],
+  signs:[['feutrage',"Taches ou feutrage blanc sur le dessus des feuilles"],
    ['avorte',"Jeunes fruits qui jaunissent et tombent"],
    ['fletri_tige',"Flétrissement brutal d'une tige entière"],
    ['culnoir',"Extrémité du fruit noire et molle"]],
@@ -1434,7 +1789,7 @@ const ARCH={
   fields:['nb','space'],spaceMin:1,spaceTxt:"10–15 cm entre caïeux",
   originLab:'Mise en terre',resent:false},
 
- herb:{lab:'aromatique à feuillage',
+ herb:{lab:'plante à feuillage (aromatique, salade, chou)',
   hLab:'Hauteur de la touffe (cm)',
   hHint:"Hauteur moyenne du feuillage récoltable.",
   nColor:['bas_pale','Feuilles les plus anciennes jaunes uniformément'],
@@ -1610,6 +1965,127 @@ function stateComparison(p){
     gap:obs==null?null:obs-mdl,
     source:obs==null?'calendrier':'observation'};
 }
+/* ===== OÏDIUM DES CUCURBITACÉES : « les feuilles les plus atteintes », CHIFFRÉ =====
+   « Retire les feuilles atteintes » ne veut rien dire tant qu'on n'a pas dit LESQUELLES.
+   Sur une courge en juillet, presque toutes les feuilles portent quelques pastilles :
+   les retirer coûterait bien plus de photosynthèse que la maladie n'en fait perdre.
+   Le critère embarqué ici est donc un SEUIL DE SURFACE, pas une impression.
+
+   Faits qui fondent les seuils :
+   • Une feuille de cucurbitacée reste bénéficiaire tant que le feutrage couvre moins de la
+     MOITIÉ du limbe. Au-delà, l'assimilation s'effondre et la feuille n'est plus guère
+     qu'une usine à spores → seuil de retrait : > 50 % de limbe blanchi, OU feuille déjà
+     jaunie / brunie / sèche sous le feutrage.
+   • Seuil de DÉPISTAGE (quand commencer à traiter) : une feuille symptomatique sur 50
+     vieilles feuilles examinées, dessus ET dessous. Passé ce stade, un produit de contact
+     ne fait plus que courir derrière l'infection.
+   • Plafond d'effeuillage : jamais plus du TIERS du feuillage en une fois. Au-delà, le plant
+     perd plus en assimilation qu'il ne gagne en assainissement, et les fruits découverts
+     brûlent au soleil — le feuillage est leur seul ombrage.
+   • Le blanc qui SUIT EXACTEMENT LES NERVURES et ne s'efface pas au doigt est la panachure
+     argentée variétale de nombreuses courges et courgettes : ce n'est pas une maladie.
+     Le test du doigt est le seul geste qui sépare les deux, et il évite d'effeuiller un
+     plant parfaitement sain.
+   Sources : recommandations « cucurbit powdery mildew » des services d'extension
+   nord-américains (seuil de dépistage 1 feuille sur 50 ; soufre et bicarbonate en contact). */
+const OID_RUB=[['','— pas encore testé —'],
+ ['part',"Elle s'efface comme de la farine, la feuille est verte dessous"],
+ ['reste',"Elle ne part pas, et le blanc suit exactement les nervures"]];
+/* échelle de surface : c'est elle qui décide si une feuille se coupe ou se garde */
+const OID_COVER=[['','— étendue non précisée —'],
+ ['p05',"Quelques pastilles rondes isolées (< 2 cm), verte partout ailleurs"],
+ ['p25',"Taches nombreuses, mais la feuille reste verte aux trois quarts"],
+ ['p50',"Le blanc couvre entre le quart et la moitié du limbe"],
+ ['p75',"Plus de la MOITIÉ du limbe est blanchie"],
+ ['sec',"Feuille blanchie puis jaunie / brunie, sèche ou cassante"]];
+const OID_WHERE=[['','—'],
+ ['basses',"Seulement les vieilles feuilles du bas"],
+ ['milieu',"Le bas et le milieu du plant"],
+ ['sommet',"Jusqu'aux jeunes feuilles du sommet"]];
+/* Le critère de retrait, énoncé UNE SEULE FOIS et réutilisé partout (fiche plante,
+   Programme, diagnostic) : c'est la réponse à « c'est quoi, les feuilles les plus atteintes ? ». */
+const OID_CRIT="une feuille se retire quand <b>plus de la moitié de son limbe est blanchie</b>, ou qu'elle a déjà <b>jauni, bruni ou séché</b> sous le feutrage — à ce stade elle ne nourrit plus la plante, elle ne fait que produire des spores. En dessous de la moitié, la feuille reste bénéficiaire : on la garde, <b>même tachée</b>.";
+const OID_ORDER="Prends les plus vieilles et les plus basses d'abord : le foyer part toujours de là. Laisse en place toute feuille qui <b>ombrage un fruit</b>, même atteinte — un fruit découvert brûle au soleil.";
+const OID_CAP="jamais plus du <b>tiers</b> du feuillage en une seule fois, sinon le plant perd plus en photosynthèse qu'il ne gagne en assainissement.";
+const OID_HOW="Coupe au sécateur à la base du pétiole, par temps sec et le matin (les plaies sèchent avant la nuit) ; sac fermé aux ordures, pas au compost froid, qui ne détruit pas les spores. Désinfecte la lame entre deux plants.";
+/* Traitements de contact — toujours DESSUS ET DESSOUS des feuilles, tous les 7–10 j
+   et après chaque pluie, en respectant l'étiquette du produit. */
+const OID_TREAT=[
+ "<b>Soufre mouillable</b> — le plus efficace des produits de contact, mais <b>jamais au-dessus de 29 °C</b> (brûlure du feuillage), ni sur plant assoiffé, ni dans les deux semaines qui suivent une huile.",
+ "<b>Bicarbonate de potassium ≈ 5 g/L</b> + un mouillant (2–3 ml/L de savon noir ou d'huile végétale) : c'est le mouillant qui fait tenir la bouillie sur une feuille poilue de courge. Le bicarbonate de soude est moins efficace et apporte du sodium au sol.",
+ "<b>Huile horticole ou huile de neem</b> — action curative de contact ; à ne jamais mélanger au soufre ni appliquer en pleine chaleur.",
+ "<b>Lait dilué</b> (1 volume pour 9 d'eau) — effet réel mais irrégulier : à réserver au préventif."
+];
+/* Ce que le jardinier a réellement précisé sur le feutrage (null s'il n'en a pas signalé). */
+function oidObs(p){
+  const i=lastInsp(p);
+  if(!i||!Array.isArray(i.signs)||i.signs.indexOf('feutrage')<0)return null;
+  const num=v=>{const n=parseFloat(v);return isFinite(n)&&n>=0?Math.round(n):null;};
+  const cov=OID_COVER.find(o=>o[0]===(i.oidCover||''))||OID_COVER[0];
+  return{rub:i.oidRub||'',cover:cov[0],coverLab:cov[1],
+    tot:num(i.oidTot),bad:num(i.oidBad),where:i.oidWhere||''};
+}
+/* Plan d'effeuillage CHIFFRÉ. Renvoie null tant que les deux nombres manquent : l'app dit
+   alors ce qui lui manque plutôt que d'inventer un chiffre.
+   ⚠️ Les deux saisies se recoupent et ne peuvent pas se contredire à l'écran : l'échelle de
+   surface porte sur la feuille LA PLUS atteinte, donc si celle-ci dépasse la moitié du limbe,
+   il y a par construction au moins une feuille au-delà du seuil de retrait. */
+function oidCull(p){
+  const o=oidObs(p);
+  if(!o||o.rub==='reste')return null;
+  if(o.tot==null||o.tot<=0||o.bad==null)return null;
+  const floor=(o.cover==='p75'||o.cover==='sec')?1:0;
+  const bad=Math.min(Math.max(o.bad,floor),o.tot);
+  const cap=Math.max(1,Math.floor(o.tot/3));   // plafond du tiers, au moins une feuille
+  const today=Math.min(bad,cap);
+  return{tot:o.tot,bad,cap,today,rest:bad-today,keep:o.tot-bad,
+    share:Math.round(bad/o.tot*100)};
+}
+/* Gravité retenue. 0 = rien d'exploitable (panachure variétale, ou étendue ET comptage
+   absents). Une seule feuille très atteinte n'est PAS un cas avancé : ce qui fait basculer
+   en sévérité 3, c'est la généralisation — le tiers du feuillage au-delà du seuil, ou un
+   feutrage monté jusqu'aux jeunes feuilles du sommet. */
+function oidGrade(p){
+  const o=oidObs(p);
+  if(!o||o.rub==='reste')return 0;
+  const cu=oidCull(p);
+  let g={p05:1,p25:1,p50:2,p75:2,sec:2}[o.cover]||0;
+  // une feuille comptée au-delà du seuil vaut le seuil, même si l'échelle n'a pas été remplie
+  if(cu&&cu.bad>0)g=Math.max(g,2);
+  if(!g)return 0;
+  if(g>=2&&((cu&&cu.share>=33)||o.where==='sommet'))g=3;
+  return g;
+}
+/* La phrase exacte, chiffrée dès que l'app dispose des nombres. */
+function oidCullText(p){
+  const cu=oidCull(p);
+  if(!cu)return `<b>Quelles feuilles retirer</b> : ${OID_CRIT} ${OID_ORDER} Plafond : ${OID_CAP} `
+    +`Renseigne « nombre de feuilles du plant » et « combien dépassent le seuil » dans l'Inspection : l'app donnera alors le nombre exact à couper aujourd'hui.`;
+  if(!cu.bad)return `<b>Aucune feuille à retirer aujourd'hui</b> : sur les ${cu.tot} feuilles du plant, aucune n'a franchi le seuil — ${OID_CRIT} `
+    +`Le sécateur ne sert à rien tant que ce seuil n'est pas atteint : ce sont le traitement et l'aération qui font le travail.`;
+  return `<b>Retire aujourd'hui ${cu.today} feuille${cu.today>1?'s':''}</b> sur les ${cu.tot} du plant : ${OID_CRIT} ${OID_ORDER}`
+   +(cu.rest
+     ? ` Tu en as déclaré ${cu.bad} au-delà du seuil, mais le plafond du jour est de ${cu.cap} : ${OID_CAP} Les ${cu.rest} restantes se couperont 7 jours plus tard.`
+     : ` Les ${cu.keep} autres restent en place, même tachées.`)
+   +` ${OID_HOW}`;
+}
+/* Bloc de la fiche plante — rendu EN DIRECT et non figé dans le diagnostic mémoïsé :
+   l'heure d'application et le vent changent dans la journée, le comptage non. */
+function oidCullBlock(p){
+  const o=oidObs(p);if(!o)return '';
+  if(o.rub==='reste')return `<div class="pact"><h4>⚪ Marbrure variétale — rien à couper</h4>
+    <p class="note" style="margin:0">Le blanc suit les nervures et ne s'efface pas au doigt : c'est la panachure argentée de la variété, pas de l'oïdium. Ces feuilles sont fonctionnelles, les retirer serait une perte sèche.</p></div>`;
+  const t=actionTiming('foliar'),cu=oidCull(p),w=state.wx;
+  return `<div class="pact"><h4>✂️ Oïdium — quelles feuilles retirer, exactement</h4>
+    <p style="margin:0 0 7px">${oidCullText(p)}</p>
+    ${cu?`<div class="diff"><span class="d-k">Feuilles du plant</span><span class="d-v">${cu.tot}</span></div>
+      <div class="diff"><span class="d-k">Au-delà du seuil de retrait</span><span class="d-v">${cu.bad} — soit ${cu.share} % du feuillage</span></div>
+      <div class="diff"><span class="d-k">À couper aujourd'hui</span><span class="d-v"><b>${cu.today}</b> (plafond du jour : ${cu.cap})</span></div>
+      ${cu.rest?`<div class="diff"><span class="d-k">Dans 7 jours</span><span class="d-v">${cu.rest}</span></div>`:''}
+      <div class="diff"><span class="d-k">À garder en place</span><span class="d-v">${cu.keep} feuille${cu.keep>1?'s':''} encore bénéficiaire${cu.keep>1?'s':''}</span></div>`:''}
+    <p class="note" style="margin:7px 0 4px">🕑 Si tu traites (pulvérisation foliaire) : ${t.good?`<b style="color:var(--leaf-d)">c'est le bon moment (${t.short})</b>`:`<b style="color:var(--amber)">${t.short}</b>`}${windOK()?'':` · <b style="color:var(--amber)">vent ${w&&w.wind!=null?w.wind+' km/h':'trop fort'} : pas de pulvérisation au-delà de 12 km/h</b>`} — dessus ET dessous des feuilles, tous les 7–10 j et après chaque pluie.</p>
+    <ul>${OID_TREAT.map(x=>`<li>${x}</li>`).join('')}</ul></div>`;
+}
 /* ===== BASE DE DIAGNOSTIC =====
    sev : 3 = bloquant, 2 = à corriger, 1 = bénin (aucune action).
    on(c) : condition de déclenchement. adj : effet sur le programme. */
@@ -1702,11 +2178,62 @@ const DIAG=[
   fix:["Retirer et JETER les feuilles atteintes — jamais au composteur.","Aérer : éclaircir le feuillage bas, espacer, ne pas travailler dans les plants mouillés.","Arroser strictement au pied, jamais sur le feuillage, et le matin pour que tout sèche vite.","Pailler : le paillis empêche les éclaboussures qui remontent les spores du sol sur les feuilles."],
   src:"Contenu déjà sourcé dans l'app (fiches tomate)."},
 
- {id:'oidium',sev:2,cause:"Oïdium (feutrage blanc poudreux)",
-  on:c=>c.signs.includes('feutrage')&&c.arch==='vine',
-  why:"Feutrage blanc farineux sur le dessus des feuilles, typique des cucurbitacées en fin d'été. Contrairement au mildiou, il se développe aussi par temps sec, favorisé par l'air confiné et les écarts de température.",
-  fix:["Retirer les feuilles les plus atteintes, aérer.","Arroser au pied, jamais sur le feuillage.","Ne pas fertiliser fortement en azote : un feuillage tendre et dense aggrave l'infection."],
+ /* ⚠️ Le blanc qui suit les nervures et ne s'efface pas N'EST PAS une maladie : c'est la
+    panachure argentée variétale. Règle bénigne, qui ne change RIEN — et qui doit être posée
+    avant toute conclusion d'oïdium, sinon l'app fait effeuiller un plant sain. */
+ {id:'panachure',sev:1,cause:"Marbrure blanche variétale (bénin — ce n'est pas de l'oïdium)",
+  on:c=>c.arch==='vine'&&c.signs.includes('feutrage')&&c.i.oidRub==='reste',
+  why:"Le blanc ne s'efface pas au doigt et dessine exactement le réseau des nervures : c'est la panachure argentée normale de beaucoup de variétés de courges, courgettes et potirons — un décollement de l'épiderme au-dessus des nervures, présent dès la sortie de la feuille. L'oïdium, lui, fait des pastilles rondes indépendantes des nervures, et s'efface comme de la farine.",
+  fix:["Aucune action : ce n'est ni une maladie ni un signe de faiblesse.","Surtout ne pas effeuiller pour cela — ces feuilles sont pleinement fonctionnelles.","Le vrai oïdium reste à surveiller par ailleurs : pastilles rondes poudreuses qui s'effacent au doigt, d'abord sur les vieilles feuilles du bas."],
+  src:"Distinction panachure variétale / oïdium documentée par les services d'extension (Cucurbita spp.)."},
+
+ /* Feutrage signalé mais étendue non précisée : l'app dit ce qui lui manque pour chiffrer,
+    au lieu de servir un « retire les feuilles atteintes » que personne ne sait appliquer. */
+ {id:'oidium',sev:2,cause:"Oïdium (feutrage blanc poudreux) — étendue à préciser",
+  on:c=>c.arch==='vine'&&c.signs.includes('feutrage')&&oidGrade(c.p)===0&&c.i.oidRub!=='reste',
+  why:"Feutrage blanc farineux sur le dessus des feuilles, typique des cucurbitacées en fin d'été. Contrairement au mildiou, il se développe aussi par temps sec, favorisé par l'air confiné et les écarts de température. Reste à savoir jusqu'où il est allé : c'est l'étendue, et elle seule, qui décide quelles feuilles se coupent.",
+  fix:c=>[oidCullText(c.p),
+   "Complète les trois précisions d'oïdium dans l'Inspection (test du doigt, surface de la feuille la plus atteinte, nombre de feuilles) : l'app en déduit le nombre exact à couper aujourd'hui et ce qui attend la semaine prochaine.",
+   "En attendant : aérer le plant, arroser au pied, jamais sur le feuillage."],
   src:"Contenu déjà sourcé dans l'app (fiches courge / cucurbitacées)."},
+
+ /* Début : le seuil de dépistage est franchi, mais AUCUNE feuille n'atteint le seuil de
+    retrait. Le geste utile est le traitement, pas le sécateur — le dire explicitement. */
+ {id:'oidium_debut',sev:2,cause:"Oïdium au tout début (foyers isolés)",
+  on:c=>c.arch==='vine'&&c.signs.includes('feutrage')&&oidGrade(c.p)===1,
+  why:c=>`Pastilles blanches encore isolées : l'infection est à son stade le plus facile à contenir, et le seuil de dépistage (une feuille symptomatique sur cinquante) est franchi. Aucune feuille n'est encore assez couverte pour valoir d'être coupée — à ce stade, effeuiller coûte de la photosynthèse sans rien enlever à l'inoculum, qui est déjà dans l'air.`,
+  fix:c=>[oidCullText(c.p),
+   "C'est maintenant que le traitement de contact est rentable : "+OID_TREAT[1],
+   "Autres produits possibles : "+OID_TREAT[0],
+   "Aérer : supprimer quelques vieilles feuilles du bas qui traînent au sol, arroser au pied et le matin.",
+   "Ne pas forcer sur l'azote : un feuillage tendre et dense est nettement plus sensible."],
+  src:"Seuil de dépistage et produits de contact : recommandations d'extension sur l'oïdium des cucurbitacées."},
+
+ /* Installé : des feuilles franchissent le seuil de retrait → effeuillage ciblé et chiffré. */
+ {id:'oidium_installe',sev:2,cause:"Oïdium installé (feutrage étendu)",
+  on:c=>c.arch==='vine'&&c.signs.includes('feutrage')&&oidGrade(c.p)===2,
+  why:"Le feutrage couvre désormais une part notable du limbe des feuilles les plus touchées. Les cucurbitacées perdent leurs feuilles du bas en premier ; tant que le sommet reste vert, les fruits continuent de grossir. L'objectif n'est plus d'éradiquer mais de retarder la défoliation jusqu'à la récolte.",
+  fix:c=>[oidCullText(c.p),
+   "Traiter dans la foulée, dessus ET dessous des feuilles restantes : "+OID_TREAT[1],
+   "Renouveler tous les 7–10 jours et après chaque pluie ; "+OID_TREAT[0],
+   "Arroser au pied et le matin, sans laisser le plant s'assoiffer : un plant en stress hydrique décroche beaucoup plus vite."],
+  adj:{feedDelta:3},
+  src:"Recommandations d'extension sur l'oïdium des cucurbitacées (gestion de fin de saison)."},
+
+ /* Avancé : défoliation en cours. Le risque bascule du feuillage vers les FRUITS (coup de
+    soleil, arrêt du grossissement). L'app le dit franchement plutôt que d'entretenir l'espoir. */
+ {id:'oidium_avance',sev:3,cause:"Oïdium avancé — défoliation en cours",
+  on:c=>c.arch==='vine'&&c.signs.includes('feutrage')&&oidGrade(c.p)===3,
+  why:c=>{const cu=oidCull(c.p);
+    return (cu?`${cu.bad} feuilles sur ${cu.tot} (${cu.share} %) ont franchi le seuil de retrait. `:'')
+    +"À ce niveau, le feuillage ne suit plus : les fruits cessent de grossir, mûrissent mal et se retrouvent exposés au soleil sans ombrage. Le plant ne redeviendra pas sain cette saison — l'enjeu est de tenir jusqu'à la récolte, pas de guérir.";},
+  fix:c=>[oidCullText(c.p),
+   "⚠️ Ne pas mettre les fruits à nu : garder toute feuille qui en ombrage un, sinon coup de soleil sur la peau. C'est la raison même du plafond du tiers.",
+   "Traiter ce qui reste de vert, dessus et dessous : "+OID_TREAT[0],
+   "Récolter dès que les fruits sont mûrs (peau dure, pédoncule liégeux) plutôt que d'attendre : la plante n'a plus de quoi les finir.",
+   "Nettoyer complètement les fanes en fin de saison et ne pas replanter de cucurbitacée au même endroit l'an prochain."],
+  adj:{feedDelta:3},
+  src:"Recommandations d'extension sur l'oïdium des cucurbitacées (défoliation, coup de soleil sur fruit)."},
 
  {id:'ravageurs',sev:2,cause:"Ravageurs (dégâts de morsure)",
   on:c=>c.signs.includes('trous')||c.i.pests==='insectes'||c.i.pests==='limaces',
@@ -2045,6 +2572,12 @@ const FAM={
   fabacees:{lab:'Fabacées (légumineuses)',ic:'🫘',ex:'haricot, pois, fève',
     risk:"Peu de risques ; ENRICHISSENT le sol en azote — idéales après une culture gourmande.",need:'améliorante'},
   lamiacees:{lab:'Lamiacées',ic:'🌿',ex:'thym, basilic, menthe, origan',risk:"Peu de risques.",need:'peu gourmande'},
+  amaranthacees:{lab:'Amaranthacées (chénopodes)',ic:'🍃',ex:'betterave, épinard, bette à carde',
+    risk:"Cercosporiose et mineuse de la betterave ; sensibles à une carence en bore (cœur creux).",need:'moyenne'},
+  asteracees:{lab:'Astéracées',ic:'🥗',ex:'laitue, chicorée, endive, topinambour',
+    risk:"Sclérotiniose et mildiou de la laitue — les sclérotes tiennent plusieurs années dans le sol.",need:'moyenne'},
+  rosacees:{lab:'Rosacées (petits fruits)',ic:'🍓',ex:'fraise, framboise, mûre',
+    risk:"Verticilliose et pourriture grise. Ne jamais planter après des solanacées : même hôte de la verticilliose.",need:'moyenne'},
   autres:{lab:'Autres / pots',ic:'🪴',ex:'agrumes, ananas, ornementales',risk:"Culture en pot : la rotation ne s'applique pas.",need:'variable'}
 };
 const PLANT_FAM={tomate_bac:'solanacees',tomate_geo:'solanacees',courge:'cucurbitacees',
@@ -2142,9 +2675,9 @@ function histForm(bedId){
   const y=new Date().getFullYear();
   const years=[];for(let k=1;k<=6;k++)years.push(y-k);
   return `<div id="hist_${bedId}" style="display:none;border:1px solid var(--line);border-radius:11px;padding:11px;margin-top:10px;background:var(--card-2)">
-    <div class="field" style="margin-bottom:9px"><label>Année</label>
+    <div class="field" style="margin-bottom:9px"><label for="hy_${bedId}">Année</label>
       <select id="hy_${bedId}">${years.map(v=>`<option value="${v}">${v}</option>`).join('')}</select></div>
-    <div class="field" style="margin-bottom:9px"><label>Famille cultivée</label>
+    <div class="field" style="margin-bottom:9px"><label for="hf_${bedId}">Famille cultivée</label>
       <select id="hf_${bedId}">${Object.entries(FAM).filter(([k])=>k!=='autres')
         .map(([k,f])=>`<option value="${k}">${f.ic} ${f.lab} — ${f.ex.split(',')[0]}…</option>`).join('')}</select></div>
     <div style="display:flex;gap:8px">
@@ -2210,6 +2743,15 @@ function renderBeds(){
     const age=b.phDate?daysSince(b.phDate+'T00:00'):null;
     const stale=age!=null&&age>400;
     const open=state.bedFold[b.id]!==false;   // repli mémorisé, ouvert par défaut
+    /* ⚠️ Les SOUS-sections doivent mémoriser leur repli elles aussi. Chacun de leurs menus
+       (medium, couverture, arrosage, matière organique, rattachement d'une plante) appelle
+       une fonction qui re-rend toute la liste des parcelles : sans mémorisation, la section
+       se refermait au moment même où l'on validait un choix, et il fallait la rouvrir pour
+       le suivant. Pire, régler « Matière organique » basculait le défaut de la section
+       « Analyse du sol » d'ouvert à fermé — elle se claquait sur son propre changement.
+       Même convention que state.plantFold : clé « <parcelle>.<section> ». */
+    const sub=(k,def)=>{const s=state.bedFold[b.id+'.'+k];return (s===undefined?def:s)?' open':'';};
+    const subT=k=>`ontoggle="setBedFold('${b.id}.${k}',this.open)"`;
     // résumé toujours visible : l'essentiel sans déplier
     const M=MEDIUM[b.medium||'terre']||MEDIUM.terre,CV=COVER[b.cover||'aucune']||COVER.aucune,W=WATERING[b.watering||'drainage']||WATERING.drainage;
     const chips=[
@@ -2234,7 +2776,7 @@ function renderBeds(){
             <input type="text" id="rni_${b.id}" value="${b.name}"></div>
           <button class="btn sm" style="width:100%" onclick="renameBed('${b.id}')">✓ Valider le nom</button></div>
 
-        <details class="fgrp" ${(v||b.om)?'':'open'}>
+        <details class="fgrp"${sub('sol',!(v||b.om))} ${subT('sol')}>
           <summary>🧪 Analyse du sol <span class="fg-n">${v?v.t:'pH à renseigner'}</span></summary>
           <div class="fgrp-b">
             <div class="field" style="margin-bottom:10px"><label>pH mesuré</label>
@@ -2243,9 +2785,9 @@ function renderBeds(){
             <div class="field" style="margin-bottom:10px"><label>Date du test</label>
               <input type="date" value="${b.phDate||''}" max="${today}"
                 onchange="setBedField('${b.id}','phDate',this.value)"></div>
-            <div class="field" style="margin-bottom:10px"><label>Medium</label>
+            <div class="field" style="margin-bottom:10px"><label for="bm_${b.id}">Medium</label>
         <div class="hint">Décide de la base de calcul du besoin en eau, de la captation de la pluie, et de l'applicabilité de la rotation et du pH.</div>
-        <select onchange="setBedField('${b.id}','medium',this.value)">
+        <select id="bm_${b.id}" onchange="setBedField('${b.id}','medium',this.value)">
           ${Object.entries(MEDIUM).map(([k,m])=>`<option value="${k}"${(b.medium||'terre')===k?' selected':''}>${m.ic} ${m.lab} (${m.unit})</option>`).join('')}</select></div>
       <div class="field" style="margin-bottom:10px"><label>${(MEDIUM[b.medium||'terre']||MEDIUM.terre).basis==='surface'?'Superficie (m²)':'Volume de substrat (L)'}</label>
         <input type="number" min="0" step="0.1" inputmode="decimal" value="${((MEDIUM[b.medium||'terre']||MEDIUM.terre).basis==='surface'?b.area:b.volume)||''}" placeholder="ex. 2,5"
@@ -2256,18 +2798,18 @@ function renderBeds(){
           onchange="setBedField('${b.id}','sun',parseFloat(this.value)||null)">
         ${(()=>{const sv=sunVerdict(isFinite(+b.sun)&&b.sun!==''?+b.sun:null);
           return sv?`<div class="hint" style="margin-top:6px;color:${sv.lvl==='bon'?'var(--leaf-d)':sv.lvl==='limite'?'var(--amber)':'#eb8981'}">${sv.ic} ${sv.txt}</div>`:''})()}</div>
-      <div class="field" style="margin-bottom:10px"><label>Couverture du sol</label>
+      <div class="field" style="margin-bottom:10px"><label for="bc_${b.id}">Couverture du sol</label>
         <div class="hint">Toute couverture fait barrière aux éclaboussures qui remontent les spores sur les feuilles basses. Un géotextile est perméable : il ne bloque que la lumière.</div>
-        <select onchange="setBedField('${b.id}','cover',this.value)">
+        <select id="bc_${b.id}" onchange="setBedField('${b.id}','cover',this.value)">
           ${Object.entries(COVER).map(([k,c])=>`<option value="${k}"${(b.cover||'aucune')===k?' selected':''}>${c.ic} ${c.lab}</option>`).join('')}</select></div>
-      <div class="field" style="margin-bottom:10px"><label>Arrosage</label>
-        <select onchange="setBedField('${b.id}','watering',this.value)">
+      <div class="field" style="margin-bottom:10px"><label for="bw_${b.id}">Arrosage</label>
+        <select id="bw_${b.id}" onchange="setBedField('${b.id}','watering',this.value)">
           ${Object.entries(WATERING).map(([k,w])=>`<option value="${k}"${(b.watering||'drainage')===k?' selected':''}>${w.ic} ${w.lab}</option>`).join('')}</select></div>
       ${(b.watering==='reservoir')?`<div class="field" style="margin-bottom:10px"><label>Capacité du réservoir (L)</label>
         <input type="number" min="0" step="0.5" value="${b.reservoirL||''}" placeholder="ex. 3"
           onchange="setBedField('${b.id}','reservoirL',parseFloat(this.value)||null)"></div>`:''}
-      <div class="field" style="margin-bottom:10px"><label>Matière organique</label>
-              <select onchange="setBedField('${b.id}','om',this.value)">
+      <div class="field" style="margin-bottom:10px"><label for="bo_${b.id}">Matière organique</label>
+              <select id="bo_${b.id}" onchange="setBedField('${b.id}','om',this.value)">
                 ${[['','— non évaluée —'],['faible','Faible : terre pâle, dure, se compacte'],['moyenne',"Moyenne : terre brune, s'émiette"],['bonne','Bonne : terre foncée, souple, vers de terre']]
                   .map(([k,l])=>`<option value="${k}"${(b.om||'')===k?' selected':''}>${l}</option>`).join('')}</select></div>
             ${v?`<div class="dg s${v.lvl==='bon'?1:3}">
@@ -2279,7 +2821,7 @@ function renderBeds(){
           </div>
         </details>
 
-        <details class="fgrp">
+        <details class="fgrp"${sub('plantes',false)} ${subT('plantes')}>
           <summary>🌿 Plantes de la parcelle <span class="fg-n">${ps.length||'aucune'}</span></summary>
           <div class="fgrp-b">
             ${ps.length?ps.map(p=>{
@@ -2291,15 +2833,15 @@ function renderBeds(){
                 <div class="note" style="margin-top:3px">${fam.ic} ${fam.lab}${fit?` · <span style="color:${fit.ok?'var(--leaf-d)':'var(--amber)'}">${fit.txt}</span>`:''}</div>
               </div>`;}).join('')
             :'<p class="note" style="margin:0 0 8px">Aucune plante rattachée. Sans rattachement, ni le pH ni la rotation ne peuvent être vérifiés pour cette zone.</p>'}
-            ${unassigned.length?`<div class="field" style="margin:10px 0 0"><label>Rattacher une plante</label>
-              <select onchange="if(this.value){assignPlant(this.value,'${b.id}');this.value=''}">
+            ${unassigned.length?`<div class="field" style="margin:10px 0 0"><label for="ba_${b.id}">Rattacher une plante</label>
+              <select id="ba_${b.id}" onchange="if(this.value){assignPlant(this.value,'${b.id}');this.value=''}">
                 <option value="">— choisir —</option>
                 ${unassigned.map(p=>`<option value="${p.id}">${p.icon} ${p.name}</option>`).join('')}</select></div>`
               :'<p class="note" style="margin:8px 0 0">Toutes les cultures de pleine terre sont déjà rattachées.</p>'}
           </div>
         </details>
 
-        <details class="fgrp" ${warns.length?'open':''}>
+        <details class="fgrp"${sub('histo',warns.length>0)} ${subT('histo')}>
           <summary>🔄 Historique & rotation <span class="fg-n">${(b.history||[]).length} année${(b.history||[]).length>1?'s':''}${warns.length?' · alerte':''}</span></summary>
           <div class="fgrp-b">
             ${warns.length?warns.map(w=>`<div class="flag" style="margin-bottom:10px">🔄 <b>Rotation non respectée</b> — ${FAM[w.fam].lab} déjà cultivée ici en ${w.last} (il y a ${w.gap} an${w.gap>1?'s':''}). ${FAM[w.fam].risk} Vise 3 ans d'écart.</div>`).join(''):''}
@@ -2766,10 +3308,15 @@ function actionTiming(kind){
     'Trop tard : un feuillage mouillé toute la nuit favorise les maladies. Vise demain matin tôt (≈ 6 h).');
 }
 /* type de fenêtre horaire selon la plante et la phase (pour les actions d'entretien) */
+/* ⚠️ Ces règles étaient indexées sur les identifiants d'ORIGINE (`p.id==='courge'`) : une
+   plantation créée dans l'app porte un id `plN`, et une culture ajoutée au catalogue un id
+   nouveau — aucune ne recevait donc sa fenêtre horaire. On passe par l'objet résolu
+   (archétype + mode de pollinisation), comme le veut la règle des tables héritées. */
 function careTimingKind(p,ph){
-  if((p.id==='courge'||p.id==='melon'||p.id==='pasteque')&&ph==='Floraison')return 'pollinate';
-  if((p.id==='mais_ombre'||p.id==='mais_geo')&&ph==='Soies')return 'corn';
-  if((p.id==='persil'||p.id==='thym')&&ph==='Récolte continue')return 'harvest';
+  const a=archKey(p);
+  if(a==='vine'&&p.pollen==='insectes'&&/floraison/i.test(ph))return 'pollinate';
+  if(a==='grass'&&p.pollen==='vent'&&/soies|floraison/i.test(ph))return 'corn';
+  if(a==='herb'&&/récolte/i.test(ph))return 'harvest';
   return null;
 }
 /* lien cliquable d'un nom de plante dans le Programme → ouvre sa fiche */
@@ -2811,11 +3358,20 @@ function renderToday(){
   const fa=frostAlert();
   if(fa){
     const quand=fa.days<=0?"cette nuit":fa.days===1?"demain nuit":`dans ${fa.days} jours`;
-    const tender=activePlants().filter(p=>p.tender);
+    /* ⚠️ Le texte listait « récolter, couvrir, rentrer les pots » quelle que soit la saison, et
+       nommait toutes les plantes gélives — melon semé en pleine terre compris. On ne cite que
+       ce qui est RÉELLEMENT menacé cette nuit, et chaque geste n'apparaît que s'il a un objet. */
+    const risque=plantsAtRisk();
+    const dehors=risque.filter(p=>inGround(p)&&!cycleOver(p));
+    const pots=risque.filter(p=>!inGround(p));
+    const gestes=[];
+    if(dehors.length)gestes.push(`récolter tout ce qui est mûr et couvrir les cultures encore en production (voile, drap, carton — jamais de plastique en contact avec le feuillage) : <b>${dehors.map(p=>p.name).join(', ')}</b>`);
+    if(pots.length)gestes.push(`rentrer les pots gélifs : <b>${pots.map(p=>p.name).join(', ')}</b>`);
+    gestes.push("arroser le sol en fin de journée — un sol humide restitue de la chaleur pendant la nuit");
     add('Urgent','prio',fa.hard?'🧊':'❄️',
       `${fa.hard?'GEL':'Risque de gel'} ${quand} — ${fa.tmin} °C annoncé`,
       `${fa.hard?'Gel annoncé' : 'Minimale à '+fa.tmin+' °C : au ras du sol il peut geler alors que la station annonce 2 °C (elle mesure à 1,5 m de haut).'} `
-      +`À faire aujourd'hui : récolter tout ce qui est mûr ; couvrir les cultures encore en production (voile, drap, carton — pas de plastique en contact avec le feuillage) ; rentrer les pots gélifs${tender.length?' ('+tender.map(p=>p.name).join(', ')+')':''} ; arroser le sol en fin de journée, un sol humide restitue de la chaleur la nuit.`,
+      +`À faire aujourd'hui : ${gestes.join(' ; ')}. Aucun apport d'engrais ce soir : la plante ne l'utiliserait pas.`,
       null,taskKey(['gel',new Date(fa.day).toISOString().slice(0,10)]));
   }
   // ===== URGENT : risque de maladie foliaire (indice, pour agir en préventif) =====
@@ -2830,21 +3386,35 @@ function renderToday(){
       +` Une fois les taches installées, il est trop tard. Indice indicatif, pas un modèle validé.`,
       null,taskKey(['mildiou',isoWeek(),dr.mildew]));
   }
-  if(dr&&dr.powdery==='élevé'){
-    add('Urgent','','⚪',"Risque d'oïdium élevé",
-      "Nuits humides et journées chaudes et sèches : conditions typiques de l'oïdium sur cucurbitacées. Aère les plants, évite l'excès d'azote (feuillage tendre = plus sensible), arrose au pied.",
-      null,taskKey(['oidium',isoWeek()]));
+  if(dr&&(dr.powdery==='élevé'||dr.powdery==='modéré')){
+    const tf=actionTiming('foliar');
+    add('Urgent',dr.powdery==='élevé'?'prio':'','⚪',`Risque d'oïdium ${dr.powdery} sur les 5 prochains jours`,
+      "Nuits humides et journées chaudes et sèches : conditions typiques de l'oïdium des cucurbitacées — contrairement au mildiou, il n'a pas besoin de feuillage mouillé. "
+      +"<b>Comment savoir qu'il faut agir</b> : examine une cinquantaine de vieilles feuilles du bas, <b>dessus et dessous</b>. Dès qu'UNE seule porte une pastille poudreuse, le seuil est franchi et c'est le moment de traiter — après, un produit de contact ne fait plus que courir derrière l'infection. "
+      +"Aère les plants, évite l'excès d'azote (feuillage tendre = plus sensible), arrose au pied. "
+      +`Si tu traites : ${tf.good?`<b style="color:var(--leaf-d)">c'est le bon moment (${tf.short})</b>`:`<b style="color:var(--amber)">${tf.short}</b>`}`
+      +`${windOK()?'':` · <b style="color:var(--amber)">vent ${w.wind} km/h, pas de pulvérisation au-delà de 12 km/h</b>`}. `
+      +"Feutrage déjà visible ? Saisis-le en Inspection : l'app dira exactement quelles feuilles couper. Indice indicatif, pas un modèle validé.",
+      null,taskKey(['oidium',isoWeek(),dr.powdery]));
   }
+  /* Effeuillage sanitaire échelonné : ce que le plafond du tiers a laissé pour la semaine
+     suivante. Tâche distincte du diagnostic — c'est un deuxième passage, à une autre date. */
+  activePlants().forEach(p=>{
+    const cu=oidCull(p);if(!cu||!cu.rest)return;
+    add('Soins & phases','','✂️',`${p.name} — ${cu.rest} feuille${cu.rest>1?'s':''} encore à retirer`,
+      `Tu as déclaré ${cu.bad} feuilles au-delà du seuil sur ${cu.tot}, et le plafond d'un passage est de ${cu.cap} (le tiers du feuillage) : ${OID_CAP} Une fois le premier passage fait, coupe les ${cu.rest} restantes 7 jours plus tard, le temps que le plant compense. Même critère : ${OID_CRIT}`,
+      p.id,taskKey(['effeuillage',p.id,(lastInsp(p)||{}).ts||'']));
+  });
   overwinterTasks(add);   // rentrer / ressortir les plantes en pot
   // ARROSAGE — proposé au MOMENT OPPORTUN de la journée (heure + chaleur du jour)
-  const waterDue=activePlants().filter(p=>{const wp=waterPlan(p);return wp&&wp.diff<=0;});
+  const waterDue=activePlants().filter(p=>{if(notYetSown(p)||dormantFor(p))return false;const wp=waterPlan(p);return wp&&wp.diff<=0;});
   const topDue=waterDue.filter(p=>!reservoirL(p)), resDue=waterDue.filter(p=>reservoirL(p));
   if(topDue.length){const t=actionTiming('water');
     add('Arrosage',t.good?'prio':'',t.ic,`${t.verb} : ${topDue.map(plantLink).join(', ')}`,`${t.advice} Valide « ✓ Arrosé » sur la plante pour fixer le prochain tour.`,topDue.length===1?topDue[0].id:null);
   } else if(hot){const t=actionTiming('water');
     add('Arrosage','',t.ic,'Arrosage — meilleur moment',`Journée chaude (max ${w.tmax}°). ${t.advice}`);}
   // besoin en eau chiffré : ET0 (évapotranspiration de référence) moins la pluie prévue
-  const wb=waterBalance(7);
+  const wb=outdoorDormant()?null:waterBalance(7);   // hors saison, le sol ne se pilote plus à l'ET₀
   if(wb&&wb.deficit>0){
     /* Le calcul en L/m² ne vaut QUE pour le sol en place : un contenant ne s'arrose pas au
        mètre carré. Pour eux, la règle d'extension est « arroser jusqu'à écoulement par le
@@ -2864,7 +3434,9 @@ function renderToday(){
     `Pluie attendue (${wb.rain} mm) ≥ évapotranspiration (${wb.et0} mm) : pas de déficit sur 7 jours. Vérifie quand même les pots et les bacs, que la pluie atteint mal.`);
 
   // apports calcium / magnésium planifiés (et non plus une note de bas de page)
-  activePlants().forEach(p=>{const c=camgDue(p);if(!c||!c.due)return;
+  activePlants().forEach(p=>{if(notYetSown(p)||dormantFor(p)||lowLightRest(p))return;
+    if(fa&&!isIndoor(p))return;
+    const c=camgDue(p);if(!c||!c.due)return;
     add('Fertilisation','','🦴',`Ca/Mg mensuel : ${p.name}`,
       `${c.txt} À appliquer en arrosage SÉPARÉ (le calcium précipite avec le phosphate du MAP/MKP). ${c.days!=null?`Dernier apport il y a ${c.days} j.`:'Jamais appliqué.'}`,p.id,
       taskKey(['camg',p.id,new Date().toISOString().slice(0,7)]));});
@@ -2872,7 +3444,12 @@ function renderToday(){
   // FERTILISATION
   const ft=rainSoon?null:actionTiming('feed');
   activePlants().forEach(p=>{const d=daysSince(state.feeds[p.id]),r=curRecipe(p);
-    if(isNoFeed(r))return; // phase de maturation/repos (ou arbuste en reprise) : aucun rappel d'engrais
+    if(notYetSown(p)||dormantFor(p))return;   // pas encore semé, ou saison de plein air finie
+    if(isNoFeed(r))return;
+    /* Un apport la veille d'un gel meurtrier ne sera jamais utilisé par la plante : ce
+       jour-là, la priorité est de récolter et de couvrir, pas de nourrir. */
+    if(fa&&!isIndoor(p))return;
+    if(lowLightRest(p))return;   // repos hivernal : apport inutile, sels accumulés // phase de maturation/repos (ou arbuste en reprise) : aucun rappel d'engrais
     const hold=feedHoldUntil(p);
     if(hold){add('Fertilisation','','⏸️',`${p.name} — engrais suspendu`,`Jusqu'au ${fmtDate(hold)}, d'après ton inspection : fertiliser maintenant aggraverait le problème identifié. Détails dans l'onglet Inspection.`,p.id);return;}
     if(d>=feedDaysOf(p)){const ph=p.stages[curStage(p)];
@@ -2882,16 +3459,26 @@ function renderToday(){
   const resowNow=activePlants().filter(p=>{const r=p.resow;if(!r||r.kind!=='frais')return false;const s=nextSow(p);return s&&s.now;});
   if(resowNow.length)add('Fertilisation','feed','🌱',`Ressemer possible : ${resowNow.map(plantLink).join(', ')}`,"Il reste assez de temps avant le gel pour une récolte d'automne — détails dans l'onglet Semis.",resowNow.length===1?resowNow[0].id:null,
     taskKey(['ressemis',isoWeek()]));
-  // SOINS & PHASES — dérivés de la PHASE de chaque plante (seulement les phases « action »)
-  const ACTION=new Set(['Boutons','Floraison','Fruits','Récolte','Récolte continue','Maturation','Bulbaison','Soies','Épis','Grossissement']);
-  activePlants().forEach(p=>{const ph=p.stages[curStage(p)],info=phaseInfo(p);
-    if(!(ACTION.has(ph)&&info.care&&info.care.length))return;
-    if(cycleOver(p))return;                       // cycle terminé : plus de soins de phase
+  /* SOINS & PHASES — plus de liste de phases codée en dur ni de « premier soin de la phase ».
+     `careDue()` ne rend que les gestes réellement actionnables aujourd'hui : les constats et
+     les changements de régime automatiques sont écartés, et un geste à fenêtre datée attend
+     sa fenêtre. On les émet TOUS : le vrai geste n'est plus caché derrière une description. */
+  activePlants().forEach(p=>{
+    const ph=p.stages[curStage(p)];
     if(observedStage(p)==null&&daysInPhase(p)!=null&&daysInPhase(p)<0)return;
+    const due=careDue(p);if(!due.length)return;
     const kind=careTimingKind(p,ph);
-    const k=taskKey(['soin',p.id,ph,isoWeek()]);
-    if(kind){const t=actionTiming(kind);add('Soins & phases',t.good?'prio':'',t.ic,`${p.name} · ${ph} — ${t.verb}`,`${info.care[0]} ${t.advice}`,p.id,k);}
-    else add('Soins & phases','','🌿',`${p.name} · ${ph}`,info.care[0],p.id,k);});
+    due.forEach((c,n)=>{
+      const k=taskKey(['soin',p.id,ph,n,isoWeek()]);
+      const W=c.when?CARE_WHEN[c.when]:null;
+      const pourquoi=W?` <span class="note">(${W.why(p)})</span>`:'';
+      /* le GESTE est le titre : une phase peut en produire plusieurs, et « Tomate · Végétatif »
+         répété trois fois ne disait pas lequel des trois restait à faire */
+      const titre=`${p.name} — ${c.t.length>58?c.t.slice(0,57)+'…':c.t}`;
+      if(kind&&n===0){const t=actionTiming(kind);
+        add('Soins & phases',t.good?'prio':'',t.ic,titre,`Phase « ${ph} ». ${t.advice}${pourquoi}`,p.id,k);}
+      else add('Soins & phases','','🌿',titre,`Phase « ${ph} ».${pourquoi}`,p.id,k);
+    });});
   /* ===== CONTRÔLES DE CONFIGURATION =====
      Certains problèmes sont connaissables SANS inspecter : un emplacement à 3 h de soleil ou
      des plants à 5 cm d'écart sont des faits déclarés, pas des symptômes à observer. Le
@@ -2912,7 +3499,7 @@ function renderToday(){
   activePlants().forEach(p=>{
     const A=archOf(p),sp=p.spacing;
     if(A.spaceMin==null||sp===''||sp==null||!isFinite(+sp)||+sp>=A.spaceMin)return;
-    if(cycleOver(p))return;
+    if(cycleOver(p)||notYetSown(p))return;
     add('Inspection','','📏',`${p.name} — plants trop serrés`,
       `Espacement déclaré : ${(SPACE_OPTS.find(o=>o[0]===String(sp))||['','—'])[1].toLowerCase()}, alors que cette culture demande ${A.spaceTxt}. Trop serrés, les plants se concurrencent pour l'eau et la lumière et aucun n'atteint sa taille ; l'air circule mal, ce qui favorise les maladies foliaires. Éclaircis en coupant les plus faibles AU RAS DU SOL — arracher déchirerait les racines des voisins.`,
       p.id,taskKey(['espacement',p.id,sp]));
@@ -2926,16 +3513,29 @@ function renderToday(){
       `${worst.fix[0]||''} ${others>0?`(+ ${others} autre${others>1?'s':''} point${others>1?'s':''} identifié${others>1?'s':''})`:''} Diagnostic complet et sources dans l'onglet Inspection.`,p.id,
       taskKey(['diag',p.id,worst.id,(lastInsp(p)||{}).ts||'']));});
   // relance : une inspection vieillit, surtout quand le programme s'appuie dessus
-  activePlants().forEach(p=>{const i=lastInsp(p);if(!i||!i.date)return;
+  activePlants().forEach(p=>{const i=lastInsp(p);if(!i||!i.date||notYetSown(p))return;
     const age=daysSince(i.date+'T00:00');
     if(age>=14)add('Inspection','','🔁',`Réinspecter ${p.name}`,`Dernière inspection il y a ${age} j. Le programme de cette plante est calé sur cette observation : une saisie fraîche le remet à jour.`,p.id,
       taskKey(['reinsp',p.id,i.date]));});
-  // cycles terminés : on arrête d'entretenir et on propose de clôturer
-  activePlants().filter(cycleOver).forEach(p=>{
-    const h=state.harvest.some(x=>x.plant===p.id&&x.date.startsWith(String(new Date().getFullYear())));
-    add('Soins & phases','','🏁',`${p.name} — cycle terminé`,
-      `Le cycle complet de cette culture est dépassé : arrosage et fertilisation sont arrêtés automatiquement. ${h?'Récolte déjà notée. ':'Pense à noter ta récolte dans le Journal — c\'est ce qui rendra le plan de l\'an prochain factuel. '}Tu peux ensuite la retirer du jardin depuis sa fiche.`,p.id,taskKey(['cycle',p.id,new Date().getFullYear()]));});
-  if(season()==='culture')add('Inspection','','🔎',"Tour d'inspection",'Passe en revue la section « À vérifier · solutions » plus bas : pour chaque plante, les éléments à contrôler et quoi faire. Une anomalie ? Saisis-la dans l\'onglet Inspection : l\'app en cherche la cause et recale le programme.');
+  /* Cycles terminés. En saison, une ligne par culture : le geste (noter la récolte, retirer
+     le plant) est encore d'actualité. Hors saison, ces mêmes lignes formaient un mur de dix
+     entrées identiques tout l'hiver, pour des cultures finies depuis des mois — elles sont
+     alors regroupées en un seul renvoi vers le bilan de saison, et seulement tant qu'il
+     n'est pas fait. */
+  const finis=activePlants().filter(cycleOver);
+  const anneeEnCours=new Date().getFullYear();
+  if(finis.length&&!outdoorDormant()){
+    finis.forEach(p=>{
+      const h=state.harvest.some(x=>x.plant===p.id&&x.date.startsWith(String(anneeEnCours)));
+      add('Soins & phases','','🏁',`${p.name} — cycle terminé`,
+        `Le cycle complet de cette culture est dépassé : arrosage et fertilisation sont arrêtés automatiquement. ${h?'Récolte déjà notée. ':'Pense à noter ta récolte dans le Journal — c\'est ce qui rendra le plan de l\'an prochain factuel. '}Tu peux ensuite la retirer du jardin depuis sa fiche.`,p.id,taskKey(['cycle',p.id,anneeEnCours]));});
+  }else if(finis.length&&!(state.closed&&state.closed[anneeEnCours])){
+    add('Soins & phases','','🏁',`${finis.length} cultures ont terminé leur cycle`,
+      `La saison de plein air est finie : ${finis.map(p=>p.name).join(', ')}. Rien à leur faire, tout est arrêté automatiquement. Il reste à <b>clôturer la saison</b> (onglet Saison) — c'est ce qui verse les familles cultivées à l'historique des parcelles et fait vivre l'alerte de rotation l'an prochain.`,
+      null,taskKey(['bilan',anneeEnCours]));
+  }
+  if(season()==='culture'&&activePlants().some(p=>!cycleOver(p)&&!notYetSown(p)))
+    add('Inspection','','🔎',"Tour d'inspection",'Passe en revue la section « À vérifier · solutions » plus bas : pour chaque plante, les éléments à contrôler et quoi faire. Une anomalie ? Saisis-la dans l\'onglet Inspection : l\'app en cherche la cause et recale le programme.',null,taskKey(['tour',isoWeek()]));
 
   const ICON={Urgent:'🚨',Arrosage:'💧',Fertilisation:'⚗️','Soins & phases':'🌿',Inspection:'🔎'};
   const order=['Urgent','Arrosage','Fertilisation','Soins & phases','Inspection'];
@@ -2975,11 +3575,16 @@ function renderPlan(){
   const el=document.getElementById('planList'),w=state.wx;
   if(!w||!w.daily){el.innerHTML='<div class="card"><div class="empty">Prévisions indisponibles hors-ligne. Reconnecte-toi pour le plan sur 14 jours.</div></div>';return}
   const days=w.daily.slice(0,14);
-  const dry=i=>days[i].rainProb<55&&days[i].rainSum<4;
+  /* un jour fertilisable : ni pluie (qui lessive l'apport), ni gel annoncé (la plante ne
+     l'utiliserait pas — c'est déjà la règle du Programme du jour) */
+  const dry=i=>days[i].rainProb<55&&days[i].rainSum<4&&days[i].tmin>2;
   const events=days.map(()=>[]);
   // projection des fertilisations, en décalant hors des jours de pluie
   const today0=new Date();today0.setHours(0,0,0,0);
   activePlants().forEach(p=>{
+    /* mêmes exclusions que le Programme du jour : projeter un apport pour une graine pas
+       encore semée, une culture finie ou un pot au repos hivernal n'a pas de sens */
+    if(notYetSown(p)||dormantFor(p)||lowLightRest(p))return;
     const r=curRecipe(p); if(isNoFeed(r))return; // phase de maturation/repos : pas d'engrais à planifier
     const fd=feedDaysOf(p),hold=feedHoldUntil(p); // intervalle et suspension issus du diagnostic
     let due = state.feeds[p.id] ? new Date(state.feeds[p.id]).getTime()+fd*864e5 : today0.getTime();
@@ -2991,14 +3596,29 @@ function renderPlan(){
   });
   // météo + arrosage heuristique
   let dryStreak=0;
-  const tender=activePlants().filter(p=>p.tender);
+  /* ⚠️ Les noms des plantes à protéger étaient écrits en dur : le plan citait « melon,
+     pastèque, ananas, citrons » même quand ces cultures étaient finies, retirées du jardin
+     ou jamais plantées, et ignorait toute culture ajoutée depuis. On part des plantes
+     réellement exposées, et l'avertissement disparaît quand il n'y a plus rien à protéger. */
+  const risque=plantsAtRisk().filter(p=>!notYetSown(p));
+  const gelifs=risque.filter(p=>p.tender);
+  const aRentrer=gelifs.filter(p=>!inGround(p)), aCouvrir=gelifs.filter(p=>inGround(p));
+  const enCulture=risque.filter(p=>!dormantFor(p));
+  /* « récolter et couvrir » ne s'adresse qu'à ce qui pousse EN TERRE : en novembre, l'alerte
+     sortait chaque jour parce que deux pots gélifs restaient dehors, alors qu'il n'y avait
+     plus rien à récolter ni à couvrir — les pots, eux, ont leur propre ligne « rentrer ». */
+  const enTerre=risque.filter(p=>inGround(p)&&!dormantFor(p));
   days.forEach((dd,i)=>{
-    if(dd.tmin<=2) events[i].unshift({cls:'cold',ic:dd.tmin<=0?'🧊':'❄️',txt:`${dd.tmin<=0?'GEL':'Risque de gel'} (${dd.tmin}°) — récolter et couvrir la veille`});
-    if(dd.tmax>=28) events[i].unshift({cls:'warn',ic:'🔥',txt:`Chaleur ${dd.tmax}° — arroser tôt le matin`});
-    if(dd.rainProb>=55||dd.rainSum>=4){ events[i].push({cls:'cold',ic:'🌧️',txt:'Pluie — ni arrosage ni engrais'}); dryStreak=0; }
-    else { dryStreak++; if(dryStreak>=3 && dd.tmax>=24) events[i].push({cls:'',ic:'🚿',txt:'Arrosage profond (bacs & pots qui sèchent)'}); }
-    if(dd.tmin<=10) events[i].push({cls:'cold',ic:'❄️',txt:`Nuit froide ${dd.tmin}° — protéger melon/pastèque/ananas, rentrer les citrons`});
-    else if(dd.tmin<=12 && tender.length) events[i].push({cls:'cold',ic:'🌡️',txt:`Nuit fraîche ${dd.tmin}° — surveiller les plantes de chaleur`});
+    if(dd.tmin<=2&&enTerre.length) events[i].unshift({cls:'cold',ic:dd.tmin<=0?'🧊':'❄️',txt:`${dd.tmin<=0?'GEL':'Risque de gel'} (${dd.tmin}°) — récolter et couvrir la veille`});
+    if(dd.tmax>=28&&enCulture.length) events[i].unshift({cls:'warn',ic:'🔥',txt:`Chaleur ${dd.tmax}° — arroser tôt le matin`});
+    if(dd.rainProb>=55||dd.rainSum>=4){ if(enCulture.length)events[i].push({cls:'cold',ic:'🌧️',txt:'Pluie — ni arrosage ni engrais'}); dryStreak=0; }
+    else { dryStreak++; if(dryStreak>=3 && dd.tmax>=24 && enCulture.length) events[i].push({cls:'',ic:'🚿',txt:'Arrosage profond (bacs & pots qui sèchent)'}); }
+    if(dd.tmin<=10&&gelifs.length){
+      const quoi=[aCouvrir.length?`protéger ${aCouvrir.map(p=>p.name).join(', ')}`:'',
+                  aRentrer.length?`rentrer ${aRentrer.map(p=>p.name).join(', ')}`:''].filter(Boolean).join(' · ');
+      events[i].push({cls:'cold',ic:'❄️',txt:`Nuit froide ${dd.tmin}° — ${quoi}`});
+    }
+    else if(dd.tmin<=12 && gelifs.length) events[i].push({cls:'cold',ic:'🌡️',txt:`Nuit fraîche ${dd.tmin}° — surveiller ${gelifs.map(p=>p.name).join(', ')}`});
   });
   const dow=['dim','lun','mar','mer','jeu','ven','sam'];
   el.innerHTML=days.map((dd,i)=>{
@@ -3184,7 +3804,12 @@ function plantBody(p){
         <table>${rows.map(([n,g])=>`<tr><td>${n}</td><td class="amt mono">${g} g</td></tr>`).join('')}</table>
         <div class="r-note">${r.note}</div></div>`}${feedFreqLine(p,noF)}${noF?'':feedVolLine(p)}${noF?'':nBudgetLine(p)}${camgLine(p)}</div>`;
   const watch=`<div class="pact"><h4>👁️ À surveiller</h4><ul>${(info.watch||[]).map(x=>`<li>${x}</li>`).join('')}</ul></div>`;
-  const care=`<div class="pact"><h4>🛠️ Entretien · ${phName}</h4><ul>${(info.care||[]).map(x=>`<li>${x}</li>`).join('')}</ul>
+  /* La fiche montre TOUS les soins de la phase, en disant lesquels sont des tâches du jour,
+     lesquels sont de simples repères, lesquels l'app applique déjà, et lesquels attendent
+     leur fenêtre. Le Programme, lui, ne reçoit que les premiers (careDue). */
+  const care=`<div class="pact"><h4>🛠️ Entretien · ${phName}</h4><ul>${careList(p).map(c=>{
+      const st=careState(p,c);
+      return `<li>${c.t}${st?` <span class="note">— ${st.ic} ${st.txt}</span>`:''}</li>`;}).join('')}</ul>
       ${(p.structural&&p.structural.length)?`<p class="note" style="margin:7px 0 0"><b>Repères permanents</b> (pas des tâches du jour) : ${p.structural.join(' · ')}</p>`:''}</div>`;
   const situ=(()=>{const b=bedOf(p),f=b?phFitFor(p,b.ph):null;const fam=famOf(p);
       const C=mediumOf(p),V=coverOf(p),W=wateringOf(p);
@@ -3202,7 +3827,7 @@ function plantBody(p){
     ${pgroup(p,'etat','📊','État',st.sev>=0&&st.txt?st.txt:p.stages[curStage(p)],stateBlock(p)+inspBanner(p)+durBlock,true)}
     ${pgroup(p,'eau','💧','Arrosage',waterEvery(p)?`tous les ${waterEvery(p)} j`:'à réduire',wat,false)}
     ${pgroup(p,'nutri','⚗️','Nutrition',noF?'aucun apport':r.name,fert,false)}
-    ${pgroup(p,'diag','🔎','Diagnostic & contrôles',(dg(p).findings||[]).filter(f=>f.sev>=2).length?'points identifiés':'',checksBlock+watch,false)}
+    ${pgroup(p,'diag','🔎','Diagnostic & contrôles',(dg(p).findings||[]).filter(f=>f.sev>=2).length?'points identifiés':'',oidCullBlock(p)+checksBlock+watch,false)}
     ${pgroup(p,'soin','🛠️','Entretien',phName,care,false)}
     ${pgroup(p,'situ','🧱','Situation & sol',bedOf(p)?bedOf(p).name:'sans parcelle',situ,false)}
     ${p.flag?`<div class="flag ${p.flag.type}">${p.flag.txt}${p.flag.type==='iron'?(()=>{const t=actionTiming('foliar');return `<br><span class="note" style="display:block;margin-top:7px">🕑 Si pulvérisation foliaire (fer chélaté) : ${t.good?`<b style="color:var(--leaf-d)">c'est le bon moment (${t.short})</b>`:`<b style="color:var(--amber)">${t.short}</b>`} — stomates ouverts tôt le matin (&lt;9 h 30) ou en soirée (&gt;18 h 30), jamais en plein soleil.`})():''}</div>`:''}
@@ -3255,7 +3880,11 @@ function renderPlants(){
   const others=all.filter(p=>!used.has(p.id));
   if(others.length)html+=catBlock('others','🌱','Autres',others);
   document.getElementById('plantList').innerHTML=html
-    +`<button class="btn" style="margin-top:14px" onclick="openPlantForm()">＋ Ajouter une plantation</button>`;
+    +`<button class="btn" style="margin-top:14px" onclick="openPlantForm()">＋ Ajouter une plantation</button>`
+    +`<button class="btn ghost" style="margin-top:8px" onclick="openSpeciesForm(false)">🌱 Ajouter une culture absente du catalogue</button>`;
+  const lab=document.getElementById('plantsCount');
+  if(lab){const ns=Object.keys(state.species).length;
+    lab.textContent=`${all.length} plantation${all.length>1?'s':''} · ${ns} culture${ns>1?'s':''} au catalogue`;}
   renderTrash();
 }
 function toggleCat(key){
@@ -3309,9 +3938,15 @@ function setCan(){const v=parseFloat(document.getElementById('canSize').value);
   const u=document.getElementById('canUnit');if(u&&UNITS[u.value])state.canUnit=u.value;
   if(isFinite(v)&&v>0)state.can=v;
   save();renderMix();renderPlants()}
-function fillMixSelect(){const sel=document.getElementById('mixPlant');
+/* ⚠️ Reconstruire la liste ne doit pas déplacer le choix de l'utilisateur : cette fonction est
+   rappelée à chaque création, duplication, suppression, retrait ou restauration de plantation.
+   Sans mémorisation, le Doseur retombait sur la première plante et affichait la recette d'une
+   AUTRE culture que celle qu'on venait de doser. Même règle que fillInspSelect(). */
+function fillMixSelect(){const sel=document.getElementById('mixPlant');if(!sel)return;
+  const cur=sel.value;
   sel.innerHTML=activePlants().filter(p=>!p.ornamental).map(p=>`<option value="plant:${p.id}">${p.icon} ${p.name}</option>`).join('')
-    +'<optgroup label="Objectifs génériques">'+Object.entries(RECIPES).map(([k,r])=>`<option value="recipe:${k}">${r.name}</option>`).join('')+'</optgroup>'}
+    +'<optgroup label="Objectifs génériques">'+Object.entries(RECIPES).map(([k,r])=>`<option value="recipe:${k}">${r.name}</option>`).join('')+'</optgroup>';
+  if(cur&&Array.from(sel.options).some(o=>o.value===cur))sel.value=cur;}
 function renderMix(){
   const val=document.getElementById('mixPlant').value;let r,title,applyNote='';
   if(val.startsWith('plant:')){const p=byId(val.slice(6));r=curRecipe(p);title=p.icon+' '+p.name+' · '+p.stages[curStage(p)];
@@ -3477,6 +4112,26 @@ function inspFields(p){
    {k:'_sowing',g:'c',t:'info',lab:'Semis',
     txt:`${sowingOf(p).ic} ${sowingOf(p).lab} — ${sowingOf(p).note} <i>Se modifie sur la fiche de la culture.</i>`}
   ];
+  /* Oïdium des cucurbitacées : précisions qui n'apparaissent QUE si le feutrage est coché.
+     Sans elles, l'app ne peut que répéter « retire les feuilles atteintes » ; avec elles,
+     elle nomme le seuil et compte les feuilles. Voir le module OÏDIUM (oidCull). */
+  if(archKey(p)==='vine'){
+    const at=F.findIndex(f=>f.k==='signs')+1;
+    F.splice(at,0,
+     {k:'oidRub',g:'s',t:'sel',dep:'feutrage',lab:"Feutrage blanc : passe le doigt sur une tache",
+      hint:"Le seul geste qui sépare une maladie d'une marbrure variétale. L'oïdium s'efface comme de la farine ; la panachure argentée de beaucoup de courges ne part pas et suit les nervures — dans ce cas il n'y a rien à faire, et surtout rien à couper.",
+      opts:OID_RUB},
+     {k:'oidCover',g:'s',t:'sel',dep:'feutrage',lab:"Sur la feuille la PLUS atteinte, quelle surface est blanchie ?",
+      hint:"C'est cette étendue qui décide si une feuille se coupe ou se garde : au-delà de la moitié du limbe, la feuille ne nourrit plus la plante. Juge la feuille la plus touchée, pas la moyenne.",
+      opts:OID_COVER},
+     {k:'oidTot',g:'s',t:'num',dep:'feutrage',lab:"Nombre de feuilles du plant (estimation)",ph:'ex. 24',max:999,
+      hint:"Une estimation suffit : elle sert uniquement à plafonner l'effeuillage au tiers du feuillage."},
+     {k:'oidBad',g:'s',t:'num',dep:'feutrage',lab:"Combien dépassent la moitié du limbe blanchie, ou sont déjà jaunies / sèches ?",ph:'ex. 3',max:999,
+      hint:"Ce sont exactement celles-là, « les feuilles les plus atteintes ». L'app en déduit combien couper aujourd'hui et combien attendront la semaine prochaine."},
+     {k:'oidWhere',g:'s',t:'sel',dep:'feutrage',lab:"Jusqu'où le feutrage est-il monté ?",
+      hint:"Tant qu'il reste cantonné aux vieilles feuilles du bas, les fruits continuent de grossir normalement.",
+      opts:OID_WHERE});
+  }
   if(has('nb'))F.push({k:'nb',g:'c',t:'num',lab:'Nombre de plants de cette culture',ph:'ex. 8',max:999});
   if(has('space'))F.push({k:'_space',g:'c',t:'info',lab:'Espacement entre plants',
     txt:`${p.spacing!==''&&p.spacing!=null?(SPACE_OPTS.find(o=>o[0]===String(p.spacing))||['','non renseigné'])[1]:'non renseigné'} — vise ${A.spaceTxt}. <i>Se modifie sur la fiche de la culture.</i>`});
@@ -3495,7 +4150,8 @@ function inspFields(p){
   return F;
 }
 /* clés possibles, tous archétypes confondus — sert à la sauvegarde et à la remise à zéro */
-const INSP_KEYS=['date','h','marks','vigor','color','signs','soil','roots','nb','rows','polli','pests','note'];
+const INSP_KEYS=['date','h','marks','vigor','color','signs','soil','roots','nb','rows','polli','pests',
+  'oidRub','oidCover','oidTot','oidBad','oidWhere','note'];
 function inspTarget(){const s=document.getElementById('inspPlant');return s?byId(s.value):null;}
 function fillInspSelect(){
   const sel=document.getElementById('inspPlant');if(!sel)return;
@@ -3511,7 +4167,7 @@ function renderInspForm(){
   const GRP=[['m','📏 Mesures','hauteur, stade, vigueur'],
              ['s','🍃 Symptômes','couleur, signes visibles, ravageurs'],
              ['c','🌱 Contexte','sol, racines, lumière']];
-  const fieldHTML=f=>{
+  const rawField=f=>{
     const hint=f.hint?`<div class="hint">${f.hint}</div>`:'';
     if(f.t==='marks'){
       const M=markersFor(p),marks=Array.isArray(i.marks)?i.marks:[];
@@ -3528,17 +4184,24 @@ function renderInspForm(){
         <div class="hint" style="margin-top:6px">Le calendrier calcule actuellement : <b>${mdl}</b>.</div></div>`;
     }
     if(f.t==='multi')return `<div class="field"><label>${f.lab}</label>${hint}
-      ${f.opts.map(([v,l])=>`<label class="chk ${signs.includes(v)?'on':''}"><input type="checkbox" value="${v}" ${signs.includes(v)?'checked':''} onchange="this.parentNode.classList.toggle('on',this.checked)"> <span>${l}</span></label>`).join('')}</div>`;
-    if(f.t==='sel')return `<div class="field"><label>${f.lab}</label>${hint}
+      ${f.opts.map(([v,l])=>`<label class="chk ${signs.includes(v)?'on':''}"><input type="checkbox" value="${v}" ${signs.includes(v)?'checked':''} onchange="this.parentNode.classList.toggle('on',this.checked);syncDeps()"> <span>${l}</span></label>`).join('')}</div>`;
+    if(f.t==='sel')return `<div class="field"><label for="if_${f.k}">${f.lab}</label>${hint}
       <select id="if_${f.k}">${f.opts.map(([v,l])=>`<option value="${v}"${(i[f.k]||'')===v?' selected':''}>${l}</option>`).join('')}</select></div>`;
-    if(f.t==='num')return `<div class="field"><label>${f.lab}</label>${hint}
+    if(f.t==='num')return `<div class="field"><label for="if_${f.k}">${f.lab}</label>${hint}
       <input type="number" id="if_${f.k}" inputmode="decimal" step="any" min="0"${f.max?` max="${f.max}"`:''} placeholder="${f.ph||''}" value="${i[f.k]!=null?i[f.k]:''}"></div>`;
     if(f.t==='info')return `<div class="field"><label>${f.lab}</label><p class="note" style="margin:0">${f.txt}</p></div>`;
-    if(f.t==='date')return `<div class="field"><label>${f.lab}</label>${hint}
+    if(f.t==='date')return `<div class="field"><label for="if_${f.k}">${f.lab}</label>${hint}
       <input type="date" id="if_${f.k}" value="${i.date||today}" max="${today}"></div>`;
     if(f.t==='multi'&&!f.opts.length)return '';
-    return `<div class="field"><label>${f.lab}</label>${hint}
+    return `<div class="field"><label for="if_${f.k}">${f.lab}</label>${hint}
       <textarea id="if_${f.k}" placeholder="Ce que tu remarques et qui n'entre dans aucune case.">${i[f.k]||''}</textarea></div>`;
+  };
+  /* Champ conditionnel (`dep`) : une question de détail ne s'affiche que si le signe dont
+     elle dépend est coché. Les précisions d'oïdium n'ont aucun sens sans feutrage constaté. */
+  const fieldHTML=f=>{
+    const h=rawField(f);
+    if(!f.dep)return h;
+    return `<div class="depf" data-dep="${f.dep}"${signs.includes(f.dep)?'':' hidden'}>${h}</div>`;
   };
   // formulaire découpé en 3 sections repliables : on ne voit jamais 15 champs d'un coup,
   // et la première (les mesures) est ouverte par défaut car c'est celle qui recale le programme
@@ -3550,9 +4213,17 @@ function renderInspForm(){
       <summary>${lab} <span class="fg-n">${filled?filled+' renseigné'+(filled>1?'s':''):sub}</span></summary>
       <div class="fgrp-b">${fs.map(fieldHTML).join('')}</div></details>`;}).join('')
    +`<button class="btn ghost" style="margin-bottom:14px" onclick="removePlant('${p.id}')">🗑️ Retirer « ${p.name} » du jardin</button>`;
+  syncDeps();
   renderPhotos();
   renderInspHistory();
   renderInspResult();
+}
+/* affiche/masque les questions de détail selon les signes cochés (sans re-rendre le
+   formulaire : une saisie en cours ne doit jamais être perdue par un simple clic) */
+function syncDeps(){
+  const on={};
+  document.querySelectorAll('#inspForm .chk input:not([data-mark])').forEach(x=>{on[x.value]=x.checked;});
+  document.querySelectorAll('#inspForm .depf').forEach(d=>{d.hidden=!on[d.dataset.dep];});
 }
 /* raccourci : consigner un plant en bonne santé en un seul geste (cas le plus fréquent) */
 function markHealthy(){
@@ -3564,6 +4235,7 @@ function markHealthy(){
      stade, pas des symptômes. Les effacer ferait régresser la phase au calendrier. */
   document.querySelectorAll('#inspForm .chk input:not([data-mark]):checked')
     .forEach(x=>{x.checked=false;x.parentNode.classList.remove('on')});
+  syncDeps();  // les questions de détail suivent les signes décochés
   saveInsp(); // le bouton annonce une observation faite : il l'enregistre pour de bon
 }
 /* aperçu immédiat : le jardinier voit la phase se déduire pendant qu'il coche */
@@ -3726,9 +4398,15 @@ function addHarvest(){
 }
 function delHarvest(i){state.harvest.splice(i,1);save();renderHarvest();}
 function renderHarvest(){
+  /* ⚠️ La liste était remplie UNE SEULE FOIS (« si elle est vide »), donc figée sur l'état du
+     démarrage : une plantation créée ensuite n'apparaissait jamais, une plantation supprimée
+     y restait proposée, et un renommage n'était pas répercuté. On reconstruit à chaque rendu
+     en conservant la sélection en cours, comme fillInspSelect() et fillMixSelect(). */
   const sel=document.getElementById('hvPlant');
-  if(sel&&!sel.options.length){
+  if(sel){
+    const cur=sel.value;
     sel.innerHTML='<option value="">— choisir —</option>'+activePlants().map(p=>`<option value="${p.id}">${p.icon} ${p.name}</option>`).join('');
+    if(cur&&Array.from(sel.options).some(o=>o.value===cur))sel.value=cur;
   }
   const dt=document.getElementById('hvDate');if(dt&&!dt.value)dt.value=new Date().toISOString().slice(0,10);
   const el=document.getElementById('hvList');if(!el)return;
@@ -3766,6 +4444,11 @@ function overwinterTasks(add){
   activePlants().forEach(p=>{
     const th=indoorMin(p);if(th==null)return;
     if(!p.peren&&!p.tender)return;
+    /* ⚠️ On ne rentre que ce qui se transporte. La règle ne testait que « gélive », si bien
+       que l'app proposait de rentrer à l'abri un melon et une pastèque semés en PLEINE TERRE.
+       Et une plante dont le cycle est fini n'a plus rien à sauver : on ne rentre pas un plant
+       mort pour l'hiver. */
+    if(inGround(p)||cycleOver(p))return;
     /* Fenêtre de pertinence : on ne propose de rentrer qu'à partir de septembre, quand les
        nuits fraîches s'installent — ou plus tôt SI un gel est réellement annoncé. Une nuit
        isolée à 12 °C en juillet ou en août n'est pas un motif : la plante profite du dehors,
@@ -3855,28 +4538,30 @@ function openPlantForm(id){
   const today=new Date().toISOString().slice(0,10);
   el.innerHTML=`<div class="card card-pad">
     <div style="font-weight:800;font-size:15px;margin-bottom:12px">${pl?'✏️ Modifier la plantation':'＋ Nouvelle plantation'}</div>
-    <div class="field"><label>Culture</label>
+    <div class="field"><label for="pf_species">Culture</label>
       <div class="hint">L'agronomie (stades, durées, recettes, pH visé) vient de l'espèce. Une même culture peut être plantée dans plusieurs parcelles : crée simplement une plantation par emplacement.</div>
-      <select id="pf_species" ${pl?'disabled':''} onchange="onSpeciesChange()">${sps.map(sp=>`<option value="${sp.id}"${pl&&pl.species===sp.id?' selected':''}>${sp.icon} ${sp.name}</option>`).join('')}</select></div>
-    <div class="field"><label>Emplacement (nom court)</label>
+      <select id="pf_species" ${pl?'disabled':''} onchange="onSpeciesChange()">${sps.map(sp=>`<option value="${sp.id}"${pl&&pl.species===sp.id?' selected':''}>${sp.icon} ${sp.name}</option>`).join('')}</select>
+      ${pl?`<div class="hint" style="margin-top:6px">🔒 <b>Verrouillé</b> — l'espèce ne se change pas après coup : journal, inspections et récoltes de cette plantation sont rattachés à cette agronomie. Pour une autre culture, crée une nouvelle plantation.</div>`
+        :`<button class="btn ghost sm" style="width:100%;margin-top:8px" onclick="openSpeciesForm(true)">＋ Ma culture n'est pas dans la liste</button>`}</div>
+    <div class="field"><label for="pf_label">Emplacement (nom court)</label>
       <div class="hint">Ce qui distingue cette plantation des autres de la même culture : « sous les arbres », « bac du fond »…</div>
       <input type="text" id="pf_label" placeholder="ex. bac du fond" value="${pl&&pl.label?pl.label.replace(/"/g,'&quot;'):''}"></div>
-    <div class="field"><label>Parcelle</label>
+    <div class="field"><label for="pf_bed">Parcelle</label>
       <div class="hint">Une culture appartient à une parcelle : c'est elle qui porte le medium, la couverture du sol et le mode d'arrosage. Crée-la d'abord dans Saison › Sol si elle n'existe pas.</div>
       <select id="pf_bed">${state.beds.length?state.beds.map(b=>{const M=MEDIUM[b.medium||'terre']||MEDIUM.terre,C=COVER[b.cover||'aucune']||COVER.aucune,W=WATERING[b.watering||'drainage']||WATERING.drainage;
         return `<option value="${b.id}"${pl&&pl.bed===b.id?' selected':''}>${b.name} — ${M.ic}${M.lab} · ${C.ic}${C.lab} · ${W.ic}${W.lab}</option>`}).join('')
         :'<option value="">— aucune parcelle : crée-en une dans Saison › Sol —</option>'}</select></div>
-    <div class="field"><label>Semis</label>
+    <div class="field"><label for="pf_sowing">Semis</label>
       <select id="pf_sowing" onchange="onSowingChange()">${Object.entries(SOWING).map(([k,o])=>`<option value="${k}"${(pl&&pl.sowing||'direct')===k?' selected':''}>${o.ic} ${o.lab}</option>`).join('')}</select>
       <div class="hint">Le repiquage perturbe les racines : les espèces à pivot (maïs, cucurbitacées, carotte) le supportent mal, et l'app en tient compte dans son diagnostic.</div></div>
-    <div class="field"><label>Date de semis</label>
+    <div class="field"><label for="pf_sow">Date de semis</label>
       <div class="hint">Quand la graine a été semée, en intérieur comme en place. Elle pilote le modèle de phases.</div>
       <input type="date" id="pf_sow" value="${pl&&pl.sowDate?pl.sowDate:today}"></div>
     <div class="field" id="pf_plantWrap" style="display:${((pl&&pl.sowing)||'direct')==='repique'?'':'none'}">
-      <label>Date de mise en terre</label>
+      <label for="pf_plant">Date de mise en terre</label>
       <div class="hint">Quand le plant a été mis en place dehors. Pour les cultures repiquées, c'est CETTE date que compte le semencier pour les jours à maturité — pas celle du semis.</div>
       <input type="date" id="pf_plant" value="${pl&&pl.plantDate?pl.plantDate:''}"></div>
-    <div class="field"><label>Variété</label>
+    <div class="field"><label for="pf_variety">Variété</label>
       <div class="hint">Les jours à maturité viennent de la variété : c'est une donnée du semencier, pas quelque chose à retenir. Choisis « Autre » seulement si la tienne n'est pas listée.</div>
       <select id="pf_variety" onchange="onVarietyChange()">
         <option value="">— non précisée —</option>
@@ -3886,23 +4571,23 @@ function openPlantForm(id){
       </select>
       <div id="pf_varInfo" class="hint" style="margin-top:6px"></div></div>
     <div id="pf_autreWrap" style="display:none">
-      <div class="field"><label>Nom de ta variété</label>
+      <div class="field"><label for="pf_varName">Nom de ta variété</label>
         <input type="text" id="pf_varName" placeholder="ex. Blue Hopi" value="${pl&&pl.variety&&!varietiesOf((pl&&pl.species)).some(v=>v.n===pl.variety)?String(pl.variety).replace(/"/g,'&quot;'):''}"></div>
-      <div class="field"><label>Jours à maturité (sur le sachet)</label>
+      <div class="field"><label for="pf_dtm">Jours à maturité (sur le sachet)</label>
         <div class="hint">Recopie le chiffre du sachet. Précise aussi à partir de quand il est compté : c'est écrit sur le sachet, et les deux conventions donnent des résultats très différents.</div>
         <input type="number" id="pf_dtm" min="0" max="400" placeholder="ex. 78" value="${pl&&pl.dtm?pl.dtm:''}"></div>
-      <div class="field"><label>Compté à partir de</label>
+      <div class="field"><label for="pf_dtmFrom">Compté à partir de</label>
         <select id="pf_dtmFrom">
           <option value="semis"${(pl&&pl.dtmFrom)==='semis'?' selected':''}>du semis</option>
           <option value="repiquage"${(pl&&pl.dtmFrom)==='repiquage'?' selected':''}>de la mise en terre (plant repiqué)</option>
         </select></div>
     </div>
-    <div class="field"><label>Nombre de plants</label>
+    <div class="field"><label for="pf_count">Nombre de plants</label>
       <input type="number" id="pf_count" min="0" max="999" placeholder="ex. 6" value="${pl&&pl.count?pl.count:''}"></div>
-    <div class="field"><label>Espacement entre plants</label>
+    <div class="field"><label for="pf_spacing">Espacement entre plants</label>
       <div class="hint">Décision de plantation, pas une observation : trop serré, les plants se concurrencent et aucun n'atteint sa taille.</div>
       <select id="pf_spacing">${SPACE_OPTS.map(([v,l])=>`<option value="${v}"${String((pl&&pl.spacing)||'')===v?' selected':''}>${l}</option>`).join('')}</select></div>
-    <div class="field"><label>Volume par arrosage (litres)</label>
+    <div class="field"><label for="pf_volL">Volume par arrosage (litres)</label>
       <div class="hint">Sert au calcul exact de l'azote apporté. Laisse vide si tu ne sais pas.</div>
       <input type="number" id="pf_volL" min="0" step="0.5" placeholder="ex. 5" value="${pl&&pl.volL?pl.volL:''}"></div>
     <div style="display:flex;gap:8px;margin-top:4px">
@@ -3913,6 +4598,163 @@ function openPlantForm(id){
       <p class="note" style="margin:8px 0 0">« Retirer du jardin » (sur la fiche) met simplement de côté en conservant les données. La suppression définitive, elle, efface aussi journal, inspections et récoltes de cette culture.</p>`:''}
   </div>`;
   el.style.display='';onVarietyChange();onSowingChange();el.scrollIntoView({block:'start',behavior:'smooth'});
+}
+/* ===== FORMULAIRE « NOUVELLE CULTURE » =====
+   Deux chemins, du plus court au plus long : le catalogue (rien à renseigner), puis la
+   culture entièrement libre (quatre réponses). L'aperçu montre EN DIRECT ce que l'app va
+   déduire — c'est ce qui rend acceptable de ne pas demander le reste. */
+const SP_ICONS=['🌱','🥬','🥕','🍅','🌽','🥒','🎃','🫘','🥔','🧅','🧄','🌿','🍓','🍇','🫑',
+  '🍆','🥦','🌻','🍈','🍉','🟢','🔴','🟣','⚪','🪴','🌷'];
+/* d'où l'on vient : le formulaire de plantation (on y revient en annulant) ou la liste */
+let spFromPlant=false;
+function openSpeciesForm(fromPlantForm){
+  if(fromPlantForm!==undefined)spFromPlant=!!fromPlantForm;
+  const el=document.getElementById('speciesForm');if(!el)return;
+  const dejaLa=sid=>!!state.species[sid];
+  const dispo=CROP_LIBRARY.filter(c=>!dejaLa(c.id));
+  const custom=Object.values(state.species).filter(sp=>sp.custom)
+    .sort((a,b)=>a.name.localeCompare(b.name));
+  el.innerHTML=`<div class="card card-pad">
+    <div style="font-weight:800;font-size:15px;margin-bottom:6px">🌱 Ajouter une culture</div>
+    <p class="note" style="margin:0 0 12px">Tu ne renseignes que ce que toi seul peux savoir. Le modèle de phases, les recettes, l'arrosage, la fréquence des apports, le pH visé et la cible d'azote sont <b>déduits</b> — et l'aperçu, plus bas, te montre exactement ce que l'app en fait.</p>
+    <div class="field"><label for="sf_crop">Quelle culture ?</label>
+      <div class="hint">${dispo.length} cultures courantes en zone 5b que l'app sait déjà décrire. Si la tienne n'y est pas, choisis la dernière option.</div>
+      <select id="sf_crop" onchange="onCropPick()">
+        ${dispo.map(c=>`<option value="${c.id}">${c.icon} ${c.name}${c.dtm?` — ${c.dtm} j`:''}</option>`).join('')}
+        <option value="__libre__">✏️ Autre — culture entièrement nouvelle…</option></select></div>
+    <div id="sf_libre" style="display:none">
+      <div class="field"><label for="sf_name">Nom de la culture</label>
+        <input type="text" id="sf_name" placeholder="ex. Tomatille" oninput="renderSpeciesPreview()"></div>
+      <div class="field"><label for="sf_icon">Icône</label>
+        <select id="sf_icon" onchange="renderSpeciesPreview()">${SP_ICONS.map(e=>`<option value="${e}">${e}</option>`).join('')}</select></div>
+      <div class="field"><label for="sf_arch">À quoi ressemble la plante ?</label>
+        <div class="hint">C'est la question la plus structurante : elle décide du modèle de phases, des marqueurs d'observation, du formulaire d'inspection et des règles de diagnostic qui s'appliqueront.</div>
+        <select id="sf_arch" onchange="renderSpeciesPreview()">
+          <option value="fruit">🍅 Légume-fruit dressé ou tuteuré — tomate, poivron, haricot</option>
+          <option value="vine">🎃 Cucurbitacée coureuse — courge, concombre, melon</option>
+          <option value="root">🥕 Racine comestible — carotte, betterave, radis</option>
+          <option value="bulb">🧄 Bulbe — ail, oignon, poireau</option>
+          <option value="herb">🌿 Plante à feuillage — aromatique, salade, chou</option>
+          <option value="grass">🌽 Graminée à nervures parallèles — maïs</option>
+          <option value="potTree">🍋 Arbuste fruitier en pot — agrume</option>
+          <option value="potRosette">🍍 Rosette — ananas, broméliacée</option>
+          <option value="shrub">🌳 Arbuste ornemental — pas de récolte, pas d'engrais</option></select></div>
+      <div class="field"><label for="sf_fam">Famille botanique</label>
+        <div class="hint">Elle commande la rotation, la gourmandise et le pH visé. Repère-toi sur les exemples : si ta culture ressemble à l'une d'elles, c'est la bonne famille.</div>
+        <select id="sf_fam" onchange="renderSpeciesPreview()">
+          ${Object.entries(FAM).map(([k,f])=>`<option value="${k}">${f.ic} ${f.lab} — ${f.ex}</option>`).join('')}</select></div>
+      <div class="field"><label for="sf_dtm">Jours à maturité (sur le sachet)</label>
+        <div class="hint">Recopie le chiffre du sachet : c'est lui qui répartit les phases du modèle. Laisse vide si tu ne l'as pas — l'app prendra une durée générique de ce type de plante.</div>
+        <input type="number" id="sf_dtm" min="0" max="400" placeholder="ex. 70" oninput="renderSpeciesPreview()"></div>
+      <div class="field"><label for="sf_dtmFrom">Compté à partir de</label>
+        <div class="hint">C'est écrit sur le sachet, et les deux conventions donnent des résultats très différents.</div>
+        <select id="sf_dtmFrom" onchange="renderSpeciesPreview()">
+          <option value="semis">du semis</option>
+          <option value="repiquage">de la mise en terre (plant repiqué)</option>
+          <option value="semis-14">du semis, moins 14 j si repiquée</option>
+          <option value="plantation">de la plantation (caïeu, tubercule, plant)</option></select></div>
+      <div class="field"><label for="sf_tender">Craint-elle le gel ?</label>
+        <div class="hint">Décide des alertes de gel et de la fenêtre de semis. Une culture gélive ne se met dehors qu'après le ~20–25 mai à Montréal.</div>
+        <select id="sf_tender" onchange="renderSpeciesPreview()">
+          <option value="oui">Oui — une nuit sous 2 °C la tue</option>
+          <option value="non">Non — supporte les gelées légères</option></select></div>
+      <div class="field"><label for="sf_peren">Vivace ?</label>
+        <select id="sf_peren" onchange="renderSpeciesPreview()">
+          <option value="non">Non — annuelle, un seul cycle</option>
+          <option value="oui">Oui — elle repart d'une année sur l'autre</option></select></div>
+    </div>
+    <div id="sf_preview"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn" style="flex:1" onclick="saveSpecies()">✓ Créer la culture</button>
+      <button class="btn ghost" style="flex:1" onclick="cancelSpeciesForm()">Annuler</button></div>
+    ${custom.length?`<details class="fgrp" style="margin-top:14px"><summary>🗂️ Cultures que tu as ajoutées <span class="fg-n">${custom.length}</span></summary>
+      <div class="fgrp-b">${custom.map(sp=>{const used=speciesInUse(sp.id);
+        return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--line)">
+          <span style="flex:1;font-size:13.5px;font-weight:600">${sp.icon} ${sp.name}</span>
+          ${used?`<span class="chip f">plantée</span>`
+                :`<button class="btn ghost sm" style="padding:3px 9px" onclick="delSpecies('${sp.id}')">Supprimer</button>`}</div>`}).join('')}
+        <p class="note" style="margin:8px 0 0">Une culture encore plantée ne se supprime pas : son agronomie sert au suivi, au journal et aux inspections de ses plantations.</p></div></details>`:''}
+  </div>`;
+  el.style.display='';
+  /* le formulaire de plantation s'efface le temps de la saisie : les deux empilés feraient
+     une page interminable sur téléphone, et la culture doit exister avant la plantation */
+  const pf=document.getElementById('plantForm');if(pf)pf.style.display='none';
+  onCropPick();
+  el.scrollIntoView({block:'start',behavior:'smooth'});
+}
+function closeSpeciesForm(){const el=document.getElementById('speciesForm');
+  if(el){el.style.display='none';el.innerHTML='';}}
+/* Annuler : on revient au formulaire de plantation, d'où l'on venait. */
+function cancelSpeciesForm(){closeSpeciesForm();
+  if(spFromPlant)openPlantForm(editingId);
+  spFromPlant=false;}
+function onCropPick(){
+  const c=document.getElementById('sf_crop'),w=document.getElementById('sf_libre');
+  if(!c||!w)return;
+  w.style.display=(c.value==='__libre__')?'':'none';
+  renderSpeciesPreview();
+}
+/* espèce telle qu'elle serait créée à cet instant — sert à l'aperçu ET à l'enregistrement,
+   pour qu'il n'y ait aucun écart entre ce qui est montré et ce qui est créé */
+function speciesDraft(id){
+  const g=k=>{const e=document.getElementById('sf_'+k);return e?e.value:''};
+  const pick=g('crop');
+  if(pick&&pick!=='__libre__'){
+    const c=CROP_LIBRARY.find(x=>x.id===pick);
+    if(c)return makeSpecies(Object.assign({},c,{id:id||c.id}));
+  }
+  return makeSpecies({id:id||'_apercu',name:g('name')||'Ma culture',icon:g('icon')||'🌱',
+    arch:g('arch')||'fruit',fam:g('fam')||'autres',
+    dtm:parseFloat(g('dtm'))||null,dtmFrom:g('dtmFrom')||'semis',
+    tender:g('tender')==='oui',peren:g('peren')==='oui',
+    ornamental:(g('arch')||'')==='shrub'});
+}
+/* Aperçu : tout ce que l'app vient de déduire, affiché avant de valider. */
+function renderSpeciesPreview(){
+  const el=document.getElementById('sf_preview');if(!el)return;
+  const sp=speciesDraft(),M=ARCH[sp.arch],F=FAM[sp.fam];
+  const total=sp.dur.reduce((a,b)=>a+b,0);
+  const ripe=sp.dur.slice(0,Math.max(1,sp.dur.length-1)).reduce((a,b)=>a+b,0);
+  const wat=sp.waterEvery.filter(x=>x!=null);
+  el.innerHTML=`<div class="pact" style="margin-top:6px"><h4>🔎 Ce que l'app en déduit</h4>
+    <p class="note" style="margin:0 0 8px">${sp.icon} <b>${sp.name}</b> — traitée comme <b>${M.lab}</b>, famille <b>${F.ic} ${F.lab}</b> (${F.need}).</p>
+    <table class="sdur"><thead><tr><th>Phase</th><th class="sd-r">durée</th><th class="sd-r">engrais</th></tr></thead>
+      <tbody>${sp.stages.map((s,i)=>`<tr><td>${s}</td><td class="sd-r mono">${sp.dur[i]} j</td>
+        <td class="sd-r">${(RECIPES[sp.phases[i].r]||RECIPES.aucun).name.replace(/ \(.*\)/,'')}</td></tr>`).join('')}</tbody></table>
+    <div class="diff" style="margin-top:8px"><span class="d-k">Cycle complet</span><span class="d-v">${fmtDur(total)}${sp.dtm?` · récolte vers ${fmtDur(ripe)}`:''}</span></div>
+    <div class="diff"><span class="d-k">Arrosage</span><span class="d-v">${wat.length?`tous les ${Math.min.apply(null,wat)} à ${Math.max.apply(null,wat)} j selon la phase`:'—'}</span></div>
+    <div class="diff"><span class="d-k">Apports</span><span class="d-v">${sp.feedDays?`tous les ${sp.feedDays} j`:'aucun'}</span></div>
+    <div class="diff"><span class="d-k">pH visé</span><span class="d-v">${sp.phOpt[0].toFixed(1)} – ${sp.phOpt[1].toFixed(1)}</span></div>
+    <div class="diff"><span class="d-k">Cible azote</span><span class="d-v">${sp.nTarget[1]?`${sp.nTarget[0]}–${sp.nTarget[1]} g N / saison`:'aucune'}</span></div>
+    ${sp.pollen?`<div class="diff"><span class="d-k">Pollinisation</span><span class="d-v">${sp.pollen==='vent'?'par le vent':sp.pollen==='insectes'?'par les insectes':'autogame'}</span></div>`:''}
+    <div class="diff"><span class="d-k">Gel</span><span class="d-v">${sp.tender?'gélive — à protéger':'supporte les gelées légères'}</span></div>
+    <p class="note" style="margin:9px 0 0">⚠️ Ce modèle de phases est <b>générique</b> : il répartit ${sp.dtm?`les ${sp.dtm} jours à maturité annoncés`:'une durée typique de ce type de plante'} sur l'architecture de la plante. Il n'a pas la finesse des cultures livrées avec l'app. <b>Ce n'est pas grave</b> : dès ta première inspection, la phase déduite de tes observations prend le pas sur le calendrier — c'est la règle de toute l'app.</p>
+    <p class="note" style="margin:6px 0 0">🔄 Rotation : ${F.risk}</p></div>`;
+}
+function saveSpecies(){
+  const c=document.getElementById('sf_crop');if(!c)return;
+  const libre=c.value==='__libre__';
+  const nom=libre?(document.getElementById('sf_name').value||'').trim():'';
+  if(libre&&!nom){toast('Donne un nom à ta culture.');return;}
+  const sid=newSpeciesId(libre?nom:c.value);
+  const sp=speciesDraft(sid);
+  state.species[sid]=sp;
+  save();rebuildPlants();
+  closeSpeciesForm();
+  /* rouvrir le formulaire de plantation sur la culture qui vient d'être créée : c'est la
+     raison même pour laquelle on l'a créée. */
+  openPlantForm();
+  const ssel=document.getElementById('pf_species');
+  if(ssel&&Array.from(ssel.options).some(o=>o.value===sid)){ssel.value=sid;onSpeciesChange();}
+  toast(`« ${sp.name} » ajoutée. Renseigne maintenant sa plantation.`);
+}
+function delSpecies(sid){
+  const sp=state.species[sid];if(!sp)return;
+  if(speciesInUse(sid)){toast('Cette culture est encore plantée.');return;}
+  if(!confirm(`Supprimer la culture « ${sp.name} » ?\n\nElle n'est plantée nulle part : rien d'autre n'est perdu.`))return;
+  delete state.species[sid];
+  save();rebuildPlants();openSpeciesForm();
+  toast('Culture supprimée.');
 }
 /* La variété commande les jours à maturité : on les affiche, on ne les demande pas.
    Le champ manuel n'apparaît que pour une variété absente du catalogue. */
@@ -3972,7 +4814,7 @@ function savePlanting(){
     toast('Plantation créée.');
   }
   closePlantForm();clearDG();rebuildPlants();save();
-  renderPlants();renderToday();renderPlan();fillInspSelect();renderInspForm();fillMixSelect();renderMix();renderBeds();renderRot();
+  renderPlants();renderToday();renderPlan();fillInspSelect();renderInspForm();fillMixSelect();renderMix();renderBeds();renderRot();renderHarvest();
 }
 function duplicatePlanting(id){
   const src=state.plantings.find(x=>x.id===id);if(!src)return;
@@ -3983,7 +4825,7 @@ function duplicatePlanting(id){
     label:((src.label||state.species[src.species].name)+' (2)'),builtin:false});
   state.plantings.push(copy);
   clearDG();rebuildPlants();save();
-  renderPlants();fillInspSelect();fillMixSelect();
+  renderPlants();fillInspSelect();fillMixSelect();renderMix();renderHarvest();
   toast('Plantation dupliquée dans la même parcelle — déplace-la si besoin.');
   openPlantForm(copy.id);
 }
@@ -4044,13 +4886,13 @@ function removePlant(id){
   if(!confirm(`Retirer « ${p.name} » du jardin ?\n\nIl disparaît du Programme, du plan 14 jours et du Doseur.\nSon journal et ses inspections sont conservés : tu pourras le remettre depuis l'onglet Inspection.`))return;
   if(state.removed.indexOf(id)<0)state.removed.push(id);
   save();clearDG();
-  fillInspSelect();renderInspForm();renderTrash();
+  fillInspSelect();renderInspForm();renderTrash();renderHarvest();
   fillMixSelect();renderMix();renderPlants();renderToday();renderPlan();
 }
 function restorePlant(id){
   state.removed=state.removed.filter(x=>x!==id);
   save();clearDG();
-  fillInspSelect();renderInspForm();renderTrash();
+  fillInspSelect();renderInspForm();renderTrash();renderHarvest();
   fillMixSelect();renderMix();renderPlants();renderToday();renderPlan();
 }
 function renderTrash(){
@@ -4081,7 +4923,9 @@ function registerSW(){ // service worker : met l'app en cache pour un fonctionne
 /* INIT */
 migrateModel();rebuildPlants();
 document.getElementById('canSize').value=state.can;
-{const cu=document.getElementById('canUnit');if(cu)cu.value=state.canUnit;}
+/* n'affecter que si l'unité est connue : une valeur absente de la liste laisserait le menu
+   VIDE (selectedIndex −1) au lieu de retomber sur « litres ». */
+{const cu=document.getElementById('canUnit');if(cu&&UNITS[state.canUnit])cu.value=state.canUnit;}
 fillMixSelect();renderMix();renderPlants();renderLog();renderToday();renderSeeds();
 fillInspSelect();renderInspForm();renderTrash();
 renderHarvest();setSeasonPane(state.seasonPane||'semis');renderSoilPrinciples();

@@ -39,8 +39,10 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
    listes multi-plantes) ouvre l'onglet Plantes, déplie la catégorie parente, ouvre la fiche
    (accordéon), centre la page dessus (`scrollIntoView` block:center) et la surligne
    (`.card.flash`).
-2. **Plantes** — **13 cultures + arbustes déco** suivis, regroupés en **catégories
-   repliables** (`CATEGORIES`, état d'ouverture mémorisé dans `localStorage` clé `catFold`).
+2. **Plantes** — plantations suivies, regroupées en **catégories repliables** dérivées de la
+   FAMILLE de l'espèce (`CAT_ORDER`, état d'ouverture mémorisé dans `localStorage` clé
+   `catFold`). Le bandeau compte les plantations et les cultures au catalogue — plus de
+   nombre figé, le catalogue s'enrichit depuis l'app (voir « Ajouter une culture »).
    Fiches en **accordéon** : une seule ouverte à la fois (`toggle`/`openPlant`).
    Chaque fiche : jauge de stade, temps par phase, arrosage, recette d'engrais calculée,
    **« À vérifier → solution »** (champ `checks` par plante), surveillance, entretien,
@@ -93,6 +95,39 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
   relue dans `importData()`. Vérifier les deux sens.
 - **Duplication d'une plantation** : conserver la parcelle d'origine, sinon la copie hérite
   de la configuration par défaut (terre / aucune couverture / drainage).
+
+### ⚠️ Listes déroulantes — six pièges, tous rencontrés en vrai
+1. **`color-scheme:dark` sur `:root` est OBLIGATOIRE.** L'interface est sombre mais la page se
+   déclarait claire : le navigateur dessinait tous ses widgets natifs en clair — liste
+   déroulante des `<select>`, calendrier des `<input type=date>`, flèches des `type=number`,
+   barres de défilement. Le texte des options héritant de la couleur claire du `<select>`,
+   **toutes les listes s'ouvraient blanc sur blanc**. `select option,select optgroup` sont en
+   plus peints explicitement, tous les moteurs ne dérivant pas la couleur du parent.
+2. **`appearance:none` impose un `padding-right`.** Le chevron est une image de fond à 13 px du
+   bord ; avec le padding commun de 12 px les libellés longs passaient dessous. 34 px +
+   `text-overflow:ellipsis`.
+3. **Reconstruire une liste efface la sélection.** `fillInspSelect`, `fillMixSelect` et la liste
+   du Journal doivent toutes relire `sel.value` avant, et le restaurer s'il existe encore.
+   `fillMixSelect` est rappelée à chaque création / duplication / suppression / retrait /
+   restauration : sans cela le Doseur affichait la recette d'une AUTRE plante.
+4. **Ne jamais remplir une liste « une seule fois ».** Le `if(!sel.options.length)` du Journal
+   la figeait sur l'état du démarrage : plantation créée ensuite invisible, plantation
+   supprimée toujours proposée. Toute liste alimentée par `activePlants()` se reconstruit à
+   chaque rendu — et `renderHarvest()` doit figurer partout où `fillMixSelect()` figure.
+5. **Un menu qui re-rend son propre conteneur doit mémoriser le repli.** Les menus de parcelle
+   appellent `setBedField` → `renderBeds()` : les sous-sections `<details>` se refermaient au
+   moment même où l'on validait un choix. Clés `state.bedFold['<parcelle>.<section>']`
+   (`sol` / `plantes` / `histo`), même convention que `state.plantFold`. Piège dans le piège :
+   le défaut de « Analyse du sol » dépendait de `(v||b.om)` — régler la matière organique
+   faisait donc basculer la section de « ouverte » à « fermée » sur son propre changement.
+6. **Ne jamais affecter `.value` sans vérifier que l'option existe** : `selectedIndex` passe à
+   −1 et le menu s'affiche **vide** au lieu de retomber sur son premier choix (cas de
+   `canUnit` restauré depuis `localStorage`).
+
+Accessoirement : chaque `<label>` porte un `for` vers l'id de son champ (taper l'étiquette
+ouvre le menu), `#canUnit` a un `aria-label` faute d'étiquette propre, et `select:disabled`
+est visiblement grisé avec un cadenas — le menu « Culture » verrouillé en édition passait
+sinon pour cassé.
 
 ## 4ante. Fiche plante : sections repliables
 `plantBody()` et `ornamentalBody()` composent la fiche avec `pgroup(p,clé,icône,titre,sous-titre,contenu,ouvertParDéfaut)` :
@@ -149,6 +184,53 @@ catégorie : ne pas l'emporter en réécrivant `plantBody()`.
   mais `byId()` continue de le résoudre et son journal + ses inspections sont conservés
   (restauration depuis l'onglet Inspection).
 
+## 4bis-oid. Oïdium des cucurbitacées : « les feuilles les plus atteintes », CHIFFRÉ
+
+Cas d'école de la règle « ne jamais donner un conseil qu'on ne sait pas appliquer ».
+L'app disait « retire les feuilles atteintes » — inapplicable : sur une courge en juillet,
+presque toutes en portent. Module dédié (constantes `OID_*` + `oidObs` / `oidCull` /
+`oidGrade` / `oidCullText` / `oidCullBlock`), placé juste avant `DIAG`.
+
+- **Seuil de retrait** (`OID_CRIT`, énoncé UNE fois, réutilisé partout) : une feuille se
+  coupe quand **plus de la moitié du limbe est blanchie** ou qu'elle a **jauni / bruni /
+  séché** sous le feutrage. En dessous, elle reste bénéficiaire : on la garde, même tachée.
+- **Plafond** (`OID_CAP`) : jamais plus du **tiers** du feuillage en une fois ; le reste
+  7 jours plus tard. Le plant perdrait plus en photosynthèse qu'il ne gagne en assainissement,
+  et les fruits découverts brûlent au soleil.
+- **Exception** (`OID_ORDER`) : ne jamais retirer une feuille qui **ombrage un fruit**.
+- **Seuil de dépistage** : 1 feuille symptomatique sur 50 vieilles feuilles, dessus ET
+  dessous → porté par la tâche météo « risque d'oïdium » du Programme.
+- ⚠️ **Test du doigt d'abord** : le blanc qui suit exactement les nervures et ne s'efface pas
+  est la **panachure argentée variétale** de beaucoup de courges — pas une maladie. Règle
+  `panachure` (sev 1, ne change RIEN) qui court-circuite tout le reste (`oidRub==='reste'`).
+  Sans elle, l'app faisait effeuiller un plant sain.
+- **Inspection** : 5 champs `oidRub` / `oidCover` / `oidTot` / `oidBad` / `oidWhere`, ajoutés
+  au seul archétype `vine`, **conditionnels** (`dep:'feutrage'`, wrapper `.depf`, `syncDeps()`)
+  — ils n'apparaissent que si le signe est coché, et se remasquent avec `markHealthy()`.
+  `syncDeps()` bascule l'attribut `hidden` sans re-rendre le formulaire : re-rendre perdrait
+  la saisie en cours.
+- **Chiffrage** (`oidCull`) : `cap = max(1, ⌊tot/3⌋)`, `today = min(bad, cap)`, `rest` pour la
+  semaine suivante. Renvoie **null** tant que les deux nombres manquent — l'app dit alors ce
+  qui lui manque au lieu d'inventer un chiffre.
+- ⚠️ **Les deux saisies se recoupent, elles ne doivent jamais se contredire à l'écran** :
+  l'échelle porte sur la feuille LA PLUS atteinte, donc `cover ∈ {p75, sec}` impose
+  `bad ≥ 1` ; symétriquement `bad > 0` impose une gravité ≥ 2 même si l'échelle est vide.
+- **Gravité** (`oidGrade`) : 1 début · 2 installé · 3 avancé. Une seule feuille très atteinte
+  n'est PAS un cas avancé : ce qui fait basculer en 3 est la **généralisation** (≥ 33 % du
+  feuillage au-delà du seuil, ou feutrage monté jusqu'au sommet). Quatre règles `DIAG`
+  mutuellement exclusives : `oidium` (étendue à préciser) · `oidium_debut` (traiter, **ne
+  rien couper** — le dire explicitement) · `oidium_installe` · `oidium_avance` (sev 3 :
+  protéger les fruits du coup de soleil, récolter, ne pas entretenir de faux espoir).
+- **Effet programme** : `feedDelta:+3` sur installé/avancé (l'excès d'azote aggrave), **aucun**
+  `waterDelta` — le problème est l'air confiné, pas le sol, et un plant assoiffé décroche plus
+  vite. Non-action délibérée.
+- **`oidCullBlock(p)`** (fiche plante, section Diagnostic) est rendu **en direct** et non figé
+  dans `fix` : l'heure de pulvérisation (`actionTiming('foliar')`) et le vent (`windOK()`)
+  changent dans la journée, le comptage non. Inversement `oidCullText()` **peut** vivre dans
+  `fix` car il ne dépend que de l'inspection — donc il se propage automatiquement au
+  Programme via `worst.fix[0]`.
+- Tâche `effeuillage|<culture>|<ts>` : les feuilles laissées par le plafond du tiers.
+
 ## 4-0. MODÈLE DE DONNÉES (⚠️ lire en premier)
 
     JARDIN
@@ -179,6 +261,46 @@ quand, et ce qu'il observe. Tout le reste — agronomie, jours à maturité, dur
 plages de pH, conventions de comptage — est une donnée du domaine, à embarquer dans l'app.
 Avant d'ajouter un champ, se demander : « le jardinier est-il la seule source possible ? »
 Si non, c'est une donnée à intégrer, pas une question à poser.
+
+### Ajouter une culture que l'app ne connaît pas (⚠️ application directe du principe)
+`makeSpecies()` fabrique une espèce complète à partir des **seules** réponses que le jardinier
+est en mesure de donner. Deux chemins, du plus court au plus long :
+- **`CROP_LIBRARY`** — 30 cultures courantes en zone 5b (haricot, concombre, poivron, laitue,
+  betterave, oignon, basilic, fraisier…). Le jardinier choisit un nom, il ne renseigne **rien**
+  d'autre : famille, architecture, jours à maturité et sensibilité au gel sont connus.
+- **Culture libre** — nom, icône, **archétype**, **famille**, jours à maturité + convention,
+  gélive ou non, vivace ou non. Rien de plus.
+
+Tout le reste est **dérivé**, jamais demandé :
+- `ARCH_MODEL[archétype]` → stades, poids des phases, durée de récolte, recette par phase,
+  intervalle d'arrosage, ensoleillement, mode de pollinisation.
+  ⚠️ **`stages` est aligné sur `MARKERS[archétype]`** : un marqueur désigne un INDICE de stade.
+  Modifier l'un sans l'autre casse toute la déduction de phase.
+- `ARCH_GUIDE[archétype]` → conseils par phase (eau / à surveiller / entretien). Génériques
+  mais vrais pour toute culture partageant cette architecture — une fiche vide serait pire.
+- `FAM_AGRO[famille]` → fréquence d'apport, plage de pH, cible d'azote. ⚠️ brassicacées : pH
+  volontairement haut (au-dessus de 7 la hernie du chou est nettement moins agressive) ;
+  fabacées : cible d'azote quasi nulle **et** la recette `vegetatif` est remplacée par `jeune`
+  (elles fixent leur azote — le forcer donne du feuillage au lieu de gousses).
+- `speciesCycle()` répartit les **jours à maturité du sachet** sur les phases qui précèdent la
+  récolte : le modèle est ancré sur le seul chiffre réel dont dispose le jardinier.
+- `resow` déduit de la sensibilité au gel et de l'archétype — aucune fenêtre de semis inventée
+  culture par culture.
+
+⚠️ Le modèle produit est **générique et l'app le dit** dans l'aperçu. C'est acceptable parce que
+`curStage = observedStage ?? modelStage` : la première inspection corrige le calendrier.
+L'aperçu (`renderSpeciesPreview`) montre EN DIRECT tout ce qui vient d'être déduit — c'est ce
+qui rend légitime de ne pas poser les questions.
+
+`newSpeciesId()` slugifie le nom et compte les collisions (jamais `Date.now()`, cf. `newBedId`).
+`speciesInUse()` interdit de supprimer une espèce encore plantée : on effacerait l'agronomie
+sous les pieds d'une culture suivie, journal et inspections compris.
+Trois familles ont été ajoutées à `FAM` **et** à `CAT_ORDER` pour couvrir le catalogue :
+`amaranthacees`, `asteracees`, `rosacees`. Toute nouvelle famille doit figurer dans les deux,
+plus dans `FAM_AGRO`, sinon elle retombe silencieusement sur « autres ».
+⚠️ La convention de comptage peut venir de l'ESPÈCE (`sp.dtmFrom`, exposé en `spDtmFrom` sur
+l'objet résolu) : nom distinct obligatoire, fusionner espèce et plantation ferait écraser la
+valeur par un null — même piège que `dtm` / `varDtm`.
 
 ### Variétés et jours à maturité
 `VARIETIES[espèce]` = catalogue `{n, dtm, from, note}`. Choisir la variété renseigne les jours
@@ -236,6 +358,64 @@ la phase courante.
 `closeTask(key)` clôt CETTE occurrence ; une situation nouvelle produit une clé nouvelle,
 donc un conseil neuf. `renderTaskArchive()` liste les conseils clos et permet de les rétablir.
 ⚠️ Tout nouveau conseil doit recevoir une clé, sinon il n'est pas clôturable.
+
+### ⚠️⚠️ Le contenu livré vit dans localStorage — toute correction est MORTE sans resync
+Piège le plus coûteux du projet, découvert en constatant qu'un correctif pourtant vérifié
+« ne changeait rien » chez l'utilisateur. `state.species` et `state.plantings` sont construits
+**une seule fois** (`if(!state.species...)`) puis persistés. Corriger une table du code
+— agronomie, soins de phase, `checks`, `watch` — n'a donc **aucun effet** sur une installation
+existante : elle relit sa copie. Le soin « étête ~1 mois avant le gel » continuait de sortir
+tous les jours parce que la copie enregistrée ne portait pas la fenêtre qu'on venait d'ajouter.
+`syncSeedContent()` (appelée par `migrateModel`) resynchronise à chaque démarrage **ce qui
+appartient à l'app** : les espèces livrées (agronomie complète) et le contenu éditorial des
+plantations d'origine (`water`, `watch`, `structural`, `checks`, `flag`, `sub`). Elle ne touche
+JAMAIS les cultures ajoutées par le jardinier (`custom`) ni ses données (parcelle, dates,
+variété, effectif, espacement, volume, journal, inspections, récoltes).
+⚠️ **Toute correction future d'une table de contenu ne se propagera que par là.** Et un test
+qui part d'un `localStorage` vide ne peut PAS voir ce défaut : le rejouer avec un catalogue
+rétrogradé fait partie de la vérification.
+
+### ⚠️ Pertinence temporelle du Programme — audit complet
+Chaque entrée du Programme doit être vraie **au moment où elle s'affiche**. Sept défauts
+corrigés, tous vérifiés en rejouant l'app à huit dates de l'année (mai → janvier) :
+
+1. **Soins de phase sans condition de date.** « Étête ~1 mois avant le gel » sortait fin
+   juillet, à 71 jours du gel. Un soin porte désormais un marqueur : `when` (fenêtre datée ou
+   d'état, `CARE_WHEN`), `note` (un fait, jamais une tâche — « patience, la maturation est
+   longue »), `auto` (un changement de régime que l'app applique DÉJÀ elle-même — « passe au
+   P-K » : la recette a changé toute seule, il n'y a rien à faire). `careDue()` est la seule
+   source des tâches ; la fiche plante, elle, montre tout et dit l'état de chacun (`careState`).
+2. **Seul le PREMIER soin de la phase était émis.** Quand `care[0]` décrivait un régime, le
+   vrai geste restait invisible : « coupe le scape » (ail) et « pince les gourmands » (tomate)
+   n'ont jamais été proposés. Tous les soins dus sont émis, et le **geste est le titre** —
+   trois lignes « Tomate · Végétatif » identiques ne disaient pas laquelle restait à faire.
+3. **Les `structural` fuyaient en tâches.** `phaseInfo().care` retombe sur `p.structural` quand
+   l'espèce n'a pas de soins pour ce stade : le buis sortait trois « tâches » par jour, toute
+   l'année. `careList()` lit la phase **directement**, jamais le repli.
+4. **Rien ne vérifiait que la culture était semée.** Une plantation à date de semis future
+   était placée au stade 0 : l'app réclamait eau et engrais pour une graine pas encore en
+   terre. `notYetSown()`, appliqué à l'arrosage, l'engrais, le Ca/Mg, les soins, l'espacement.
+5. **La saison de plein air ne se terminait jamais.** En novembre l'app demandait encore
+   d'arroser le thym, de récolter des herbes et calculait un déficit d'ET₀. `outdoorDormant()`
+   (novembre–mars, ou gel meurtrier passé) coupe tout **pour la pleine terre seulement** : un
+   pot rentré garde son programme. `lowLightRest()` arrête en plus les apports des pots de
+   novembre à février — la lumière ne soutient plus de croissance et les sels s'accumulent.
+6. **Un apport la veille d'un gel meurtrier.** Aucune fertilisation ni Ca/Mg tant qu'un gel est
+   annoncé pour une plante encore dehors ; l'alerte gel le dit explicitement.
+7. **Textes et listes codés en dur.** L'alerte gel énumérait « rentrer les pots gélifs » en
+   citant un melon semé en pleine terre ; le plan 14 j affichait « protéger melon/pastèque/
+   ananas, rentrer les citrons » même pour des cultures finies, retirées ou jamais plantées, et
+   ignorait toute culture ajoutée depuis. Les deux partent maintenant de `plantsAtRisk()` et
+   distinguent ce qui se **couvre** (en terre) de ce qui se **rentre** (en contenant) —
+   `overwinterTasks` ne propose plus de rentrer un melon de pleine terre, ni un plant mort.
+   Même correction pour `careTimingKind`, indexé sur les identifiants d'origine : aucune
+   plantation créée dans l'app ne recevait sa fenêtre horaire de pollinisation ou de récolte.
+
+Effets de bord corrigés au passage : le thym était marqué **annuel** (il est rustique en zone
+5b) — « cycle terminé » sortait chaque hiver pour une plante bien vivante, et son arrosage
+était coupé définitivement ; une migration corrige les catalogues déjà en `localStorage`.
+Hors saison, les dix lignes « cycle terminé » sont regroupées en un seul renvoi vers le bilan
+de saison, tant qu'il n'est pas fait.
 
 ### Pertinence temporelle (⚠️ règle de conception)
 Un conseil ne s'affiche que dans sa fenêtre utile. Cas de référence : « rentrer les pots
@@ -406,7 +586,7 @@ des parcelles créées dans la même milliseconde, et rattachait toutes les cult
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v31`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v36`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.
