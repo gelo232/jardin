@@ -94,6 +94,39 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
 - **Duplication d'une plantation** : conserver la parcelle d'origine, sinon la copie hérite
   de la configuration par défaut (terre / aucune couverture / drainage).
 
+### ⚠️ Listes déroulantes — six pièges, tous rencontrés en vrai
+1. **`color-scheme:dark` sur `:root` est OBLIGATOIRE.** L'interface est sombre mais la page se
+   déclarait claire : le navigateur dessinait tous ses widgets natifs en clair — liste
+   déroulante des `<select>`, calendrier des `<input type=date>`, flèches des `type=number`,
+   barres de défilement. Le texte des options héritant de la couleur claire du `<select>`,
+   **toutes les listes s'ouvraient blanc sur blanc**. `select option,select optgroup` sont en
+   plus peints explicitement, tous les moteurs ne dérivant pas la couleur du parent.
+2. **`appearance:none` impose un `padding-right`.** Le chevron est une image de fond à 13 px du
+   bord ; avec le padding commun de 12 px les libellés longs passaient dessous. 34 px +
+   `text-overflow:ellipsis`.
+3. **Reconstruire une liste efface la sélection.** `fillInspSelect`, `fillMixSelect` et la liste
+   du Journal doivent toutes relire `sel.value` avant, et le restaurer s'il existe encore.
+   `fillMixSelect` est rappelée à chaque création / duplication / suppression / retrait /
+   restauration : sans cela le Doseur affichait la recette d'une AUTRE plante.
+4. **Ne jamais remplir une liste « une seule fois ».** Le `if(!sel.options.length)` du Journal
+   la figeait sur l'état du démarrage : plantation créée ensuite invisible, plantation
+   supprimée toujours proposée. Toute liste alimentée par `activePlants()` se reconstruit à
+   chaque rendu — et `renderHarvest()` doit figurer partout où `fillMixSelect()` figure.
+5. **Un menu qui re-rend son propre conteneur doit mémoriser le repli.** Les menus de parcelle
+   appellent `setBedField` → `renderBeds()` : les sous-sections `<details>` se refermaient au
+   moment même où l'on validait un choix. Clés `state.bedFold['<parcelle>.<section>']`
+   (`sol` / `plantes` / `histo`), même convention que `state.plantFold`. Piège dans le piège :
+   le défaut de « Analyse du sol » dépendait de `(v||b.om)` — régler la matière organique
+   faisait donc basculer la section de « ouverte » à « fermée » sur son propre changement.
+6. **Ne jamais affecter `.value` sans vérifier que l'option existe** : `selectedIndex` passe à
+   −1 et le menu s'affiche **vide** au lieu de retomber sur son premier choix (cas de
+   `canUnit` restauré depuis `localStorage`).
+
+Accessoirement : chaque `<label>` porte un `for` vers l'id de son champ (taper l'étiquette
+ouvre le menu), `#canUnit` a un `aria-label` faute d'étiquette propre, et `select:disabled`
+est visiblement grisé avec un cadenas — le menu « Culture » verrouillé en édition passait
+sinon pour cassé.
+
 ## 4ante. Fiche plante : sections repliables
 `plantBody()` et `ornamentalBody()` composent la fiche avec `pgroup(p,clé,icône,titre,sous-titre,contenu,ouvertParDéfaut)` :
 📊 État (ouverte) · 💧 Arrosage · ⚗️ Nutrition · 🔎 Diagnostic & contrôles · 🛠️ Entretien ·
@@ -453,7 +486,7 @@ des parcelles créées dans la même milliseconde, et rattachait toutes les cult
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v32`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v33`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.

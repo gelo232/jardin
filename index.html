@@ -24,6 +24,12 @@
   .bi-journal-text::before{content:"\f444"}
   .bi-chevron-right::before{content:"\f285"}
   :root{
+    /* ⚠️ L'interface est sombre : SANS cette déclaration, le navigateur considère la page
+       comme claire et dessine tous ses widgets natifs en clair — liste déroulante des
+       <select>, calendrier des <input type=date>, flèches des <input type=number>,
+       barres de défilement. Le texte des options héritant de la couleur claire du select,
+       elles s'affichaient blanc sur blanc : TOUS les menus étaient illisibles à l'ouverture. */
+    color-scheme:dark;
     /* palette recalée sur kgw.afronim.com : navy #1c2341 + cyan #6ec6d8 + blanc */
     --paper:#10172e; --card:#1c2341; --card-2:#262f54;
     --ink:#eef3fb; --ink-soft:#9fb1d0; --line:#33406b;
@@ -219,7 +225,17 @@
   .fgrp-b{padding:0 14px 12px}
   /* champ conditionnel : n'apparaît que si le signe dont il dépend est coché */
   .depf{border-left:2px solid var(--leaf);padding-left:11px;margin-left:1px}
-  select{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' stroke='%239fb1d0' stroke-width='1.6' fill='none'/></svg>");background-repeat:no-repeat;background-position:right 13px center}
+  /* ⚠️ padding-right : le chevron est dessiné à 13 px du bord sur 12 px de large. Avec le
+     padding commun de 12 px, les libellés longs (« Bac du fond — 🪴bac · 🍂paillis · … »)
+     passaient SOUS la flèche. Il faut réserver la place du chevron. */
+  select{padding-right:34px;text-overflow:ellipsis;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' stroke='%239fb1d0' stroke-width='1.6' fill='none'/></svg>");background-repeat:no-repeat;background-position:right 13px center}
+  /* la liste déroulante native n'hérite pas toujours du select : on la peint explicitement */
+  select option,select optgroup{background:var(--card-2);color:var(--ink)}
+  select optgroup{font-weight:700;color:var(--ink-soft)}
+  /* un menu verrouillé doit SE VOIR : sans cela il paraît simplement cassé quand on le touche */
+  select:disabled{opacity:.55;cursor:not-allowed;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 16 16'><path d='M4 7V5a4 4 0 018 0v2h1v8H3V7h1zm2 0h4V5a2 2 0 10-4 0v2z' fill='%239fb1d0'/></svg>")}
   .btn{display:block;width:100%;text-align:center;background:var(--leaf);color:#07131f;border:0;border-radius:11px;padding:13px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;margin-top:4px}
   .btn.ghost{background:transparent;color:var(--leaf);border:1px solid var(--leaf)}
   .btn.sm{padding:9px;font-size:13px;width:auto;display:inline-block;padding-left:16px;padding-right:16px}
@@ -415,12 +431,12 @@
     <p class="eyebrow">À partir de tes sels purs</p>
     <h2 class="title">Doseur d'engrais</h2>
     <div class="card card-pad">
-      <div class="field"><label>Pour quelle plante / quel objectif ?</label><select id="mixPlant" onchange="renderMix()"></select></div>
-      <div class="field" style="margin-bottom:0"><label>Volume de l'arrosoir</label>
+      <div class="field"><label for="mixPlant">Pour quelle plante / quel objectif ?</label><select id="mixPlant" onchange="renderMix()"></select></div>
+      <div class="field" style="margin-bottom:0"><label for="canSize">Volume de l'arrosoir</label>
         <div style="display:flex;gap:8px">
           <input type="number" id="canSize" min="0.25" step="0.25" value="10" inputmode="decimal"
                  placeholder="ex. 8" oninput="setCan()" style="flex:1">
-          <select id="canUnit" onchange="setCan()" style="width:auto;flex:none">
+          <select id="canUnit" aria-label="Unité du volume d'arrosoir" onchange="setCan()" style="width:auto;flex:none">
             <option value="L">litres</option>
             <option value="galUS">gallons US</option>
             <option value="galImp">gallons imp.</option>
@@ -482,8 +498,8 @@
       </div>
       <div class="field" style="margin-bottom:10px"><label for="hvQual">Qualité</label>
         <select id="hvQual">
-          <option value="">—</option><option>Excellente</option><option>Bonne</option>
-          <option>Moyenne</option><option>Décevante</option></select></div>
+          <option value="">—</option><option value="Excellente">Excellente</option><option value="Bonne">Bonne</option>
+          <option value="Moyenne">Moyenne</option><option value="Décevante">Décevante</option></select></div>
       <div class="field" style="margin-bottom:10px"><label for="hvNote">Note</label>
         <input type="text" id="hvNote" placeholder="goût, calibre, problème rencontré…"></div>
       <button class="btn" onclick="addHarvest()">＋ Enregistrer la récolte</button>
@@ -2318,9 +2334,9 @@ function histForm(bedId){
   const y=new Date().getFullYear();
   const years=[];for(let k=1;k<=6;k++)years.push(y-k);
   return `<div id="hist_${bedId}" style="display:none;border:1px solid var(--line);border-radius:11px;padding:11px;margin-top:10px;background:var(--card-2)">
-    <div class="field" style="margin-bottom:9px"><label>Année</label>
+    <div class="field" style="margin-bottom:9px"><label for="hy_${bedId}">Année</label>
       <select id="hy_${bedId}">${years.map(v=>`<option value="${v}">${v}</option>`).join('')}</select></div>
-    <div class="field" style="margin-bottom:9px"><label>Famille cultivée</label>
+    <div class="field" style="margin-bottom:9px"><label for="hf_${bedId}">Famille cultivée</label>
       <select id="hf_${bedId}">${Object.entries(FAM).filter(([k])=>k!=='autres')
         .map(([k,f])=>`<option value="${k}">${f.ic} ${f.lab} — ${f.ex.split(',')[0]}…</option>`).join('')}</select></div>
     <div style="display:flex;gap:8px">
@@ -2386,6 +2402,15 @@ function renderBeds(){
     const age=b.phDate?daysSince(b.phDate+'T00:00'):null;
     const stale=age!=null&&age>400;
     const open=state.bedFold[b.id]!==false;   // repli mémorisé, ouvert par défaut
+    /* ⚠️ Les SOUS-sections doivent mémoriser leur repli elles aussi. Chacun de leurs menus
+       (medium, couverture, arrosage, matière organique, rattachement d'une plante) appelle
+       une fonction qui re-rend toute la liste des parcelles : sans mémorisation, la section
+       se refermait au moment même où l'on validait un choix, et il fallait la rouvrir pour
+       le suivant. Pire, régler « Matière organique » basculait le défaut de la section
+       « Analyse du sol » d'ouvert à fermé — elle se claquait sur son propre changement.
+       Même convention que state.plantFold : clé « <parcelle>.<section> ». */
+    const sub=(k,def)=>{const s=state.bedFold[b.id+'.'+k];return (s===undefined?def:s)?' open':'';};
+    const subT=k=>`ontoggle="setBedFold('${b.id}.${k}',this.open)"`;
     // résumé toujours visible : l'essentiel sans déplier
     const M=MEDIUM[b.medium||'terre']||MEDIUM.terre,CV=COVER[b.cover||'aucune']||COVER.aucune,W=WATERING[b.watering||'drainage']||WATERING.drainage;
     const chips=[
@@ -2410,7 +2435,7 @@ function renderBeds(){
             <input type="text" id="rni_${b.id}" value="${b.name}"></div>
           <button class="btn sm" style="width:100%" onclick="renameBed('${b.id}')">✓ Valider le nom</button></div>
 
-        <details class="fgrp" ${(v||b.om)?'':'open'}>
+        <details class="fgrp"${sub('sol',!(v||b.om))} ${subT('sol')}>
           <summary>🧪 Analyse du sol <span class="fg-n">${v?v.t:'pH à renseigner'}</span></summary>
           <div class="fgrp-b">
             <div class="field" style="margin-bottom:10px"><label>pH mesuré</label>
@@ -2419,9 +2444,9 @@ function renderBeds(){
             <div class="field" style="margin-bottom:10px"><label>Date du test</label>
               <input type="date" value="${b.phDate||''}" max="${today}"
                 onchange="setBedField('${b.id}','phDate',this.value)"></div>
-            <div class="field" style="margin-bottom:10px"><label>Medium</label>
+            <div class="field" style="margin-bottom:10px"><label for="bm_${b.id}">Medium</label>
         <div class="hint">Décide de la base de calcul du besoin en eau, de la captation de la pluie, et de l'applicabilité de la rotation et du pH.</div>
-        <select onchange="setBedField('${b.id}','medium',this.value)">
+        <select id="bm_${b.id}" onchange="setBedField('${b.id}','medium',this.value)">
           ${Object.entries(MEDIUM).map(([k,m])=>`<option value="${k}"${(b.medium||'terre')===k?' selected':''}>${m.ic} ${m.lab} (${m.unit})</option>`).join('')}</select></div>
       <div class="field" style="margin-bottom:10px"><label>${(MEDIUM[b.medium||'terre']||MEDIUM.terre).basis==='surface'?'Superficie (m²)':'Volume de substrat (L)'}</label>
         <input type="number" min="0" step="0.1" inputmode="decimal" value="${((MEDIUM[b.medium||'terre']||MEDIUM.terre).basis==='surface'?b.area:b.volume)||''}" placeholder="ex. 2,5"
@@ -2432,18 +2457,18 @@ function renderBeds(){
           onchange="setBedField('${b.id}','sun',parseFloat(this.value)||null)">
         ${(()=>{const sv=sunVerdict(isFinite(+b.sun)&&b.sun!==''?+b.sun:null);
           return sv?`<div class="hint" style="margin-top:6px;color:${sv.lvl==='bon'?'var(--leaf-d)':sv.lvl==='limite'?'var(--amber)':'#eb8981'}">${sv.ic} ${sv.txt}</div>`:''})()}</div>
-      <div class="field" style="margin-bottom:10px"><label>Couverture du sol</label>
+      <div class="field" style="margin-bottom:10px"><label for="bc_${b.id}">Couverture du sol</label>
         <div class="hint">Toute couverture fait barrière aux éclaboussures qui remontent les spores sur les feuilles basses. Un géotextile est perméable : il ne bloque que la lumière.</div>
-        <select onchange="setBedField('${b.id}','cover',this.value)">
+        <select id="bc_${b.id}" onchange="setBedField('${b.id}','cover',this.value)">
           ${Object.entries(COVER).map(([k,c])=>`<option value="${k}"${(b.cover||'aucune')===k?' selected':''}>${c.ic} ${c.lab}</option>`).join('')}</select></div>
-      <div class="field" style="margin-bottom:10px"><label>Arrosage</label>
-        <select onchange="setBedField('${b.id}','watering',this.value)">
+      <div class="field" style="margin-bottom:10px"><label for="bw_${b.id}">Arrosage</label>
+        <select id="bw_${b.id}" onchange="setBedField('${b.id}','watering',this.value)">
           ${Object.entries(WATERING).map(([k,w])=>`<option value="${k}"${(b.watering||'drainage')===k?' selected':''}>${w.ic} ${w.lab}</option>`).join('')}</select></div>
       ${(b.watering==='reservoir')?`<div class="field" style="margin-bottom:10px"><label>Capacité du réservoir (L)</label>
         <input type="number" min="0" step="0.5" value="${b.reservoirL||''}" placeholder="ex. 3"
           onchange="setBedField('${b.id}','reservoirL',parseFloat(this.value)||null)"></div>`:''}
-      <div class="field" style="margin-bottom:10px"><label>Matière organique</label>
-              <select onchange="setBedField('${b.id}','om',this.value)">
+      <div class="field" style="margin-bottom:10px"><label for="bo_${b.id}">Matière organique</label>
+              <select id="bo_${b.id}" onchange="setBedField('${b.id}','om',this.value)">
                 ${[['','— non évaluée —'],['faible','Faible : terre pâle, dure, se compacte'],['moyenne',"Moyenne : terre brune, s'émiette"],['bonne','Bonne : terre foncée, souple, vers de terre']]
                   .map(([k,l])=>`<option value="${k}"${(b.om||'')===k?' selected':''}>${l}</option>`).join('')}</select></div>
             ${v?`<div class="dg s${v.lvl==='bon'?1:3}">
@@ -2455,7 +2480,7 @@ function renderBeds(){
           </div>
         </details>
 
-        <details class="fgrp">
+        <details class="fgrp"${sub('plantes',false)} ${subT('plantes')}>
           <summary>🌿 Plantes de la parcelle <span class="fg-n">${ps.length||'aucune'}</span></summary>
           <div class="fgrp-b">
             ${ps.length?ps.map(p=>{
@@ -2467,15 +2492,15 @@ function renderBeds(){
                 <div class="note" style="margin-top:3px">${fam.ic} ${fam.lab}${fit?` · <span style="color:${fit.ok?'var(--leaf-d)':'var(--amber)'}">${fit.txt}</span>`:''}</div>
               </div>`;}).join('')
             :'<p class="note" style="margin:0 0 8px">Aucune plante rattachée. Sans rattachement, ni le pH ni la rotation ne peuvent être vérifiés pour cette zone.</p>'}
-            ${unassigned.length?`<div class="field" style="margin:10px 0 0"><label>Rattacher une plante</label>
-              <select onchange="if(this.value){assignPlant(this.value,'${b.id}');this.value=''}">
+            ${unassigned.length?`<div class="field" style="margin:10px 0 0"><label for="ba_${b.id}">Rattacher une plante</label>
+              <select id="ba_${b.id}" onchange="if(this.value){assignPlant(this.value,'${b.id}');this.value=''}">
                 <option value="">— choisir —</option>
                 ${unassigned.map(p=>`<option value="${p.id}">${p.icon} ${p.name}</option>`).join('')}</select></div>`
               :'<p class="note" style="margin:8px 0 0">Toutes les cultures de pleine terre sont déjà rattachées.</p>'}
           </div>
         </details>
 
-        <details class="fgrp" ${warns.length?'open':''}>
+        <details class="fgrp"${sub('histo',warns.length>0)} ${subT('histo')}>
           <summary>🔄 Historique & rotation <span class="fg-n">${(b.history||[]).length} année${(b.history||[]).length>1?'s':''}${warns.length?' · alerte':''}</span></summary>
           <div class="fgrp-b">
             ${warns.length?warns.map(w=>`<div class="flag" style="margin-bottom:10px">🔄 <b>Rotation non respectée</b> — ${FAM[w.fam].lab} déjà cultivée ici en ${w.last} (il y a ${w.gap} an${w.gap>1?'s':''}). ${FAM[w.fam].risk} Vise 3 ans d'écart.</div>`).join(''):''}
@@ -3499,9 +3524,15 @@ function setCan(){const v=parseFloat(document.getElementById('canSize').value);
   const u=document.getElementById('canUnit');if(u&&UNITS[u.value])state.canUnit=u.value;
   if(isFinite(v)&&v>0)state.can=v;
   save();renderMix();renderPlants()}
-function fillMixSelect(){const sel=document.getElementById('mixPlant');
+/* ⚠️ Reconstruire la liste ne doit pas déplacer le choix de l'utilisateur : cette fonction est
+   rappelée à chaque création, duplication, suppression, retrait ou restauration de plantation.
+   Sans mémorisation, le Doseur retombait sur la première plante et affichait la recette d'une
+   AUTRE culture que celle qu'on venait de doser. Même règle que fillInspSelect(). */
+function fillMixSelect(){const sel=document.getElementById('mixPlant');if(!sel)return;
+  const cur=sel.value;
   sel.innerHTML=activePlants().filter(p=>!p.ornamental).map(p=>`<option value="plant:${p.id}">${p.icon} ${p.name}</option>`).join('')
-    +'<optgroup label="Objectifs génériques">'+Object.entries(RECIPES).map(([k,r])=>`<option value="recipe:${k}">${r.name}</option>`).join('')+'</optgroup>'}
+    +'<optgroup label="Objectifs génériques">'+Object.entries(RECIPES).map(([k,r])=>`<option value="recipe:${k}">${r.name}</option>`).join('')+'</optgroup>';
+  if(cur&&Array.from(sel.options).some(o=>o.value===cur))sel.value=cur;}
 function renderMix(){
   const val=document.getElementById('mixPlant').value;let r,title,applyNote='';
   if(val.startsWith('plant:')){const p=byId(val.slice(6));r=curRecipe(p);title=p.icon+' '+p.name+' · '+p.stages[curStage(p)];
@@ -3740,15 +3771,15 @@ function renderInspForm(){
     }
     if(f.t==='multi')return `<div class="field"><label>${f.lab}</label>${hint}
       ${f.opts.map(([v,l])=>`<label class="chk ${signs.includes(v)?'on':''}"><input type="checkbox" value="${v}" ${signs.includes(v)?'checked':''} onchange="this.parentNode.classList.toggle('on',this.checked);syncDeps()"> <span>${l}</span></label>`).join('')}</div>`;
-    if(f.t==='sel')return `<div class="field"><label>${f.lab}</label>${hint}
+    if(f.t==='sel')return `<div class="field"><label for="if_${f.k}">${f.lab}</label>${hint}
       <select id="if_${f.k}">${f.opts.map(([v,l])=>`<option value="${v}"${(i[f.k]||'')===v?' selected':''}>${l}</option>`).join('')}</select></div>`;
-    if(f.t==='num')return `<div class="field"><label>${f.lab}</label>${hint}
+    if(f.t==='num')return `<div class="field"><label for="if_${f.k}">${f.lab}</label>${hint}
       <input type="number" id="if_${f.k}" inputmode="decimal" step="any" min="0"${f.max?` max="${f.max}"`:''} placeholder="${f.ph||''}" value="${i[f.k]!=null?i[f.k]:''}"></div>`;
     if(f.t==='info')return `<div class="field"><label>${f.lab}</label><p class="note" style="margin:0">${f.txt}</p></div>`;
-    if(f.t==='date')return `<div class="field"><label>${f.lab}</label>${hint}
+    if(f.t==='date')return `<div class="field"><label for="if_${f.k}">${f.lab}</label>${hint}
       <input type="date" id="if_${f.k}" value="${i.date||today}" max="${today}"></div>`;
     if(f.t==='multi'&&!f.opts.length)return '';
-    return `<div class="field"><label>${f.lab}</label>${hint}
+    return `<div class="field"><label for="if_${f.k}">${f.lab}</label>${hint}
       <textarea id="if_${f.k}" placeholder="Ce que tu remarques et qui n'entre dans aucune case.">${i[f.k]||''}</textarea></div>`;
   };
   /* Champ conditionnel (`dep`) : une question de détail ne s'affiche que si le signe dont
@@ -3953,9 +3984,15 @@ function addHarvest(){
 }
 function delHarvest(i){state.harvest.splice(i,1);save();renderHarvest();}
 function renderHarvest(){
+  /* ⚠️ La liste était remplie UNE SEULE FOIS (« si elle est vide »), donc figée sur l'état du
+     démarrage : une plantation créée ensuite n'apparaissait jamais, une plantation supprimée
+     y restait proposée, et un renommage n'était pas répercuté. On reconstruit à chaque rendu
+     en conservant la sélection en cours, comme fillInspSelect() et fillMixSelect(). */
   const sel=document.getElementById('hvPlant');
-  if(sel&&!sel.options.length){
+  if(sel){
+    const cur=sel.value;
     sel.innerHTML='<option value="">— choisir —</option>'+activePlants().map(p=>`<option value="${p.id}">${p.icon} ${p.name}</option>`).join('');
+    if(cur&&Array.from(sel.options).some(o=>o.value===cur))sel.value=cur;
   }
   const dt=document.getElementById('hvDate');if(dt&&!dt.value)dt.value=new Date().toISOString().slice(0,10);
   const el=document.getElementById('hvList');if(!el)return;
@@ -4082,28 +4119,29 @@ function openPlantForm(id){
   const today=new Date().toISOString().slice(0,10);
   el.innerHTML=`<div class="card card-pad">
     <div style="font-weight:800;font-size:15px;margin-bottom:12px">${pl?'✏️ Modifier la plantation':'＋ Nouvelle plantation'}</div>
-    <div class="field"><label>Culture</label>
+    <div class="field"><label for="pf_species">Culture</label>
       <div class="hint">L'agronomie (stades, durées, recettes, pH visé) vient de l'espèce. Une même culture peut être plantée dans plusieurs parcelles : crée simplement une plantation par emplacement.</div>
-      <select id="pf_species" ${pl?'disabled':''} onchange="onSpeciesChange()">${sps.map(sp=>`<option value="${sp.id}"${pl&&pl.species===sp.id?' selected':''}>${sp.icon} ${sp.name}</option>`).join('')}</select></div>
-    <div class="field"><label>Emplacement (nom court)</label>
+      <select id="pf_species" ${pl?'disabled':''} onchange="onSpeciesChange()">${sps.map(sp=>`<option value="${sp.id}"${pl&&pl.species===sp.id?' selected':''}>${sp.icon} ${sp.name}</option>`).join('')}</select>
+      ${pl?`<div class="hint" style="margin-top:6px">🔒 <b>Verrouillé</b> — l'espèce ne se change pas après coup : journal, inspections et récoltes de cette plantation sont rattachés à cette agronomie. Pour une autre culture, crée une nouvelle plantation.</div>`:''}</div>
+    <div class="field"><label for="pf_label">Emplacement (nom court)</label>
       <div class="hint">Ce qui distingue cette plantation des autres de la même culture : « sous les arbres », « bac du fond »…</div>
       <input type="text" id="pf_label" placeholder="ex. bac du fond" value="${pl&&pl.label?pl.label.replace(/"/g,'&quot;'):''}"></div>
-    <div class="field"><label>Parcelle</label>
+    <div class="field"><label for="pf_bed">Parcelle</label>
       <div class="hint">Une culture appartient à une parcelle : c'est elle qui porte le medium, la couverture du sol et le mode d'arrosage. Crée-la d'abord dans Saison › Sol si elle n'existe pas.</div>
       <select id="pf_bed">${state.beds.length?state.beds.map(b=>{const M=MEDIUM[b.medium||'terre']||MEDIUM.terre,C=COVER[b.cover||'aucune']||COVER.aucune,W=WATERING[b.watering||'drainage']||WATERING.drainage;
         return `<option value="${b.id}"${pl&&pl.bed===b.id?' selected':''}>${b.name} — ${M.ic}${M.lab} · ${C.ic}${C.lab} · ${W.ic}${W.lab}</option>`}).join('')
         :'<option value="">— aucune parcelle : crée-en une dans Saison › Sol —</option>'}</select></div>
-    <div class="field"><label>Semis</label>
+    <div class="field"><label for="pf_sowing">Semis</label>
       <select id="pf_sowing" onchange="onSowingChange()">${Object.entries(SOWING).map(([k,o])=>`<option value="${k}"${(pl&&pl.sowing||'direct')===k?' selected':''}>${o.ic} ${o.lab}</option>`).join('')}</select>
       <div class="hint">Le repiquage perturbe les racines : les espèces à pivot (maïs, cucurbitacées, carotte) le supportent mal, et l'app en tient compte dans son diagnostic.</div></div>
-    <div class="field"><label>Date de semis</label>
+    <div class="field"><label for="pf_sow">Date de semis</label>
       <div class="hint">Quand la graine a été semée, en intérieur comme en place. Elle pilote le modèle de phases.</div>
       <input type="date" id="pf_sow" value="${pl&&pl.sowDate?pl.sowDate:today}"></div>
     <div class="field" id="pf_plantWrap" style="display:${((pl&&pl.sowing)||'direct')==='repique'?'':'none'}">
-      <label>Date de mise en terre</label>
+      <label for="pf_plant">Date de mise en terre</label>
       <div class="hint">Quand le plant a été mis en place dehors. Pour les cultures repiquées, c'est CETTE date que compte le semencier pour les jours à maturité — pas celle du semis.</div>
       <input type="date" id="pf_plant" value="${pl&&pl.plantDate?pl.plantDate:''}"></div>
-    <div class="field"><label>Variété</label>
+    <div class="field"><label for="pf_variety">Variété</label>
       <div class="hint">Les jours à maturité viennent de la variété : c'est une donnée du semencier, pas quelque chose à retenir. Choisis « Autre » seulement si la tienne n'est pas listée.</div>
       <select id="pf_variety" onchange="onVarietyChange()">
         <option value="">— non précisée —</option>
@@ -4113,23 +4151,23 @@ function openPlantForm(id){
       </select>
       <div id="pf_varInfo" class="hint" style="margin-top:6px"></div></div>
     <div id="pf_autreWrap" style="display:none">
-      <div class="field"><label>Nom de ta variété</label>
+      <div class="field"><label for="pf_varName">Nom de ta variété</label>
         <input type="text" id="pf_varName" placeholder="ex. Blue Hopi" value="${pl&&pl.variety&&!varietiesOf((pl&&pl.species)).some(v=>v.n===pl.variety)?String(pl.variety).replace(/"/g,'&quot;'):''}"></div>
-      <div class="field"><label>Jours à maturité (sur le sachet)</label>
+      <div class="field"><label for="pf_dtm">Jours à maturité (sur le sachet)</label>
         <div class="hint">Recopie le chiffre du sachet. Précise aussi à partir de quand il est compté : c'est écrit sur le sachet, et les deux conventions donnent des résultats très différents.</div>
         <input type="number" id="pf_dtm" min="0" max="400" placeholder="ex. 78" value="${pl&&pl.dtm?pl.dtm:''}"></div>
-      <div class="field"><label>Compté à partir de</label>
+      <div class="field"><label for="pf_dtmFrom">Compté à partir de</label>
         <select id="pf_dtmFrom">
           <option value="semis"${(pl&&pl.dtmFrom)==='semis'?' selected':''}>du semis</option>
           <option value="repiquage"${(pl&&pl.dtmFrom)==='repiquage'?' selected':''}>de la mise en terre (plant repiqué)</option>
         </select></div>
     </div>
-    <div class="field"><label>Nombre de plants</label>
+    <div class="field"><label for="pf_count">Nombre de plants</label>
       <input type="number" id="pf_count" min="0" max="999" placeholder="ex. 6" value="${pl&&pl.count?pl.count:''}"></div>
-    <div class="field"><label>Espacement entre plants</label>
+    <div class="field"><label for="pf_spacing">Espacement entre plants</label>
       <div class="hint">Décision de plantation, pas une observation : trop serré, les plants se concurrencent et aucun n'atteint sa taille.</div>
       <select id="pf_spacing">${SPACE_OPTS.map(([v,l])=>`<option value="${v}"${String((pl&&pl.spacing)||'')===v?' selected':''}>${l}</option>`).join('')}</select></div>
-    <div class="field"><label>Volume par arrosage (litres)</label>
+    <div class="field"><label for="pf_volL">Volume par arrosage (litres)</label>
       <div class="hint">Sert au calcul exact de l'azote apporté. Laisse vide si tu ne sais pas.</div>
       <input type="number" id="pf_volL" min="0" step="0.5" placeholder="ex. 5" value="${pl&&pl.volL?pl.volL:''}"></div>
     <div style="display:flex;gap:8px;margin-top:4px">
@@ -4199,7 +4237,7 @@ function savePlanting(){
     toast('Plantation créée.');
   }
   closePlantForm();clearDG();rebuildPlants();save();
-  renderPlants();renderToday();renderPlan();fillInspSelect();renderInspForm();fillMixSelect();renderMix();renderBeds();renderRot();
+  renderPlants();renderToday();renderPlan();fillInspSelect();renderInspForm();fillMixSelect();renderMix();renderBeds();renderRot();renderHarvest();
 }
 function duplicatePlanting(id){
   const src=state.plantings.find(x=>x.id===id);if(!src)return;
@@ -4210,7 +4248,7 @@ function duplicatePlanting(id){
     label:((src.label||state.species[src.species].name)+' (2)'),builtin:false});
   state.plantings.push(copy);
   clearDG();rebuildPlants();save();
-  renderPlants();fillInspSelect();fillMixSelect();
+  renderPlants();fillInspSelect();fillMixSelect();renderMix();renderHarvest();
   toast('Plantation dupliquée dans la même parcelle — déplace-la si besoin.');
   openPlantForm(copy.id);
 }
@@ -4271,13 +4309,13 @@ function removePlant(id){
   if(!confirm(`Retirer « ${p.name} » du jardin ?\n\nIl disparaît du Programme, du plan 14 jours et du Doseur.\nSon journal et ses inspections sont conservés : tu pourras le remettre depuis l'onglet Inspection.`))return;
   if(state.removed.indexOf(id)<0)state.removed.push(id);
   save();clearDG();
-  fillInspSelect();renderInspForm();renderTrash();
+  fillInspSelect();renderInspForm();renderTrash();renderHarvest();
   fillMixSelect();renderMix();renderPlants();renderToday();renderPlan();
 }
 function restorePlant(id){
   state.removed=state.removed.filter(x=>x!==id);
   save();clearDG();
-  fillInspSelect();renderInspForm();renderTrash();
+  fillInspSelect();renderInspForm();renderTrash();renderHarvest();
   fillMixSelect();renderMix();renderPlants();renderToday();renderPlan();
 }
 function renderTrash(){
@@ -4308,7 +4346,9 @@ function registerSW(){ // service worker : met l'app en cache pour un fonctionne
 /* INIT */
 migrateModel();rebuildPlants();
 document.getElementById('canSize').value=state.can;
-{const cu=document.getElementById('canUnit');if(cu)cu.value=state.canUnit;}
+/* n'affecter que si l'unité est connue : une valeur absente de la liste laisserait le menu
+   VIDE (selectedIndex −1) au lieu de retomber sur « litres ». */
+{const cu=document.getElementById('canUnit');if(cu&&UNITS[state.canUnit])cu.value=state.canUnit;}
 fillMixSelect();renderMix();renderPlants();renderLog();renderToday();renderSeeds();
 fillInspSelect();renderInspForm();renderTrash();
 renderHarvest();setSeasonPane(state.seasonPane||'semis');renderSoilPrinciples();
