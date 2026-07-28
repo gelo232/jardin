@@ -331,10 +331,11 @@
 
   <!-- PLANTES -->
   <section id="plants">
-    <p class="eyebrow">13 cultures + arbustes déco</p>
+    <p class="eyebrow" id="plantsCount">Mes cultures</p>
     <h2 class="title">Mes plantes</h2>
     <div id="plantList"></div>
     <div id="plantForm" style="display:none;margin-top:14px"></div>
+    <div id="speciesForm" style="display:none;margin-top:14px"></div>
     <div id="trashWrap" style="margin-top:16px"></div>
   </section>
 
@@ -925,8 +926,14 @@ function varietyRec(p){
   return varietiesOf(pl.species).find(v=>v.n===pl.variety)||null;
 }
 /* convention applicable : celle de la variété, sinon celle de l'espèce (défaut : semis) */
+/* Convention de comptage : la variété prime, puis la saisie manuelle de la plantation, puis
+   la convention portée par l'ESPÈCE (renseignée pour les cultures ajoutées depuis le
+   catalogue : un poivron se compte du repiquage, un radis du semis). ⚠️ Champ distinct
+   `spDtmFrom` sur l'objet résolu — fusionner espèce et plantation faisait écraser la valeur
+   de l'espèce par un null (même piège que dtm / varDtm). */
 function dtmFrom(p){const v=varietyRec(p);if(v&&v.from)return v.from;
-  const pl=p&&p.planting;return(pl&&pl.dtmFrom)||'semis';}
+  const pl=p&&p.planting;
+  return(pl&&pl.dtmFrom)||(p&&p.spDtmFrom)||'semis';}
 /* date de référence du décompte, selon la convention ET le mode de semis réel */
 function maturityRef(p){
   const pl=p&&p.planting;if(!pl)return null;
@@ -1054,6 +1061,7 @@ function resolvePlanting(pl){
     sun:sp.sun||'plein soleil',tender:!!sp.tender,ornamental:!!sp.ornamental,peren:!!sp.peren,
     arch:sp.arch||'fruit',fam:sp.fam||'autres',phOpt:sp.phOpt||null,nTarget:sp.nTarget||null,
     resow:sp.resow||null,pollen:sp.pollen||null,camg:sp.camg||null,dtm:sp.dtm||null,
+    spDtmFrom:sp.dtmFrom||null,custom:!!sp.custom,
     vol:pl.vol||null,volL:pl.volL||null,bed:pl.bed||null,sowing:pl.sowing||'direct',
     count:pl.count||null,spacing:(pl.spacing==null?'':pl.spacing),varDtm:pl.dtm||null,origin:pl.origin||'',
     water:pl.water||'',watch:pl.watch||[],structural:pl.structural||[],
@@ -1296,12 +1304,220 @@ const SOW_DATE={
 };
 const PEREN={citron:1,ananas:1}; // vivaces : cycles longs, estimations indicatives
 
+/* ===== AJOUTER UNE CULTURE QUE L'APP NE CONNAÎT PAS =====
+   ⚠️ PRINCIPE DIRECTEUR (§4-0) : on ne demande QUE ce que le jardinier est seul à savoir —
+   le nom de sa culture, ce à quoi la plante ressemble, sa famille botanique, et le chiffre
+   imprimé sur son sachet. Modèle de phases, recette par phase, intervalle d'arrosage,
+   fréquence d'apport, plage de pH, cible azote, mode de pollinisation : c'est de l'agronomie,
+   donc à l'app de la produire.
+
+   Deux chemins, dans cet ordre :
+   • CROP_LIBRARY — cultures courantes en zone 5b que l'app sait déjà décrire. Le jardinier
+     choisit un nom, il n'a rien d'autre à renseigner.
+   • Culture entièrement libre — archétype + famille + jours à maturité, le reste est dérivé.
+
+   ⚠️ Le modèle produit est GÉNÉRIQUE et l'app le dit franchement : il n'a pas la finesse des
+   espèces d'origine, calibrées une par une. C'est acceptable ici parce que l'observation de
+   terrain PRIME sur le calendrier (`curStage` = `observedStage` ?? `modelStage`) : dès la
+   première inspection, les marqueurs cochés corrigent le modèle. */
+
+/* Modèle de cycle par archétype.
+   ⚠️ `stages` est ALIGNÉ sur MARKERS[archétype] : un marqueur désigne un INDICE de stade,
+   un décalage rendrait toute la déduction de phase fausse. Ne jamais modifier l'un sans l'autre.
+   `w` = poids des phases qui précèdent la maturité — les jours à maturité du sachet sont
+   répartis dessus, si bien que le modèle est ancré sur le seul chiffre réel dont dispose le
+   jardinier. `harvest` = durée de la dernière phase (récolte / maturation), en jours.
+   `dtm` = repli quand aucun chiffre n'est connu. */
+const ARCH_MODEL={
+ grass:{stages:['Semis','Végétatif','Montaison','Floraison','Récolte'],
+   w:[8,38,16,10],harvest:18,dtm:85,
+   recipes:['jeune','vegetatif','vegetatif','fleur','aucun'],water:[2,2,2,1,2],
+   sun:'plein soleil',pollen:'vent'},
+ fruit:{stages:['Semis','Végétatif','Boutons','Floraison','Fruits','Récolte'],
+   w:[14,28,10,10,25],harvest:35,dtm:80,
+   recipes:['jeune','vegetatif','fleur','fleur','fleur','aucun'],water:[1,2,2,2,2,3],
+   sun:'plein soleil',pollen:'auto'},
+ vine:{stages:['Semis','Végétatif','Boutons','Floraison','Fruits','Récolte'],
+   w:[10,28,12,12,30],harvest:20,dtm:95,
+   recipes:['jeune','vegetatif','fleur','fleur','fleur','aucun'],water:[2,2,2,2,2,4],
+   sun:'plein soleil',pollen:'insectes'},
+ root:{stages:['Semis','Feuillage','Grossissement','Récolte'],
+   w:[16,22,22],harvest:25,dtm:75,
+   recipes:['jeune','racine','racine','aucun'],water:[4,5,5,6],
+   sun:'plein soleil',pollen:null},
+ bulb:{stages:['Plantation','Feuillage','Bulbaison','Maturation'],
+   w:[14,45,35],harvest:20,dtm:110,
+   recipes:['jeune','vegetatif','racine','aucun'],water:[3,4,5,null],
+   sun:'plein soleil',pollen:null},
+ herb:{stages:['Semis','Croissance','Récolte'],
+   w:[21,42],harvest:90,dtm:60,
+   recipes:['jeune','jeune','aucun'],water:[1,2,3],
+   sun:'plein soleil à mi-ombre',pollen:null},
+ potTree:{stages:['Croissance','Floraison','Fruits','Maturation'],
+   w:[1460,60,120],harvest:150,dtm:null,
+   recipes:['jeune','vegetatif','fleur','aucun'],water:[5,6,6,7],
+   sun:'lumière vive',pollen:'auto'},
+ potRosette:{stages:['Croissance','Floraison','Fructification'],
+   w:[600,60],harvest:150,dtm:null,
+   recipes:['jeune','jeune','aucun'],water:[7,8,8],
+   sun:'lumière vive',pollen:null},
+ shrub:{stages:['Reprise'],w:[],harvest:365,dtm:null,
+   recipes:['aucun'],water:[7],sun:'mi-ombre',pollen:null}
+};
+/* Conseils par phase, écrits au niveau de l'ARCHÉTYPE : génériques mais vrais pour toutes
+   les cultures qui partagent cette architecture. Une fiche vide serait pire que ça. */
+const ARCH_GUIDE={
+ grass:[{water:"Surface humide jusqu'à la levée.",watch:["Levée irrégulière si le sol est froid"],care:["Semer en bloc, jamais en ligne unique : la pollinisation se fait par le vent"]},
+  {water:"Régulier ; les graminées sont exigeantes en eau et en azote.",watch:["Feuilles basses jaunes en V = azote"],care:["Butter légèrement pour ancrer les tiges"]},
+  {water:"Soutenu : c'est la phase de croissance la plus rapide.",watch:["Verse après un coup de vent"],care:[]},
+  {water:"Ne jamais laisser sécher pendant la floraison.",watch:["Épis mal remplis = pollinisation incomplète"],care:["Secouer les tiges en milieu de matinée si les plants sont peu nombreux"]},
+  {water:"Réduire à l'approche de la récolte.",watch:["Guetter le stade de récolte propre à ta culture"],care:[]}],
+ fruit:[{water:"Régulier au pied, jamais sur le feuillage.",watch:["Fonte des semis si froid et humide"],care:["Ne pas fertiliser fort avant les vraies feuilles"]},
+  {water:"Régulier et profond, au pied.",watch:["Feuilles anciennes jaunes = azote"],care:["Tuteurer ou soutenir avant que ce soit nécessaire"]},
+  {water:"Constant : les à-coups font tomber les boutons.",watch:["Chute de boutons = stress hydrique ou thermique"],care:["Passer à une recette pauvre en azote"]},
+  {water:"Constant pendant la nouaison.",watch:["Fleurs qui tombent sans nouer"],care:["Secouer doucement les plants le matin favorise la nouaison"]},
+  {water:"Régulier : l'irrégularité provoque fentes et cul noir.",watch:["Tache noire sous le fruit = calcium mal transporté, donc arrosage irrégulier"],care:["Pailler pour lisser l'humidité du sol"]},
+  {water:"Réduire en fin de maturation, le goût se concentre.",watch:["Récolter avant le premier gel"],care:[]}],
+ vine:[{water:"Régulier au pied, jamais sur le feuillage.",watch:["Fonte des semis si froid et humide"],care:["Espacer largement : les coureuses s'étalent"]},
+  {water:"Gros besoins en eau, toujours au pied.",watch:["Feutrage blanc poudreux (oïdium) par air confiné"],care:["Pailler pour garder l'humidité et isoler les fruits du sol"]},
+  {water:"Constant ; éviter tout stress hydrique.",watch:["Fleurs mâles d'abord, femelles ensuite"],care:["Passer au P-K"]},
+  {water:"Régulier pendant la nouaison.",watch:["Jeunes fruits qui jaunissent et tombent = pollinisation incomplète"],care:["Polliniser au pinceau entre 6 h et 10 h si peu d'abeilles"]},
+  {water:"Soutenu pendant le grossissement.",watch:["Pourriture au contact d'un sol humide"],care:["Glisser une planchette ou de la paille sous les fruits"]},
+  {water:"Réduire en fin de mûrissement ; arrêter l'engrais.",watch:["Peau dure et pédoncule liégeux = mûr"],care:["Récolter avant le gel en laissant un bout de pédoncule"]}],
+ root:[{water:"Surface constamment humide jusqu'à la levée.",watch:["Croûte sèche = levée ratée"],care:["Semer clair pour limiter l'éclaircissage"]},
+  {water:"Régulier et profond : l'eau appelle la racine vers le bas.",watch:["⚠️ Un excès d'azote donne un feuillage magnifique et une racine grêle"],care:["Éclaircir tôt : deux racines qui se touchent ne grossissent ni l'une ni l'autre"]},
+  {water:"Régulier : l'alternance sec/détrempé fait éclater les racines.",watch:["Collet vert = racine déchaussée, rebutter"],care:["Butter pour couvrir les collets"]},
+  {water:"Réduire avant l'arrachage.",watch:["Arracher un sujet témoin pour juger du calibre"],care:["Récolter par temps sec"]}],
+ bulb:[{water:"Modéré : un sol détrempé fait pourrir le caïeu.",watch:["Levée irrégulière"],care:["Pailler contre le gel et les mauvaises herbes"]},
+  {water:"Régulier pendant toute la croissance du feuillage.",watch:["Chaque feuille = une tunique du futur bulbe"],care:["Désherber soigneusement : les alliacées supportent mal la concurrence"]},
+  {water:"Régulier jusqu'au grossissement, puis réduire.",watch:["Tige florale rigide au centre : la couper"],care:["Passer à une recette pauvre en azote"]},
+  {water:"Arrêter l'arrosage à l'approche de la récolte.",watch:["Un tiers à la moitié des feuilles brunies = récolte"],care:["Sécher les bulbes à l'ombre et ventilés avant stockage"]}],
+ herb:[{water:"Surface humide jusqu'à la levée.",watch:["Levée parfois lente"],care:["Semer clair"]},
+  {water:"Régulier ; ne pas laisser dessécher.",watch:["Montée en graine si stress ou chaleur"],care:["Apport léger seulement : l'excès d'azote dilue l'arôme et attire les pucerons"]},
+  {water:"Régulier pendant toute la période de coupe.",watch:["Une hampe florale annonce la fin de la tendreté"],care:["Récolter le matin, feuilles extérieures d'abord, en gardant le cœur"]}],
+ potTree:[{water:"Laisser sécher les premiers centimètres entre deux arrosages.",watch:["Jeunes feuilles jaunes à nervures vertes = fer ou magnésium"],care:["Rincer le substrat à l'eau claire une fois par mois"]},
+  {water:"Régulier pendant la floraison.",watch:["Chute des boutons si courant d'air ou à-coup d'eau"],care:[]},
+  {water:"Régulier pendant la nouaison.",watch:["Chute physiologique de jeunes fruits : normale"],care:[]},
+  {water:"Réduire en hiver.",watch:["Rentrer avant les premières nuits froides"],care:[]}],
+ potRosette:[{water:"Substrat acide, arrosages espacés.",watch:["Feuilles brunes si le substrat est calcaire"],care:["Ne pas fertiliser dans les semaines qui suivent un rempotage"]},
+  {water:"Régulier et léger.",watch:[],care:[]},
+  {water:"Réduire.",watch:[],care:[]}],
+ shrub:[{water:"Eau profonde ≈ 2,5 cm par semaine, sans détremper.",watch:["Test de l'ongle : cambium vert = bois vivant"],care:["Aucun engrais pendant la reprise : l'azote force un feuillage que les racines abîmées ne peuvent pas nourrir"]}]
+};
+/* Ce que la FAMILLE botanique commande. Valeurs indicatives, alignées sur les cultures déjà
+   calibrées de l'app : fréquence d'apport (jours), plage de pH, cible d'azote (g N / saison).
+   ⚠️ brassicacées : pH volontairement plus haut — au-dessus de 7 la hernie du chou est
+   nettement moins agressive. ⚠️ fabacées : cible d'azote quasi nulle, elles le fixent. */
+const FAM_AGRO={
+  solanacees:{feed:12,ph:[6.0,6.8],n:[10,20]},
+  cucurbitacees:{feed:12,ph:[6.0,6.8],n:[10,20]},
+  poacees:{feed:10,ph:[5.8,7.0],n:[8,16]},
+  apiacees:{feed:18,ph:[6.0,6.8],n:[4,8]},
+  alliacees:{feed:16,ph:[6.0,7.0],n:[5,10]},
+  brassicacees:{feed:14,ph:[6.5,7.5],n:[6,12]},
+  fabacees:{feed:28,ph:[6.0,7.0],n:[1,3]},
+  amaranthacees:{feed:14,ph:[6.5,7.5],n:[5,10]},
+  asteracees:{feed:16,ph:[6.0,7.0],n:[4,8]},
+  rosacees:{feed:18,ph:[5.8,6.5],n:[4,8]},
+  lamiacees:{feed:24,ph:[6.0,8.0],n:[2,5]},
+  autres:{feed:14,ph:[6.0,7.0],n:[4,8]}
+};
+/* Répartition des jours à maturité sur les phases qui précèdent la récolte. */
+function speciesCycle(arch,dtm){
+  const M=ARCH_MODEL[arch]||ARCH_MODEL.fruit;
+  if(!M.w.length)return{stages:M.stages.slice(),dur:[M.harvest]};
+  const tot=M.w.reduce((a,b)=>a+b,0);
+  const target=(isFinite(+dtm)&&+dtm>0)?+dtm:M.dtm;
+  const dur=(target?M.w.map(x=>Math.max(3,Math.round(x/tot*target))):M.w.slice()).concat([M.harvest]);
+  return{stages:M.stages.slice(),dur};
+}
+/* Fabrique une espèce complète à partir des seules réponses du jardinier. */
+function makeSpecies(o){
+  const arch=ARCH_MODEL[o.arch]?o.arch:'fruit', fam=FAM[o.fam]?o.fam:'autres';
+  const M=ARCH_MODEL[arch], A=FAM_AGRO[fam]||FAM_AGRO.autres;
+  const{stages,dur}=speciesCycle(arch,o.dtm);
+  /* Les légumineuses fixent leur propre azote : leur servir « croissance végétative » ferait
+     du feuillage au détriment des gousses. La famille corrige donc la recette de l'archétype. */
+  const rec=M.recipes.map(r=>(fam==='fabacees'&&r==='vegetatif')?'jeune':r);
+  const guide=ARCH_GUIDE[arch]||[];
+  const peren=!!o.peren, orn=!!o.ornamental;
+  return{id:o.id,name:(o.name||'Culture').trim(),icon:o.icon||'🌱',arch,fam,
+    stages,dur,
+    waterEvery:M.water.slice(0,stages.length),
+    phases:stages.map((s,i)=>{const g=guide[Math.min(i,guide.length-1)]||{};
+      return{r:orn?'aucun':rec[Math.min(i,rec.length-1)],
+        water:g.water||'',watch:(g.watch||[]).slice(),care:(g.care||[]).slice()};}),
+    feedDays:orn?null:A.feed,recipe:orn?'aucun':rec[0],
+    sun:M.sun,tender:!!o.tender,ornamental:orn,peren,
+    phOpt:A.ph.slice(),nTarget:orn?[0,0]:A.n.slice(),
+    /* fenêtre de ressemis déduite de la sensibilité au gel — pas d'invention par culture */
+    resow:peren?{kind:'vivace',win:"vivace : rien à ressemer, elle repart d'elle-même"}
+      :(arch==='bulb'?{kind:'bulbe',win:"à l'automne pour une récolte l'été suivant, ou tôt au printemps"}
+      :(o.tender?{kind:'chaud',win:"après le dernier gel (~20–25 mai à Montréal), ou 4–6 semaines avant en intérieur"}
+               :{kind:'frais',win:"d'avril à juillet, semis direct — supporte les gelées légères"})),
+    pollen:M.pollen,camg:null,
+    dtm:(isFinite(+o.dtm)&&+o.dtm>0)?Math.round(+o.dtm):null,
+    dtmFrom:o.dtmFrom||'semis',
+    builtin:false,custom:true};
+}
+/* ===== CULTURES COURANTES EN ZONE 5b QUE L'APP SAIT DÉCRIRE =====
+   Choisir un nom ici suffit : famille, architecture, jours à maturité et sensibilité au gel
+   sont connus, tout le reste en découle. Les jours à maturité sont des ordres de grandeur
+   « toutes variétés » — la variété exacte se précise ensuite sur la plantation, et c'est elle
+   qui fera foi (`dtmOf`). */
+const CROP_LIBRARY=[
+ {id:'haricot',name:'Haricot nain',icon:'🫘',arch:'fruit',fam:'fabacees',dtm:55,dtmFrom:'semis',tender:true},
+ {id:'haricot_ram',name:'Haricot grimpant',icon:'🫘',arch:'fruit',fam:'fabacees',dtm:65,dtmFrom:'semis',tender:true},
+ {id:'pois',name:'Pois',icon:'🟢',arch:'fruit',fam:'fabacees',dtm:60,dtmFrom:'semis',tender:false},
+ {id:'concombre',name:'Concombre',icon:'🥒',arch:'vine',fam:'cucurbitacees',dtm:60,dtmFrom:'semis-14',tender:true},
+ {id:'courgette',name:'Courgette',icon:'🥒',arch:'vine',fam:'cucurbitacees',dtm:50,dtmFrom:'semis-14',tender:true},
+ {id:'citrouille',name:'Citrouille',icon:'🎃',arch:'vine',fam:'cucurbitacees',dtm:105,dtmFrom:'semis-14',tender:true},
+ {id:'poivron',name:'Poivron',icon:'🫑',arch:'fruit',fam:'solanacees',dtm:70,dtmFrom:'repiquage',tender:true},
+ {id:'aubergine',name:'Aubergine',icon:'🍆',arch:'fruit',fam:'solanacees',dtm:75,dtmFrom:'repiquage',tender:true},
+ {id:'patate',name:'Pomme de terre',icon:'🥔',arch:'root',fam:'solanacees',dtm:90,dtmFrom:'plantation',tender:true},
+ {id:'laitue',name:'Laitue',icon:'🥬',arch:'herb',fam:'asteracees',dtm:55,dtmFrom:'semis',tender:false},
+ {id:'epinard',name:'Épinard',icon:'🍃',arch:'herb',fam:'amaranthacees',dtm:40,dtmFrom:'semis',tender:false},
+ {id:'roquette',name:'Roquette',icon:'🌱',arch:'herb',fam:'brassicacees',dtm:35,dtmFrom:'semis',tender:false},
+ {id:'bette',name:'Bette à carde',icon:'🍃',arch:'herb',fam:'amaranthacees',dtm:55,dtmFrom:'semis',tender:false},
+ {id:'chou',name:'Chou',icon:'🥬',arch:'herb',fam:'brassicacees',dtm:75,dtmFrom:'repiquage',tender:false},
+ {id:'brocoli',name:'Brocoli',icon:'🥦',arch:'herb',fam:'brassicacees',dtm:65,dtmFrom:'repiquage',tender:false},
+ {id:'kale',name:'Kale (chou frisé)',icon:'🥬',arch:'herb',fam:'brassicacees',dtm:60,dtmFrom:'repiquage',tender:false},
+ {id:'betterave',name:'Betterave',icon:'🟣',arch:'root',fam:'amaranthacees',dtm:55,dtmFrom:'semis',tender:false},
+ {id:'radis',name:'Radis',icon:'🔴',arch:'root',fam:'brassicacees',dtm:28,dtmFrom:'semis',tender:false},
+ {id:'navet',name:'Navet',icon:'⚪',arch:'root',fam:'brassicacees',dtm:50,dtmFrom:'semis',tender:false},
+ {id:'panais',name:'Panais',icon:'🥕',arch:'root',fam:'apiacees',dtm:110,dtmFrom:'semis',tender:false},
+ {id:'oignon',name:'Oignon',icon:'🧅',arch:'bulb',fam:'alliacees',dtm:100,dtmFrom:'semis',tender:false},
+ {id:'poireau',name:'Poireau',icon:'🥬',arch:'bulb',fam:'alliacees',dtm:110,dtmFrom:'repiquage',tender:false},
+ {id:'ciboulette',name:'Ciboulette',icon:'🌿',arch:'herb',fam:'alliacees',dtm:60,dtmFrom:'semis',tender:false,peren:true},
+ {id:'basilic',name:'Basilic',icon:'🌿',arch:'herb',fam:'lamiacees',dtm:60,dtmFrom:'semis',tender:true},
+ {id:'coriandre',name:'Coriandre',icon:'🌿',arch:'herb',fam:'apiacees',dtm:45,dtmFrom:'semis',tender:false},
+ {id:'menthe',name:'Menthe',icon:'🌿',arch:'herb',fam:'lamiacees',dtm:60,dtmFrom:'semis',tender:false,peren:true},
+ {id:'origan',name:'Origan',icon:'🌿',arch:'herb',fam:'lamiacees',dtm:80,dtmFrom:'semis',tender:false,peren:true},
+ {id:'celeri',name:'Céleri',icon:'🥬',arch:'herb',fam:'apiacees',dtm:100,dtmFrom:'repiquage',tender:false},
+ {id:'fraise',name:'Fraisier',icon:'🍓',arch:'fruit',fam:'rosacees',dtm:null,dtmFrom:'plantation',tender:false,peren:true},
+ {id:'framboise',name:'Framboisier',icon:'🍇',arch:'fruit',fam:'rosacees',dtm:null,dtmFrom:'plantation',tender:false,peren:true}
+];
+/* identifiant d'espèce : on compte les existants plutôt que d'utiliser Date.now(), qui
+   produisait des doublons pour deux créations dans la même milliseconde (cf. newBedId). */
+function newSpeciesId(base){
+  const slug=String(base||'culture').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,20)||'culture';
+  if(!state.species[slug])return slug;
+  let n=2;while(state.species[slug+'_'+n])n++;
+  return slug+'_'+n;
+}
+/* une espèce ne se supprime que si plus aucune plantation ne s'y réfère — sinon on
+   effacerait l'agronomie sous les pieds de cultures encore suivies (et de leur journal). */
+function speciesInUse(sid){return state.plantings.some(pl=>pl.species===sid);}
+
 /* ===== CATÉGORIES (regroupement dans l'onglet Plantes) ===== */
 /* Catégories dérivées de la FAMILLE de l'espèce : elles suivent automatiquement
    les plantations ajoutées, au lieu d'une liste d'identifiants codée en dur. */
 const CAT_ORDER=[['solanacees','Légumes-fruits','🍅'],['cucurbitacees','Cucurbitacées','🎃'],
   ['poacees','Maïs','🌽'],['apiacees','Racines & ombellifères','🥕'],['alliacees','Alliacées','🧄'],
   ['brassicacees','Brassicacées','🥬'],['fabacees','Légumineuses','🫘'],
+  ['amaranthacees','Feuilles & betteraves','🍃'],['asteracees','Salades','🥗'],
+  ['rosacees','Petits fruits','🍓'],
   ['lamiacees','Aromatiques','🌿'],['autres','Pots & ornementales','🪴']];
 
 /* ===== RESSEMIS : quand ressemer chaque culture, au plus tôt ===== */
@@ -1454,7 +1670,7 @@ const ARCH={
   fields:['nb','space'],spaceMin:1,spaceTxt:"10–15 cm entre caïeux",
   originLab:'Mise en terre',resent:false},
 
- herb:{lab:'aromatique à feuillage',
+ herb:{lab:'plante à feuillage (aromatique, salade, chou)',
   hLab:'Hauteur de la touffe (cm)',
   hHint:"Hauteur moyenne du feuillage récoltable.",
   nColor:['bas_pale','Feuilles les plus anciennes jaunes uniformément'],
@@ -2237,6 +2453,12 @@ const FAM={
   fabacees:{lab:'Fabacées (légumineuses)',ic:'🫘',ex:'haricot, pois, fève',
     risk:"Peu de risques ; ENRICHISSENT le sol en azote — idéales après une culture gourmande.",need:'améliorante'},
   lamiacees:{lab:'Lamiacées',ic:'🌿',ex:'thym, basilic, menthe, origan',risk:"Peu de risques.",need:'peu gourmande'},
+  amaranthacees:{lab:'Amaranthacées (chénopodes)',ic:'🍃',ex:'betterave, épinard, bette à carde',
+    risk:"Cercosporiose et mineuse de la betterave ; sensibles à une carence en bore (cœur creux).",need:'moyenne'},
+  asteracees:{lab:'Astéracées',ic:'🥗',ex:'laitue, chicorée, endive, topinambour',
+    risk:"Sclérotiniose et mildiou de la laitue — les sclérotes tiennent plusieurs années dans le sol.",need:'moyenne'},
+  rosacees:{lab:'Rosacées (petits fruits)',ic:'🍓',ex:'fraise, framboise, mûre',
+    risk:"Verticilliose et pourriture grise. Ne jamais planter après des solanacées : même hôte de la verticilliose.",need:'moyenne'},
   autres:{lab:'Autres / pots',ic:'🪴',ex:'agrumes, ananas, ornementales',risk:"Culture en pot : la rotation ne s'applique pas.",need:'variable'}
 };
 const PLANT_FAM={tomate_bac:'solanacees',tomate_geo:'solanacees',courge:'cucurbitacees',
@@ -3470,7 +3692,11 @@ function renderPlants(){
   const others=all.filter(p=>!used.has(p.id));
   if(others.length)html+=catBlock('others','🌱','Autres',others);
   document.getElementById('plantList').innerHTML=html
-    +`<button class="btn" style="margin-top:14px" onclick="openPlantForm()">＋ Ajouter une plantation</button>`;
+    +`<button class="btn" style="margin-top:14px" onclick="openPlantForm()">＋ Ajouter une plantation</button>`
+    +`<button class="btn ghost" style="margin-top:8px" onclick="openSpeciesForm(false)">🌱 Ajouter une culture absente du catalogue</button>`;
+  const lab=document.getElementById('plantsCount');
+  if(lab){const ns=Object.keys(state.species).length;
+    lab.textContent=`${all.length} plantation${all.length>1?'s':''} · ${ns} culture${ns>1?'s':''} au catalogue`;}
   renderTrash();
 }
 function toggleCat(key){
@@ -4122,7 +4348,8 @@ function openPlantForm(id){
     <div class="field"><label for="pf_species">Culture</label>
       <div class="hint">L'agronomie (stades, durées, recettes, pH visé) vient de l'espèce. Une même culture peut être plantée dans plusieurs parcelles : crée simplement une plantation par emplacement.</div>
       <select id="pf_species" ${pl?'disabled':''} onchange="onSpeciesChange()">${sps.map(sp=>`<option value="${sp.id}"${pl&&pl.species===sp.id?' selected':''}>${sp.icon} ${sp.name}</option>`).join('')}</select>
-      ${pl?`<div class="hint" style="margin-top:6px">🔒 <b>Verrouillé</b> — l'espèce ne se change pas après coup : journal, inspections et récoltes de cette plantation sont rattachés à cette agronomie. Pour une autre culture, crée une nouvelle plantation.</div>`:''}</div>
+      ${pl?`<div class="hint" style="margin-top:6px">🔒 <b>Verrouillé</b> — l'espèce ne se change pas après coup : journal, inspections et récoltes de cette plantation sont rattachés à cette agronomie. Pour une autre culture, crée une nouvelle plantation.</div>`
+        :`<button class="btn ghost sm" style="width:100%;margin-top:8px" onclick="openSpeciesForm(true)">＋ Ma culture n'est pas dans la liste</button>`}</div>
     <div class="field"><label for="pf_label">Emplacement (nom court)</label>
       <div class="hint">Ce qui distingue cette plantation des autres de la même culture : « sous les arbres », « bac du fond »…</div>
       <input type="text" id="pf_label" placeholder="ex. bac du fond" value="${pl&&pl.label?pl.label.replace(/"/g,'&quot;'):''}"></div>
@@ -4178,6 +4405,163 @@ function openPlantForm(id){
       <p class="note" style="margin:8px 0 0">« Retirer du jardin » (sur la fiche) met simplement de côté en conservant les données. La suppression définitive, elle, efface aussi journal, inspections et récoltes de cette culture.</p>`:''}
   </div>`;
   el.style.display='';onVarietyChange();onSowingChange();el.scrollIntoView({block:'start',behavior:'smooth'});
+}
+/* ===== FORMULAIRE « NOUVELLE CULTURE » =====
+   Deux chemins, du plus court au plus long : le catalogue (rien à renseigner), puis la
+   culture entièrement libre (quatre réponses). L'aperçu montre EN DIRECT ce que l'app va
+   déduire — c'est ce qui rend acceptable de ne pas demander le reste. */
+const SP_ICONS=['🌱','🥬','🥕','🍅','🌽','🥒','🎃','🫘','🥔','🧅','🧄','🌿','🍓','🍇','🫑',
+  '🍆','🥦','🌻','🍈','🍉','🟢','🔴','🟣','⚪','🪴','🌷'];
+/* d'où l'on vient : le formulaire de plantation (on y revient en annulant) ou la liste */
+let spFromPlant=false;
+function openSpeciesForm(fromPlantForm){
+  if(fromPlantForm!==undefined)spFromPlant=!!fromPlantForm;
+  const el=document.getElementById('speciesForm');if(!el)return;
+  const dejaLa=sid=>!!state.species[sid];
+  const dispo=CROP_LIBRARY.filter(c=>!dejaLa(c.id));
+  const custom=Object.values(state.species).filter(sp=>sp.custom)
+    .sort((a,b)=>a.name.localeCompare(b.name));
+  el.innerHTML=`<div class="card card-pad">
+    <div style="font-weight:800;font-size:15px;margin-bottom:6px">🌱 Ajouter une culture</div>
+    <p class="note" style="margin:0 0 12px">Tu ne renseignes que ce que toi seul peux savoir. Le modèle de phases, les recettes, l'arrosage, la fréquence des apports, le pH visé et la cible d'azote sont <b>déduits</b> — et l'aperçu, plus bas, te montre exactement ce que l'app en fait.</p>
+    <div class="field"><label for="sf_crop">Quelle culture ?</label>
+      <div class="hint">${dispo.length} cultures courantes en zone 5b que l'app sait déjà décrire. Si la tienne n'y est pas, choisis la dernière option.</div>
+      <select id="sf_crop" onchange="onCropPick()">
+        ${dispo.map(c=>`<option value="${c.id}">${c.icon} ${c.name}${c.dtm?` — ${c.dtm} j`:''}</option>`).join('')}
+        <option value="__libre__">✏️ Autre — culture entièrement nouvelle…</option></select></div>
+    <div id="sf_libre" style="display:none">
+      <div class="field"><label for="sf_name">Nom de la culture</label>
+        <input type="text" id="sf_name" placeholder="ex. Tomatille" oninput="renderSpeciesPreview()"></div>
+      <div class="field"><label for="sf_icon">Icône</label>
+        <select id="sf_icon" onchange="renderSpeciesPreview()">${SP_ICONS.map(e=>`<option value="${e}">${e}</option>`).join('')}</select></div>
+      <div class="field"><label for="sf_arch">À quoi ressemble la plante ?</label>
+        <div class="hint">C'est la question la plus structurante : elle décide du modèle de phases, des marqueurs d'observation, du formulaire d'inspection et des règles de diagnostic qui s'appliqueront.</div>
+        <select id="sf_arch" onchange="renderSpeciesPreview()">
+          <option value="fruit">🍅 Légume-fruit dressé ou tuteuré — tomate, poivron, haricot</option>
+          <option value="vine">🎃 Cucurbitacée coureuse — courge, concombre, melon</option>
+          <option value="root">🥕 Racine comestible — carotte, betterave, radis</option>
+          <option value="bulb">🧄 Bulbe — ail, oignon, poireau</option>
+          <option value="herb">🌿 Plante à feuillage — aromatique, salade, chou</option>
+          <option value="grass">🌽 Graminée à nervures parallèles — maïs</option>
+          <option value="potTree">🍋 Arbuste fruitier en pot — agrume</option>
+          <option value="potRosette">🍍 Rosette — ananas, broméliacée</option>
+          <option value="shrub">🌳 Arbuste ornemental — pas de récolte, pas d'engrais</option></select></div>
+      <div class="field"><label for="sf_fam">Famille botanique</label>
+        <div class="hint">Elle commande la rotation, la gourmandise et le pH visé. Repère-toi sur les exemples : si ta culture ressemble à l'une d'elles, c'est la bonne famille.</div>
+        <select id="sf_fam" onchange="renderSpeciesPreview()">
+          ${Object.entries(FAM).map(([k,f])=>`<option value="${k}">${f.ic} ${f.lab} — ${f.ex}</option>`).join('')}</select></div>
+      <div class="field"><label for="sf_dtm">Jours à maturité (sur le sachet)</label>
+        <div class="hint">Recopie le chiffre du sachet : c'est lui qui répartit les phases du modèle. Laisse vide si tu ne l'as pas — l'app prendra une durée générique de ce type de plante.</div>
+        <input type="number" id="sf_dtm" min="0" max="400" placeholder="ex. 70" oninput="renderSpeciesPreview()"></div>
+      <div class="field"><label for="sf_dtmFrom">Compté à partir de</label>
+        <div class="hint">C'est écrit sur le sachet, et les deux conventions donnent des résultats très différents.</div>
+        <select id="sf_dtmFrom" onchange="renderSpeciesPreview()">
+          <option value="semis">du semis</option>
+          <option value="repiquage">de la mise en terre (plant repiqué)</option>
+          <option value="semis-14">du semis, moins 14 j si repiquée</option>
+          <option value="plantation">de la plantation (caïeu, tubercule, plant)</option></select></div>
+      <div class="field"><label for="sf_tender">Craint-elle le gel ?</label>
+        <div class="hint">Décide des alertes de gel et de la fenêtre de semis. Une culture gélive ne se met dehors qu'après le ~20–25 mai à Montréal.</div>
+        <select id="sf_tender" onchange="renderSpeciesPreview()">
+          <option value="oui">Oui — une nuit sous 2 °C la tue</option>
+          <option value="non">Non — supporte les gelées légères</option></select></div>
+      <div class="field"><label for="sf_peren">Vivace ?</label>
+        <select id="sf_peren" onchange="renderSpeciesPreview()">
+          <option value="non">Non — annuelle, un seul cycle</option>
+          <option value="oui">Oui — elle repart d'une année sur l'autre</option></select></div>
+    </div>
+    <div id="sf_preview"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn" style="flex:1" onclick="saveSpecies()">✓ Créer la culture</button>
+      <button class="btn ghost" style="flex:1" onclick="cancelSpeciesForm()">Annuler</button></div>
+    ${custom.length?`<details class="fgrp" style="margin-top:14px"><summary>🗂️ Cultures que tu as ajoutées <span class="fg-n">${custom.length}</span></summary>
+      <div class="fgrp-b">${custom.map(sp=>{const used=speciesInUse(sp.id);
+        return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--line)">
+          <span style="flex:1;font-size:13.5px;font-weight:600">${sp.icon} ${sp.name}</span>
+          ${used?`<span class="chip f">plantée</span>`
+                :`<button class="btn ghost sm" style="padding:3px 9px" onclick="delSpecies('${sp.id}')">Supprimer</button>`}</div>`}).join('')}
+        <p class="note" style="margin:8px 0 0">Une culture encore plantée ne se supprime pas : son agronomie sert au suivi, au journal et aux inspections de ses plantations.</p></div></details>`:''}
+  </div>`;
+  el.style.display='';
+  /* le formulaire de plantation s'efface le temps de la saisie : les deux empilés feraient
+     une page interminable sur téléphone, et la culture doit exister avant la plantation */
+  const pf=document.getElementById('plantForm');if(pf)pf.style.display='none';
+  onCropPick();
+  el.scrollIntoView({block:'start',behavior:'smooth'});
+}
+function closeSpeciesForm(){const el=document.getElementById('speciesForm');
+  if(el){el.style.display='none';el.innerHTML='';}}
+/* Annuler : on revient au formulaire de plantation, d'où l'on venait. */
+function cancelSpeciesForm(){closeSpeciesForm();
+  if(spFromPlant)openPlantForm(editingId);
+  spFromPlant=false;}
+function onCropPick(){
+  const c=document.getElementById('sf_crop'),w=document.getElementById('sf_libre');
+  if(!c||!w)return;
+  w.style.display=(c.value==='__libre__')?'':'none';
+  renderSpeciesPreview();
+}
+/* espèce telle qu'elle serait créée à cet instant — sert à l'aperçu ET à l'enregistrement,
+   pour qu'il n'y ait aucun écart entre ce qui est montré et ce qui est créé */
+function speciesDraft(id){
+  const g=k=>{const e=document.getElementById('sf_'+k);return e?e.value:''};
+  const pick=g('crop');
+  if(pick&&pick!=='__libre__'){
+    const c=CROP_LIBRARY.find(x=>x.id===pick);
+    if(c)return makeSpecies(Object.assign({},c,{id:id||c.id}));
+  }
+  return makeSpecies({id:id||'_apercu',name:g('name')||'Ma culture',icon:g('icon')||'🌱',
+    arch:g('arch')||'fruit',fam:g('fam')||'autres',
+    dtm:parseFloat(g('dtm'))||null,dtmFrom:g('dtmFrom')||'semis',
+    tender:g('tender')==='oui',peren:g('peren')==='oui',
+    ornamental:(g('arch')||'')==='shrub'});
+}
+/* Aperçu : tout ce que l'app vient de déduire, affiché avant de valider. */
+function renderSpeciesPreview(){
+  const el=document.getElementById('sf_preview');if(!el)return;
+  const sp=speciesDraft(),M=ARCH[sp.arch],F=FAM[sp.fam];
+  const total=sp.dur.reduce((a,b)=>a+b,0);
+  const ripe=sp.dur.slice(0,Math.max(1,sp.dur.length-1)).reduce((a,b)=>a+b,0);
+  const wat=sp.waterEvery.filter(x=>x!=null);
+  el.innerHTML=`<div class="pact" style="margin-top:6px"><h4>🔎 Ce que l'app en déduit</h4>
+    <p class="note" style="margin:0 0 8px">${sp.icon} <b>${sp.name}</b> — traitée comme <b>${M.lab}</b>, famille <b>${F.ic} ${F.lab}</b> (${F.need}).</p>
+    <table class="sdur"><thead><tr><th>Phase</th><th class="sd-r">durée</th><th class="sd-r">engrais</th></tr></thead>
+      <tbody>${sp.stages.map((s,i)=>`<tr><td>${s}</td><td class="sd-r mono">${sp.dur[i]} j</td>
+        <td class="sd-r">${(RECIPES[sp.phases[i].r]||RECIPES.aucun).name.replace(/ \(.*\)/,'')}</td></tr>`).join('')}</tbody></table>
+    <div class="diff" style="margin-top:8px"><span class="d-k">Cycle complet</span><span class="d-v">${fmtDur(total)}${sp.dtm?` · récolte vers ${fmtDur(ripe)}`:''}</span></div>
+    <div class="diff"><span class="d-k">Arrosage</span><span class="d-v">${wat.length?`tous les ${Math.min.apply(null,wat)} à ${Math.max.apply(null,wat)} j selon la phase`:'—'}</span></div>
+    <div class="diff"><span class="d-k">Apports</span><span class="d-v">${sp.feedDays?`tous les ${sp.feedDays} j`:'aucun'}</span></div>
+    <div class="diff"><span class="d-k">pH visé</span><span class="d-v">${sp.phOpt[0].toFixed(1)} – ${sp.phOpt[1].toFixed(1)}</span></div>
+    <div class="diff"><span class="d-k">Cible azote</span><span class="d-v">${sp.nTarget[1]?`${sp.nTarget[0]}–${sp.nTarget[1]} g N / saison`:'aucune'}</span></div>
+    ${sp.pollen?`<div class="diff"><span class="d-k">Pollinisation</span><span class="d-v">${sp.pollen==='vent'?'par le vent':sp.pollen==='insectes'?'par les insectes':'autogame'}</span></div>`:''}
+    <div class="diff"><span class="d-k">Gel</span><span class="d-v">${sp.tender?'gélive — à protéger':'supporte les gelées légères'}</span></div>
+    <p class="note" style="margin:9px 0 0">⚠️ Ce modèle de phases est <b>générique</b> : il répartit ${sp.dtm?`les ${sp.dtm} jours à maturité annoncés`:'une durée typique de ce type de plante'} sur l'architecture de la plante. Il n'a pas la finesse des cultures livrées avec l'app. <b>Ce n'est pas grave</b> : dès ta première inspection, la phase déduite de tes observations prend le pas sur le calendrier — c'est la règle de toute l'app.</p>
+    <p class="note" style="margin:6px 0 0">🔄 Rotation : ${F.risk}</p></div>`;
+}
+function saveSpecies(){
+  const c=document.getElementById('sf_crop');if(!c)return;
+  const libre=c.value==='__libre__';
+  const nom=libre?(document.getElementById('sf_name').value||'').trim():'';
+  if(libre&&!nom){toast('Donne un nom à ta culture.');return;}
+  const sid=newSpeciesId(libre?nom:c.value);
+  const sp=speciesDraft(sid);
+  state.species[sid]=sp;
+  save();rebuildPlants();
+  closeSpeciesForm();
+  /* rouvrir le formulaire de plantation sur la culture qui vient d'être créée : c'est la
+     raison même pour laquelle on l'a créée. */
+  openPlantForm();
+  const ssel=document.getElementById('pf_species');
+  if(ssel&&Array.from(ssel.options).some(o=>o.value===sid)){ssel.value=sid;onSpeciesChange();}
+  toast(`« ${sp.name} » ajoutée. Renseigne maintenant sa plantation.`);
+}
+function delSpecies(sid){
+  const sp=state.species[sid];if(!sp)return;
+  if(speciesInUse(sid)){toast('Cette culture est encore plantée.');return;}
+  if(!confirm(`Supprimer la culture « ${sp.name} » ?\n\nElle n'est plantée nulle part : rien d'autre n'est perdu.`))return;
+  delete state.species[sid];
+  save();rebuildPlants();openSpeciesForm();
+  toast('Culture supprimée.');
 }
 /* La variété commande les jours à maturité : on les affiche, on ne les demande pas.
    Le champ manuel n'apparaît que pour une variété absente du catalogue. */

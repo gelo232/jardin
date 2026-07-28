@@ -39,8 +39,10 @@ et historique du thème dans `Downloads/HANDOFF.md`.)
    listes multi-plantes) ouvre l'onglet Plantes, déplie la catégorie parente, ouvre la fiche
    (accordéon), centre la page dessus (`scrollIntoView` block:center) et la surligne
    (`.card.flash`).
-2. **Plantes** — **13 cultures + arbustes déco** suivis, regroupés en **catégories
-   repliables** (`CATEGORIES`, état d'ouverture mémorisé dans `localStorage` clé `catFold`).
+2. **Plantes** — plantations suivies, regroupées en **catégories repliables** dérivées de la
+   FAMILLE de l'espèce (`CAT_ORDER`, état d'ouverture mémorisé dans `localStorage` clé
+   `catFold`). Le bandeau compte les plantations et les cultures au catalogue — plus de
+   nombre figé, le catalogue s'enrichit depuis l'app (voir « Ajouter une culture »).
    Fiches en **accordéon** : une seule ouverte à la fois (`toggle`/`openPlant`).
    Chaque fiche : jauge de stade, temps par phase, arrosage, recette d'engrais calculée,
    **« À vérifier → solution »** (champ `checks` par plante), surveillance, entretien,
@@ -259,6 +261,46 @@ quand, et ce qu'il observe. Tout le reste — agronomie, jours à maturité, dur
 plages de pH, conventions de comptage — est une donnée du domaine, à embarquer dans l'app.
 Avant d'ajouter un champ, se demander : « le jardinier est-il la seule source possible ? »
 Si non, c'est une donnée à intégrer, pas une question à poser.
+
+### Ajouter une culture que l'app ne connaît pas (⚠️ application directe du principe)
+`makeSpecies()` fabrique une espèce complète à partir des **seules** réponses que le jardinier
+est en mesure de donner. Deux chemins, du plus court au plus long :
+- **`CROP_LIBRARY`** — 30 cultures courantes en zone 5b (haricot, concombre, poivron, laitue,
+  betterave, oignon, basilic, fraisier…). Le jardinier choisit un nom, il ne renseigne **rien**
+  d'autre : famille, architecture, jours à maturité et sensibilité au gel sont connus.
+- **Culture libre** — nom, icône, **archétype**, **famille**, jours à maturité + convention,
+  gélive ou non, vivace ou non. Rien de plus.
+
+Tout le reste est **dérivé**, jamais demandé :
+- `ARCH_MODEL[archétype]` → stades, poids des phases, durée de récolte, recette par phase,
+  intervalle d'arrosage, ensoleillement, mode de pollinisation.
+  ⚠️ **`stages` est aligné sur `MARKERS[archétype]`** : un marqueur désigne un INDICE de stade.
+  Modifier l'un sans l'autre casse toute la déduction de phase.
+- `ARCH_GUIDE[archétype]` → conseils par phase (eau / à surveiller / entretien). Génériques
+  mais vrais pour toute culture partageant cette architecture — une fiche vide serait pire.
+- `FAM_AGRO[famille]` → fréquence d'apport, plage de pH, cible d'azote. ⚠️ brassicacées : pH
+  volontairement haut (au-dessus de 7 la hernie du chou est nettement moins agressive) ;
+  fabacées : cible d'azote quasi nulle **et** la recette `vegetatif` est remplacée par `jeune`
+  (elles fixent leur azote — le forcer donne du feuillage au lieu de gousses).
+- `speciesCycle()` répartit les **jours à maturité du sachet** sur les phases qui précèdent la
+  récolte : le modèle est ancré sur le seul chiffre réel dont dispose le jardinier.
+- `resow` déduit de la sensibilité au gel et de l'archétype — aucune fenêtre de semis inventée
+  culture par culture.
+
+⚠️ Le modèle produit est **générique et l'app le dit** dans l'aperçu. C'est acceptable parce que
+`curStage = observedStage ?? modelStage` : la première inspection corrige le calendrier.
+L'aperçu (`renderSpeciesPreview`) montre EN DIRECT tout ce qui vient d'être déduit — c'est ce
+qui rend légitime de ne pas poser les questions.
+
+`newSpeciesId()` slugifie le nom et compte les collisions (jamais `Date.now()`, cf. `newBedId`).
+`speciesInUse()` interdit de supprimer une espèce encore plantée : on effacerait l'agronomie
+sous les pieds d'une culture suivie, journal et inspections compris.
+Trois familles ont été ajoutées à `FAM` **et** à `CAT_ORDER` pour couvrir le catalogue :
+`amaranthacees`, `asteracees`, `rosacees`. Toute nouvelle famille doit figurer dans les deux,
+plus dans `FAM_AGRO`, sinon elle retombe silencieusement sur « autres ».
+⚠️ La convention de comptage peut venir de l'ESPÈCE (`sp.dtmFrom`, exposé en `spDtmFrom` sur
+l'objet résolu) : nom distinct obligatoire, fusionner espèce et plantation ferait écraser la
+valeur par un null — même piège que `dtm` / `varDtm`.
 
 ### Variétés et jours à maturité
 `VARIETIES[espèce]` = catalogue `{n, dtm, from, note}`. Choisir la variété renseigne les jours
@@ -486,7 +528,7 @@ des parcelles créées dans la même milliseconde, et rattachait toutes les cult
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v33`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v34`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.

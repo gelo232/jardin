@@ -43,6 +43,15 @@ d'arrosage). Une même culture peut donc être plantée dans plusieurs parcelles
 plantations s'ajoutent, se modifient, se dupliquent et se suppriment depuis l'app —
 la date de mise en terre incluse, qui pilote tout le calcul des phases.
 
+**Ajouter une culture absente du catalogue** ne demande que ce que le jardinier peut
+savoir. Trente cultures courantes en zone 5b (haricot, concombre, poivron, laitue,
+betterave, oignon, basilic, fraisier…) se choisissent par leur nom, sans rien renseigner
+d'autre. Pour une culture entièrement nouvelle, quatre réponses suffisent : à quoi
+ressemble la plante, sa famille botanique, les jours à maturité du sachet et sa
+sensibilité au gel. L'app en déduit le modèle de phases, les recettes d'engrais, les
+intervalles d'arrosage, la fréquence des apports, le pH visé, la cible d'azote et la
+fenêtre de ressemis — et montre le tout en aperçu avant validation.
+
 L'onglet **Saison** regroupe les semis, le **sol** (température du sol, pH par parcelle avec
 diagnostic et correctifs, calendrier d'amendements) et la **rotation** des familles
 botaniques. Le Programme intègre les alertes de gel calculées sur les prévisions réelles,
