@@ -849,7 +849,9 @@ function dtmOf(p){
   return(p&&isFinite(+p.varDtm)&&p.varDtm)?+p.varDtm:((p&&p.dtm)||null);}
 /* la variété a-t-elle le temps d'arriver à maturité avant le gel ? */
 function varietyOutlook(p){
-  const d=dtmEffective(p);if(!d||p.peren||p.ornamental)return null;
+  /* Un cycle terminé n'a plus de perspective : annoncer « 42 j de marge avant le gel » en
+     décembre pour une tomate morte depuis octobre n'a aucun sens. */
+  const d=dtmEffective(p);if(!d||p.peren||p.ornamental||cycleOver(p))return null;
   const ref=maturityRef(p);if(!ref||!ref.date)return null;
   const base=new Date(ref.date+'T00:00'),mat=new Date(base.getTime()+d*864e5);
   const f=frostInfo();if(!f)return null;
@@ -1255,6 +1257,18 @@ function plantAgeDays(p){const s=p&&p.sowDate;if(!s)return null;
 function notYetSown(p){const s=p&&p.sowDate;if(!s)return false;
   return new Date(s+'T00:00').getTime()>Date.now();}
 function careOne(c){return(typeof c==='string')?{t:c}:(c&&c.t?c:{t:String(c||'')});}
+/* comparaison de deux conseils : sans accents, sans ponctuation, sans casse */
+function norm(x){return String(x||'').toLowerCase().normalize('NFD')
+  .replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();}
+/* Deux conseils disent-ils la même chose ? Un simple préfixe commun ne suffit pas :
+   « Glisse une planchette sous les jeunes fruits » et « Glisse une planchette OU DE LA PAILLE
+   sous les jeunes fruits » divergent au 22ᵉ caractère. On compare les mots porteurs. */
+function sameAdvice(a,b){
+  const w=x=>norm(x).split(' ').filter(t=>t.length>=4);
+  const A=w(a),B=w(b);if(!A.length||!B.length)return false;
+  const inter=A.filter(t=>B.indexOf(t)>=0).length;
+  return inter/Math.min(A.length,B.length)>=0.6;
+}
 /* ⚠️ On lit la phase DIRECTEMENT, pas `phaseInfo().care` : celui-ci retombe sur
    `p.structural` quand l'espèce n'a pas de soins pour ce stade, et les repères permanents
    (« tuteurage dès maintenant », « glisse une planchette sous les fruits ») se retrouvaient
@@ -1992,8 +2006,14 @@ function phaseStart(p){
     return{date:cand,src:'postérieur à la dernière observation',precise:false,
       txt:`encore au stade précédent le ${frDate(lower)}`};
   }
+  /* ⚠️ Distinguer « rien de saisi » de « saisi, mais qui ne date pas la transition » : le
+     message « aucune inspection » s'affichait juste au-dessus du bandeau « Inspection du … »,
+     ce qui se lisait comme une contradiction. */
+  const aDesSaisies=hist.length>0||!!lastInsp(p);
   return mdlDate?{date:mdlDate,src:'calendrier',precise:false,
-    txt:"aucune inspection : estimation d'après la date de semis"}:null;
+    txt:aDesSaisies
+      ? "aucune inspection ne situe cette transition : estimation d'après la date de semis"
+      : "aucune inspection : estimation d'après la date de semis"}:null;
 }
 function daysInPhase(p){const s=phaseStart(p);
   return s?Math.max(0,Math.floor((Date.now()-s.date.getTime())/864e5)):null;}
@@ -2500,7 +2520,7 @@ function feedHoldUntil(p){const a=adj(p),i=lastInsp(p);
                         inconnue, et seul à tenir compte du retard constaté par inspection.
    L'interface annonce laquelle fait foi plutôt que d'afficher deux verdicts côte à côte. */
 function frostOutlook(p){
-  const dur=p.dur;if(!dur||!dur.length||p.peren||p.ornamental)return null;
+  const dur=p.dur;if(!dur||!dur.length||p.peren||p.ornamental||cycleOver(p))return null;
   const ci=curStage(p),since=stageSince(p),elapsed=since?daysSince(since):0;
   const remain=Math.max(0,dur.slice(ci).reduce((a,b)=>a+b,0)-(isFinite(elapsed)?elapsed:0));
   const left=daysToFrost();
@@ -2567,7 +2587,13 @@ function nBudgetLine(p){
     <span class="note">${b.lvl==='excès'
       ? "Au-dessus de la fourchette : l'excès d'azote donne du feuillage tendre, attire les pucerons, retarde la fructification et se lessive. Espace les apports ou passe à une recette pauvre en azote."
       : b.lvl==='bon' ? "Dans la fourchette usuelle pour cette culture."
-      : "Sous la fourchette usuelle — normal en début de saison, à surveiller en pleine croissance."}
+      : (()=>{const n=p.stages.length,ci=curStage(p);
+          /* « normal en début de saison » s'affichait aussi en fin de cycle, où être sous la
+             cible n'a plus rien de normal : le message suit l'avancement réel de la plante. */
+          if(cycleOver(p))return "Sous la fourchette : le cycle est terminé, ce bilan sert au plan de l'an prochain.";
+          return ci<=Math.floor(n/3)
+            ? "Sous la fourchette usuelle — normal à ce stade, la plante n'a pas encore beaucoup consommé."
+            : "Sous la fourchette usuelle alors que la plante est déjà avancée dans son cycle : si la croissance est molle ou le feuillage pâle, resserre les apports.";})()}
     Fourchette indicative${(p.planting&&p.planting.area)?`, ajustée à la surface déclarée (${p.planting.area} m²)`:''} — un ordre de grandeur, pas une prescription. Chaque apport compte <b>${nGramsPerFeed(p)} g</b> pour ${appliedLiters(p)} L réellement versés.</span></div>`;
 }
 /* ===== CALCIUM & MAGNÉSIUM =====
@@ -2668,7 +2694,11 @@ function phVerdict(ph){
 /* Adéquation entre le pH d'une parcelle et une culture donnée */
 function phFitFor(p,ph){
   if(!inGround(p))return null;   // substrat de contenant : le pH de la parcelle ne le concerne pas
-  const o=p.phOpt;if(!o||ph==null||!isFinite(+ph))return null;
+  /* ⚠️ Un pH non mesuré est stocké comme chaîne VIDE, et `+''` vaut 0 : le test isFinite le
+     laissait passer, si bien que toutes les fiches annonçaient « pH 0 — trop acide » pour une
+     parcelle jamais testée. Un pH de sol au-dessous de 3 n'existe pas : on exige une mesure. */
+  const o=p.phOpt;
+  if(!o||ph==null||ph===''||!isFinite(+ph)||+ph<=0)return null;
   const v=+ph;
   if(v>=o[0]&&v<=o[1])return{ok:true,txt:`pH ${v} — dans la plage idéale (${o[0]}–${o[1]}).`};
   return{ok:false,txt:`pH ${v} — hors de la plage idéale de cette culture (${o[0]}–${o[1]}). ${v<o[0]?'Trop acide':'Trop alcalin'} : certains apports resteront partiellement inaccessibles.`};
@@ -3790,6 +3820,8 @@ function stateBlock(p){
       ${C.expected.inPhase!=null?`<br><span class="note" style="font-weight:400">calendrier : ${C.expected.inPhase} j</span>`:''}
       ${C.actual.since?`<br><span class="note" style="font-weight:400">${C.actual.since.txt}</span>`:''}</span></div>
     ${C.actual.h?`<div class="diff"><span class="d-k">${archOf(p).hLab.replace(' (cm)','')}</span><span class="d-v">${C.actual.h} cm${gr?` <span class="note" style="font-weight:400">(${gr.perWeek>=0?'+':''}${gr.perWeek} cm/sem.)</span>`:''}</span></div>`:''}
+    ${cycleOver(p)?`<div class="diff"><span class="d-k">Fin de cycle</span><span class="d-v">🏁 cycle terminé
+      <br><span class="note" style="font-weight:400">Arrosage et fertilisation sont arrêtés automatiquement. Note ta récolte dans le Journal, puis clôture la saison depuis l'onglet Saison.</span></span></div>`:''}
     ${(()=>{const v=varietyOutlook(p),fo=frostOutlook(p);
       if(!v&&fo)return `<div class="diff"><span class="d-k">Fin de cycle estimée</span><span class="d-v">${fo.remain} j restants
         <br><span class="note" style="font-weight:400">modèle générique de l'espèce — renseigne la variété pour un calcul fondé sur ses jours à maturité</span>
@@ -3805,13 +3837,23 @@ function stateBlock(p){
         ${v.warn?`<br><span class="note" style="font-weight:400;color:var(--amber)">⚠️ Date de mise en terre non renseignée : le calcul part du semis, donc il est optimiste. Renseigne-la sur la fiche de la culture.</span>`:''}
         ${(fo&&fo.ok!==v.ok)?`<br><span class="note" style="font-weight:400;color:var(--amber)">⚠️ Le modèle générique de l'espèce dit l'inverse (${fo.remain} j de cycle restants). <b>C'est le chiffre de la variété qui fait foi</b> — il vient du semencier ; le modèle, lui, ignore ta variété.</span>`:''}</span></div>`;})()}
     <p class="note" style="margin:8px 0 0">${C.expected.marker
-      ? `À ce stade, tu devrais voir : <b>${C.expected.marker.toLowerCase()}</b>.`:''}
+      /* ⚠️ « À ce stade » se lisait comme la phase affichée par la fiche, alors qu'il s'agit
+         de celle du CALENDRIER : une courge observée en floraison annonçait « tu devrais voir
+         des boutons », ce qui passait pour une contradiction. On nomme le stade dont on parle,
+         et on rappelle lequel fait foi. */
+      ? (C.gap==null||C.gap===0
+        ? `À ce stade, tu devrais voir : <b>${C.expected.marker.toLowerCase()}</b>.`
+        : `Au stade prévu par le <b>calendrier</b> (« ${C.expected.name} »), tu devrais voir : <b>${C.expected.marker.toLowerCase()}</b>. Tes observations, elles, situent la plante en « <b>${C.actual.name}</b> » — et c'est ce stade-là qui fait foi.`):''}
       ${C.gap!=null&&C.gap<0?" L'app a recalé arrosage et fertilisation sur le stade réellement observé, pas sur le calendrier.":''}
       <span class="plink" role="button" tabindex="0" onclick="event.stopPropagation();goInspect('${p.id}')"> Mettre à jour →</span></p></div>`;
 }
 function plantBody(p){
   if(p.ornamental)return ornamentalBody(p);
-  const info=phaseInfo(p),r=RECIPES[info.r]||RECIPES.aucun,npk=recipeNPK(r),rows=recipeRows(r);
+  /* ⚠️ La fiche lisait `phaseInfo().r` — la recette BRUTE de la phase. Elle ignorait donc les
+     deux corrections que l'app applique partout ailleurs : l'arrêt des apports en fin de cycle,
+     et l'ajustement issu du diagnostic. Le Doseur et l'onglet Inspection annonçaient une
+     recette, la fiche en affichait une autre. `curRecipe()` est la source unique. */
+  const info=phaseInfo(p),r=curRecipe(p),npk=recipeNPK(r),rows=recipeRows(r);
   const phName=p.stages[curStage(p)],noF=isNoFeed(r);
   const fed=daysSince(state.feeds[p.id]),wat2=daysSince(state.waters[p.id]);
   // bloc durées par stade : durée de chaque stade + temps restant jusqu'à la fin du cycle
@@ -3865,7 +3907,13 @@ function plantBody(p){
   const care=`<div class="pact"><h4>🛠️ Entretien · ${phName}</h4><ul>${careList(p).map(c=>{
       const st=careState(p,c);
       return `<li>${c.t}${st?` <span class="note">— ${st.ic} ${st.txt}</span>`:''}</li>`;}).join('')}</ul>
-      ${(p.structural&&p.structural.length)?`<p class="note" style="margin:7px 0 0"><b>Repères permanents</b> (pas des tâches du jour) : ${p.structural.join(' · ')}</p>`:''}</div>`;
+      ${(()=>{
+        /* Un repère permanent qui redit le conseil de la phase courante apparaissait deux fois
+           dans la même section, à trois lignes d'écart. On n'affiche que ce qui ajoute
+           quelque chose. */
+        const care=careList(p).map(c=>c.t);
+        const reste=(p.structural||[]).filter(x=>!care.some(c=>sameAdvice(c,x)));
+        return reste.length?`<p class="note" style="margin:7px 0 0"><b>Repères permanents</b> (pas des tâches du jour) : ${reste.join(' · ')}</p>`:'';})()}</div>`;
   const situ=(()=>{const b=bedOf(p),f=b?phFitFor(p,b.ph):null;const fam=famOf(p);
       const C=mediumOf(p),V=coverOf(p),W=wateringOf(p);
       return `<div class="pact"><h4>🧱 Situation & sol</h4>

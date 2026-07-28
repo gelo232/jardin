@@ -129,6 +129,30 @@ ouvre le menu), `#canUnit` a un `aria-label` faute d'étiquette propre, et `sele
 est visiblement grisé avec un cadenas — le menu « Culture » verrouillé en édition passait
 sinon pour cassé.
 
+## 4ante-bis. ⚠️ Fiche plante — incohérences corrigées en audit
+- **La fiche affichait la recette de BASE** (`phaseInfo().r`) au lieu de celle réellement
+  prescrite : elle ignorait l'arrêt des apports en fin de cycle ET l'ajustement issu du
+  diagnostic. Le Doseur annonçait « Croissance végétative », la fiche « Floraison & fruits ».
+  **`curRecipe(p)` est la source unique**, y compris pour les grammes et le NPK affichés.
+- **« À ce stade, tu devrais voir … » désignait le stade du CALENDRIER**, pas celui affiché
+  par la fiche : une courge observée en floraison annonçait « tu devrais voir des boutons ».
+  Le stade est maintenant nommé, et la phrase dit lequel fait foi.
+- **`phFitFor` acceptait un pH non mesuré** : stocké comme chaîne vide, `+''` vaut 0 et passe
+  `isFinite` → toutes les fiches affichaient « pH 0 — trop acide » pour une parcelle jamais
+  testée. Exiger une valeur > 0.
+- **`varietyOutlook` / `frostOutlook` ignoraient `cycleOver`** : « 42 j de marge avant le gel »
+  s'affichait en décembre pour une tomate morte en octobre. Un cycle terminé le dit, et rien
+  d'autre.
+- **Les `structural` répétaient le conseil de la phase courante** à trois lignes d'écart.
+  `sameAdvice()` compare les mots porteurs — un préfixe commun ne suffit pas, « glisse une
+  planchette sous les jeunes fruits » et « glisse une planchette OU DE LA PAILLE sous les
+  jeunes fruits » divergent au 22ᵉ caractère.
+- **Le bilan d'azote disait « normal en début de saison »** même en fin de cycle. Le message
+  suit l'avancement réel de la plante.
+- **« aucune inspection : estimation d'après la date de semis »** s'affichait juste au-dessus
+  du bandeau « Inspection du … ». Distinguer « rien de saisi » de « saisi, mais qui ne date
+  pas la transition ».
+
 ## 4ante. Fiche plante : sections repliables
 `plantBody()` et `ornamentalBody()` composent la fiche avec `pgroup(p,clé,icône,titre,sous-titre,contenu,ouvertParDéfaut)` :
 📊 État (ouverte) · 💧 Arrosage · ⚗️ Nutrition · 🔎 Diagnostic & contrôles · 🛠️ Entretien ·
@@ -608,7 +632,7 @@ des parcelles créées dans la même milliseconde, et rattachait toutes les cult
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v37`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v38`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.
