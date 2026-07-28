@@ -1045,6 +1045,10 @@ function migrateModel(){
     if(pl.dtmFrom===undefined)pl.dtmFrom=null;
     if(pl.plantDate===undefined)pl.plantDate=null;
   });
+  /* Correction de données : le catalogue d'espèces vit dans localStorage et ne se reconstruit
+     pas au démarrage. Une espèce reclassée vivace (thym) doit donc être corrigée ici, sinon
+     les installations existantes gardent l'ancienne valeur pour toujours. */
+  Object.keys(PEREN).forEach(sid=>{if(state.species[sid])state.species[sid].peren=true;});
 }
 /* Résolution : espèce + plantation → objet « plante » de la forme attendue par tout le reste */
 function resolvePlanting(pl){
@@ -1082,69 +1086,69 @@ function activePlants(){return PLANTS.filter(p=>!isRemoved(p));}
    Tout l'affichage (détail plante, doseur, aujourd'hui, plan) lit la PHASE EN COURS. */
 const maisPh=[
  {r:'jeune',water:"Sol frais, jamais détrempé (les graines pourrissent en sol froid humide).",watch:["Fonte des semis si excès d'eau"],care:["Éclaircis à 1 plant tous les 25–30 cm"]},
- {r:'vegetatif',water:"Arrosages réguliers ; gros besoins en eau dès la croissance.",watch:["À l'ombre : tiges étirées, croissance lente"],care:["Garde-les serrés EN BLOC (pollinisation par le vent)","Butte légèrement le pied"]},
- {r:'vegetatif',water:"Ne laisse pas sécher en profondeur.",watch:["Feuilles jaunes en V → manque d'azote"],care:["Apport d'azote soutenu (gros consommateur)"]},
- {r:'fleur',water:"CRUCIAL : ne jamais laisser sécher pendant la pollinisation (sinon grains manquants).",watch:["Soies brunes trop tôt = mauvaise pollinisation"],care:["Secoue les tiges le matin pour disperser le pollen","Passe au P-K"]},
+ {r:'vegetatif',water:"Arrosages réguliers ; gros besoins en eau dès la croissance.",watch:["À l'ombre : tiges étirées, croissance lente"],care:[{t:"Garde-les serrés EN BLOC (pollinisation par le vent)",note:true},"Butte légèrement le pied"]},
+ {r:'vegetatif',water:"Ne laisse pas sécher en profondeur.",watch:["Feuilles jaunes en V → manque d'azote"],care:[{t:"Apport d'azote soutenu (gros consommateur)",auto:true}]},
+ {r:'fleur',water:"CRUCIAL : ne jamais laisser sécher pendant la pollinisation (sinon grains manquants).",watch:["Soies brunes trop tôt = mauvaise pollinisation"],care:["Secoue les tiges le matin pour disperser le pollen",{t:"Passe au P-K",auto:true}]},
  {r:'aucun',water:"Eau régulière jusqu'à la récolte ; stoppe l'engrais.",watch:["Stade laiteux : un grain percé rend un jus laiteux"],care:["Récolte quand les soies brunissent et le grain est laiteux"]},
 ];
 const tomatePh=[
  {r:'jeune',water:"Régulier, sans détremper ; arrose au pied.",watch:["Tiges longues et molles → trop d'azote ou manque de lumière"],care:["Installe le tuteur tant que le plant est petit"]},
  {r:'vegetatif',water:"Arrosage profond dès que les 2–3 premiers cm sèchent ; régularité = pas de cul noir.",watch:["Feuilles enroulées → à-coups d'eau"],care:["Tuteure et attache","Coupe les feuilles à moins de 25 cm du sol"]},
- {r:'fleur',water:"Régularité essentielle pendant la nouaison.",watch:["Chute des fleurs si nuits <10° ou chaleur >32°"],care:["Passe au P-K (floraison)","Pince les gourmands sur variétés indéterminées"]},
+ {r:'fleur',water:"Régularité essentielle pendant la nouaison.",watch:["Chute des fleurs si nuits <10° ou chaleur >32°"],care:[{t:"Passe au P-K (floraison)",auto:true},"Pince les gourmands sur variétés indéterminées"]},
  {r:'fleur',water:"Eau constante : les à-coups font noircir/éclater les fruits.",watch:["Cul noir (tache noire au bas) = irrégularité d'eau/calcium"],care:["Effeuille sous les premiers bouquets (anti-mildiou)"]},
- {r:'fleur',water:"Régulier ; réduis un peu en fin de grossissement pour le goût.",watch:["Mildiou dès fin juillet (taches brunes huileuses)","Fentes si pluie après sécheresse"],care:["Étête ~1 mois avant le gel pour mûrir les fruits restants"]},
- {r:'fleur',water:"Espacé ; presque rien en fin de récolte.",watch:["Gel annoncé → récolte tous les fruits, même verts"],care:["Récolte au fur et à mesure","Avant le gel : cueille tout, fais mûrir les verts au chaud"]},
+ {r:'fleur',water:"Régulier ; réduis un peu en fin de grossissement pour le goût.",watch:["Mildiou dès fin juillet (taches brunes huileuses)","Fentes si pluie après sécheresse"],care:[{t:"Étête ~1 mois avant le gel pour mûrir les fruits restants",when:'preGel30'}]},
+ {r:'fleur',water:"Espacé ; presque rien en fin de récolte.",watch:["Gel annoncé → récolte tous les fruits, même verts"],care:["Récolte au fur et à mesure",{t:"Avant le gel : cueille tout, fais mûrir les verts au chaud",when:'preGel10'}]},
 ];
 const cucurbitPh=[
  {r:'jeune',water:"Sol chaud et humide sans excès ; déteste les racines détrempées.",watch:["Stagne sous 15° la nuit"],care:["Paillage sombre pour réchauffer le sol"]},
  {r:'vegetatif',water:"Régulier ; laisse sécher la surface entre deux.",watch:["Croissance lente si nuits fraîches"],care:["Pince la tige après 4–5 feuilles pour ramifier"]},
  {r:'fleur',water:"Constant à la floraison et à la nouaison.",watch:["Fleurs mâles d'abord, puis femelles (petit fruit à la base)"],care:["Pollinise au pinceau le matin si peu d'abeilles","Limite à 3–4 fruits/plant (saison courte)"]},
  {r:'fleur',water:"Soutenu pendant le grossissement.",watch:["Pourriture au contact du sol humide"],care:["Glisse une planche/paille sous chaque fruit"]},
- {r:'aucun',water:"RÉDUIS l'eau en fin de mûrissement (concentre le sucre) ; stoppe l'engrais.",watch:["Melon : parfum sucré + détachement facile = mûr","Pastèque : vrille près du fruit sèche + dessous jaune = mûr"],care:["Laisse mûrir au soleil ; n'arrose presque plus"]},
+ {r:'aucun',water:"RÉDUIS l'eau en fin de mûrissement (concentre le sucre) ; stoppe l'engrais.",watch:["Melon : parfum sucré + détachement facile = mûr","Pastèque : vrille près du fruit sèche + dessous jaune = mûr"],care:[{t:"Laisse mûrir au soleil ; n'arrose presque plus",note:true}]},
 ];
 const PH={
   mais_ombre:maisPh, mais_geo:maisPh,
   tomate_bac:tomatePh, tomate_geo:tomatePh,
   melon:cucurbitPh, pasteque:cucurbitPh,
   courge:[
-   {r:'jeune',water:"Régulier au pied, jamais sur le feuillage.",watch:["Fonte des semis si froid/humide"],care:["Espace bien (les courges s'étalent)"]},
+   {r:'jeune',water:"Régulier au pied, jamais sur le feuillage.",watch:["Fonte des semis si froid/humide"],care:[{t:"Espace bien (les courges s'étalent)",note:true}]},
    {r:'vegetatif',water:"Gros besoins en eau, toujours au pied.",watch:["Oïdium (feutrage blanc) par temps humide"],care:["Paille pour garder l'humidité"]},
-   {r:'fleur',water:"Constant ; évite le stress hydrique.",watch:["Fleurs mâles d'abord, puis femelles"],care:["Passe au P-K"]},
+   {r:'fleur',water:"Constant ; évite le stress hydrique.",watch:["Fleurs mâles d'abord, puis femelles"],care:[{t:"Passe au P-K",auto:true}]},
    {r:'fleur',water:"Régulier pendant la nouaison.",watch:["Fruits qui avortent = pollinisation incomplète"],care:["Pollinise au pinceau le matin si peu d'abeilles"]},
    {r:'fleur',water:"Soutenu pendant le grossissement.",watch:["Pourriture au sol humide"],care:["Glisse une planchette sous les jeunes fruits"]},
    {r:'aucun',water:"Réduis l'eau en fin de mûrissement ; stoppe l'engrais.",watch:["Courge d'hiver : peau dure + pédoncule liégeux = mûre"],care:["Récolte avant le gel ; laisse un bout de pédoncule","Ressuie ~10 j au soleil pour la conservation"]},
   ],
   persil:[
-   {r:'jeune',water:"Surface humide jusqu'à la levée (lente, 2–3 sem.).",watch:["Sèche en surface = germination ratée"],care:["Patience : le persil lève lentement"]},
-   {r:'jeune',water:"Frais et régulièrement humide ; mi-ombre l'été.",watch:["Montée en graine si stress/chaleur"],care:["Apport léger seulement (peu gourmand)"]},
+   {r:'jeune',water:"Surface humide jusqu'à la levée (lente, 2–3 sem.).",watch:["Sèche en surface = germination ratée"],care:[{t:"Patience : le persil lève lentement",note:true}]},
+   {r:'jeune',water:"Frais et régulièrement humide ; mi-ombre l'été.",watch:["Montée en graine si stress/chaleur"],care:[{t:"Apport léger seulement (peu gourmand)",auto:true}]},
    {r:'jeune',water:"Régulier ; ne dessèche pas.",watch:["Jaunissement si pot trop petit ou excès d'eau"],care:["Récolte les tiges extérieures d'abord, garde le cœur"]},
   ],
   thym:[
-   {r:'jeune',water:"À peine humide jusqu'à la levée ; jamais détrempé.",watch:["Pourrit en sol lourd/humide"],care:["Levée et croissance lentes — normal"]},
-   {r:'jeune',water:"Laisse bien sécher entre deux arrosages (méditerranéen).",watch:["Collet qui jaunit = excès d'eau"],care:["Apport très rare (l'azote dilue l'arôme)","Pince pour ramifier"]},
+   {r:'jeune',water:"À peine humide jusqu'à la levée ; jamais détrempé.",watch:["Pourrit en sol lourd/humide"],care:[{t:"Levée et croissance lentes — normal",note:true}]},
+   {r:'jeune',water:"Laisse bien sécher entre deux arrosages (méditerranéen).",watch:["Collet qui jaunit = excès d'eau"],care:[{t:"Apport très rare (l'azote dilue l'arôme)",auto:true},"Pince pour ramifier"]},
    {r:'aucun',water:"Tolère la sécheresse ; arrose peu.",watch:["Se dégarnit du bois avec l'âge → rabats au printemps"],care:["Récolte avant la floraison (arôme maximal)"]},
   ],
   carotte:[
-   {r:'jeune',water:"Surface constamment humide jusqu'à la levée (14–21 j) ; planche/jute par-dessus.",watch:["Croûte sèche = levée ratée"],care:["Sème clair pour limiter l'éclaircissage"]},
+   {r:'jeune',water:"Surface constamment humide jusqu'à la levée (14–21 j) ; planche/jute par-dessus.",watch:["Croûte sèche = levée ratée"],care:[{t:"Sème clair pour limiter l'éclaircissage",note:true}]},
    {r:'racine',water:"Régulier et profond ; l'irrégularité fait fendre.",watch:["Feuillage abondant + racine fine → trop d'azote"],care:["Éclaircis à 3–4 cm entre carottes"]},
-   {r:'racine',water:"Profond et constant pendant le grossissement.",watch:["Racines fourchues → sol caillouteux ou fumier frais","Épaules vertes → recouvre de terre"],care:["Faible azote, un peu de potassium"]},
+   {r:'racine',water:"Profond et constant pendant le grossissement.",watch:["Racines fourchues → sol caillouteux ou fumier frais","Épaules vertes → recouvre de terre"],care:[{t:"Faible azote, un peu de potassium",auto:true}]},
    {r:'aucun',water:"Modéré ; inutile de forcer.",watch:["Se conservent en terre ; récolte avant gel fort"],care:["Récolte au besoin, les plus grosses d'abord"]},
   ],
   ail:[
-   {r:'vegetatif',water:"Sol frais et régulier au départ.",watch:["Démarrage lent au printemps"],care:["Azote utile pour bâtir le feuillage"]},
+   {r:'vegetatif',water:"Sol frais et régulier au départ.",watch:["Démarrage lent au printemps"],care:[{t:"Azote utile pour bâtir le feuillage",auto:true}]},
    {r:'vegetatif',water:"Régulier pendant la croissance du feuillage.",watch:["Plus de feuilles = plus gros bulbe"],care:["Désherbe : l'ail déteste la concurrence"]},
-   {r:'racine',water:"Réduis à mesure que le bulbe se forme.",watch:["Feuilles du bas jaunes = bulbaison","Scape (col dur) à couper"],care:["STOPPE l'azote (sinon feuilles, petit bulbe)","Coupe le scape pour gonfler le bulbe"]},
+   {r:'racine',water:"Réduis à mesure que le bulbe se forme.",watch:["Feuilles du bas jaunes = bulbaison","Scape (col dur) à couper"],care:[{t:"STOPPE l'azote (sinon feuilles, petit bulbe)",auto:true},"Coupe le scape pour gonfler le bulbe"]},
    {r:'aucun',water:"ARRÊTE l'arrosage ~2 sem. avant la récolte.",watch:["Récolte quand 1/3 à 1/2 des feuilles du bas ont bruni"],care:["Récolte par temps sec, fais sécher (curing) 2–3 sem. à l'ombre aérée"]},
   ],
   citron:[
-   {r:'agrumes',water:"Laisse sécher les 3–4 premiers cm puis arrose à fond ; jamais les pieds dans l'eau.",watch:["Feuilles jaunes à nervures vertes → fer/magnésium","Chute des feuilles → eau irrégulière ou froid"],care:["Jeune plant : vise la croissance, étête vers 40–50 cm pour ramifier","Dehors plein soleil l'été, rentre avant 10°"]},
-   {r:'agrumes',water:"Régulier pendant la floraison.",watch:["Chute des fleurs si stress hydrique/courant d'air"],care:["Des années avant la 1re floraison pour un semis — patience"]},
-   {r:'agrumes',water:"Constant pendant la formation des fruits.",watch:["Chute de jeunes fruits = normal (le plant en garde quelques-uns)"],care:["Apport régulier sans chlore"]},
-   {r:'agrumes',water:"Régulier ; maturation lente (plusieurs mois).",watch:["Le fruit met des mois à colorer"],care:["Patience : maturation longue"]},
+   {r:'agrumes',water:"Laisse sécher les 3–4 premiers cm puis arrose à fond ; jamais les pieds dans l'eau.",watch:["Feuilles jaunes à nervures vertes → fer/magnésium","Chute des feuilles → eau irrégulière ou froid"],care:[{t:"Jeune plant : vise la croissance, étête vers 40–50 cm pour ramifier",when:'haut40'},{t:"Dehors plein soleil l'été, rentre avant 10°",note:true}]},
+   {r:'agrumes',water:"Régulier pendant la floraison.",watch:["Chute des fleurs si stress hydrique/courant d'air"],care:[{t:"Des années avant la 1re floraison pour un semis — patience",note:true}]},
+   {r:'agrumes',water:"Constant pendant la formation des fruits.",watch:["Chute de jeunes fruits = normal (le plant en garde quelques-uns)"],care:[{t:"Apport régulier sans chlore",auto:true}]},
+   {r:'agrumes',water:"Régulier ; maturation lente (plusieurs mois).",watch:["Le fruit met des mois à colorer"],care:[{t:"Patience : maturation longue",note:true}]},
   ],
   ananas:[
-   {r:'ananas',water:"Laisse bien sécher entre deux ; un peu d'eau au cœur de la rosette.",watch:["Pointes brunes → eau calcaire ou excès d'engrais","Croissance très lente — normal"],care:["Brumise par temps sec","Apport mensuel très dilué, sans chlore"]},
-   {r:'ananas',water:"Modéré pendant la floraison (inflorescence rouge/violette).",watch:["La floraison survient vers 16–24 mois"],care:["Si rien après 2 ans : force avec une pomme mûre sous un sac (éthylène)"]},
+   {r:'ananas',water:"Laisse bien sécher entre deux ; un peu d'eau au cœur de la rosette.",watch:["Pointes brunes → eau calcaire ou excès d'engrais","Croissance très lente — normal"],care:[{t:"Brumise par temps sec",when:'airSec'},{t:"Apport mensuel très dilué, sans chlore",auto:true}]},
+   {r:'ananas',water:"Modéré pendant la floraison (inflorescence rouge/violette).",watch:["La floraison survient vers 16–24 mois"],care:[{t:"Si rien après 2 ans : force avec une pomme mûre sous un sac (éthylène)",when:'age2ans'}]},
    {r:'ananas',water:"Régulier pendant le grossissement du fruit.",watch:["~5–6 mois de la fleur au fruit mûr"],care:["Soutiens le fruit s'il penche"]},
   ],
 };
@@ -1163,6 +1167,92 @@ function curRecipe(p){
   if(p.ornamental||isNoFeed(base))return base;
   return RECIPES[a.recipe];}
 function baseRecipe(p){return RECIPES[phaseInfo(p).r]||RECIPES.aucun;}
+/* ===== PERTINENCE D'UN SOIN DE PHASE (⚠️ règle de conception, §4quater) =====
+   Un conseil ne s'affiche que dans sa FENÊTRE UTILE. Les soins de phase étaient tous émis
+   dès l'entrée dans la phase : « étête ~1 mois avant le gel » sortait donc fin juillet, à
+   plus de deux mois du gel — et, pire, seul le PREMIER soin de la phase était émis, si bien
+   qu'un vrai geste (« coupe le scape », « pince les gourmands ») restait invisible derrière
+   une simple description de régime.
+   Un soin peut désormais porter :
+   • `when`  — une condition datée ou d'état, réévaluée à chaque rendu du Programme ;
+   • `note`  — un FAIT, pas un geste. Reste sur la fiche de la plante, ne devient jamais une
+               tâche : « patience, la maturation est longue » n'est pas une action ;
+   • `auto`  — un changement de régime que l'app applique DÉJÀ elle-même (« passe au P-K » :
+               la recette de la phase a changé toute seule). Il explique la recette sur la
+               fiche ; le proposer comme tâche demandait de faire ce qui était déjà fait.
+   Sans marqueur, un soin est un geste valable pendant toute sa phase. */
+const CARE_WHEN={
+  preGel30:{lab:"à environ un mois du gel",
+    ok:()=>{const d=daysToFrost();return d>0&&d<=35;},
+    why:()=>`Le premier gel est attendu dans ${daysToFrost()} j.`},
+  preGel10:{lab:"à l'approche immédiate du gel",
+    ok:()=>{const d=daysToFrost();return !!frostAlert()||(d>0&&d<=12);},
+    why:()=>{const f=frostAlert();return f?`Gel annoncé (${f.tmin} °C).`:`Le premier gel est attendu dans ${daysToFrost()} j.`;}},
+  age2ans:{lab:"passé deux ans de culture",
+    ok:p=>{const a=plantAgeDays(p);return a!=null&&a>=730;},
+    why:p=>`Ce sujet a ${Math.floor(plantAgeDays(p)/365)} ans.`},
+  /* Un geste conditionné à une TAILLE ne se propose que si la taille est atteinte — et elle
+     n'est connue que par l'inspection. Sans mesure, on ne réclame rien. */
+  haut40:{lab:"quand le sujet atteint 40 cm",
+    ok:p=>{const i=lastInsp(p);return !!i&&isFinite(+i.h)&&+i.h>=40;},
+    why:p=>`Mesuré à ${(lastInsp(p)||{}).h} cm à la dernière inspection.`},
+  airSec:{lab:"par temps sec",
+    ok:()=>{const w=state.wx;return !!w&&w.rh!=null&&w.rh<55;},
+    why:()=>`Humidité de l'air à ${state.wx.rh} %.`}
+};
+/* ===== SAISON DE PLEIN AIR TERMINÉE =====
+   Après le gel meurtrier, il n'y a plus rien à entretenir dehors : le sol gèle, les annuelles
+   sont mortes et les vivaces sont en dormance. Arroser, fertiliser ou récolter des herbes en
+   novembre n'a aucun sens. Ne concerne QUE la pleine terre : un pot rentré à l'abri garde son
+   programme, c'est justement là qu'il continue de vivre. */
+function outdoorDormant(){
+  const m=new Date().getMonth()+1;
+  if(m>=11||m<=3)return true;
+  const f=frostInfo();return !!(f&&f.past);
+}
+function dormantFor(p){return inGround(p)&&outdoorDormant();}
+/* De novembre à février, la lumière intérieure est trop faible pour soutenir une croissance :
+   continuer à fertiliser un pot n'apporte rien et accumule des sels dans un substrat que rien
+   ne lessive — c'est exactement le dépôt blanchâtre contre lequel l'app met déjà en garde.
+   L'arrosage, lui, continue : la plante transpire toujours. */
+function lowLightRest(p){const m=new Date().getMonth()+1;
+  return(m>=11||m<=2)&&!inGround(p);}
+function plantAgeDays(p){const s=p&&p.sowDate;if(!s)return null;
+  return Math.floor((Date.now()-new Date(s+'T00:00').getTime())/864e5);}
+/* Une plantation dont la date de semis est DANS LE FUTUR n'existe pas encore au jardin :
+   le modèle de phases la plaçait au stade 0 et l'app réclamait de l'eau, de l'engrais et des
+   soins pour une graine pas encore semée. */
+function notYetSown(p){const s=p&&p.sowDate;if(!s)return false;
+  return new Date(s+'T00:00').getTime()>Date.now();}
+function careOne(c){return(typeof c==='string')?{t:c}:(c&&c.t?c:{t:String(c||'')});}
+/* ⚠️ On lit la phase DIRECTEMENT, pas `phaseInfo().care` : celui-ci retombe sur
+   `p.structural` quand l'espèce n'a pas de soins pour ce stade, et les repères permanents
+   (« tuteurage dès maintenant », « glisse une planchette sous les fruits ») se retrouvaient
+   émis comme tâches quotidiennes — le buis en sortait trois par jour, toute l'année. */
+function careList(p){const arr=p.phases,b=arr&&arr[curStage(p)];
+  return((b&&b.care)||[]).map(careOne);}
+/* Soins réellement actionnables AUJOURD'HUI : ni constat, ni régime automatique, et dont la
+   fenêtre temporelle est ouverte. C'est la seule source des tâches « Soins & phases ». */
+function careDue(p){
+  if(cycleOver(p)||notYetSown(p)||dormantFor(p))return [];
+  return careList(p).filter(c=>{
+    if(c.note||c.auto)return false;
+    if(!c.when)return true;
+    const W=CARE_WHEN[c.when];
+    if(!W)return true;
+    try{return !!W.ok(p)}catch(e){return false}
+  });
+}
+/* état d'un soin, pour la fiche plante : elle montre TOUT, en disant ce qui attend quoi */
+function careState(p,c){
+  if(c.note)return{cls:'note',ic:'ℹ️',txt:'repère, pas une action'};
+  if(c.auto)return{cls:'auto',ic:'⚙️',txt:'déjà appliqué par l\'app (recette de la phase)'};
+  if(c.when){const W=CARE_WHEN[c.when];if(!W)return null;
+    let ok=false;try{ok=!!W.ok(p)}catch(e){}
+    return ok?{cls:'now',ic:'✅',txt:`c'est le moment — ${W.why(p)}`}
+             :{cls:'later',ic:'🕑',txt:`seulement ${W.lab} — pas encore`};}
+  return null;
+}
 function isNoFeed(r){return !(r.urea||r.map||r.mkp||r.kcl||r.sop);}
 
 /* ===== FRÉQUENCES & PROCHAINE DATE ===== */
@@ -1302,7 +1392,10 @@ const SOW_DATE={
   persil:'2026-05-23', carotte:'2026-05-21', thym:'2026-05-23', ail:'2026-04-15',
   citron:'2024-05-01', ananas:'2025-06-01'
 };
-const PEREN={citron:1,ananas:1}; // vivaces : cycles longs, estimations indicatives
+/* ⚠️ thym : rustique jusqu'en zone 4–5, il repart chaque printemps. Marqué annuel, il
+   déclenchait « cycle terminé » tout l'hiver pour une plante bien vivante, et coupait
+   définitivement son arrosage. */
+const PEREN={citron:1,ananas:1,thym:1}; // vivaces : cycles longs, estimations indicatives
 
 /* ===== AJOUTER UNE CULTURE QUE L'APP NE CONNAÎT PAS =====
    ⚠️ PRINCIPE DIRECTEUR (§4-0) : on ne demande QUE ce que le jardinier est seul à savoir —
@@ -1367,42 +1460,42 @@ const ARCH_MODEL={
 /* Conseils par phase, écrits au niveau de l'ARCHÉTYPE : génériques mais vrais pour toutes
    les cultures qui partagent cette architecture. Une fiche vide serait pire que ça. */
 const ARCH_GUIDE={
- grass:[{water:"Surface humide jusqu'à la levée.",watch:["Levée irrégulière si le sol est froid"],care:["Semer en bloc, jamais en ligne unique : la pollinisation se fait par le vent"]},
+ grass:[{water:"Surface humide jusqu'à la levée.",watch:["Levée irrégulière si le sol est froid"],care:[{t:"Semer en bloc, jamais en ligne unique : la pollinisation se fait par le vent",note:true}]},
   {water:"Régulier ; les graminées sont exigeantes en eau et en azote.",watch:["Feuilles basses jaunes en V = azote"],care:["Butter légèrement pour ancrer les tiges"]},
   {water:"Soutenu : c'est la phase de croissance la plus rapide.",watch:["Verse après un coup de vent"],care:[]},
   {water:"Ne jamais laisser sécher pendant la floraison.",watch:["Épis mal remplis = pollinisation incomplète"],care:["Secouer les tiges en milieu de matinée si les plants sont peu nombreux"]},
   {water:"Réduire à l'approche de la récolte.",watch:["Guetter le stade de récolte propre à ta culture"],care:[]}],
- fruit:[{water:"Régulier au pied, jamais sur le feuillage.",watch:["Fonte des semis si froid et humide"],care:["Ne pas fertiliser fort avant les vraies feuilles"]},
+ fruit:[{water:"Régulier au pied, jamais sur le feuillage.",watch:["Fonte des semis si froid et humide"],care:[{t:"Ne pas fertiliser fort avant les vraies feuilles",note:true}]},
   {water:"Régulier et profond, au pied.",watch:["Feuilles anciennes jaunes = azote"],care:["Tuteurer ou soutenir avant que ce soit nécessaire"]},
-  {water:"Constant : les à-coups font tomber les boutons.",watch:["Chute de boutons = stress hydrique ou thermique"],care:["Passer à une recette pauvre en azote"]},
+  {water:"Constant : les à-coups font tomber les boutons.",watch:["Chute de boutons = stress hydrique ou thermique"],care:[{t:"Passer à une recette pauvre en azote",auto:true}]},
   {water:"Constant pendant la nouaison.",watch:["Fleurs qui tombent sans nouer"],care:["Secouer doucement les plants le matin favorise la nouaison"]},
   {water:"Régulier : l'irrégularité provoque fentes et cul noir.",watch:["Tache noire sous le fruit = calcium mal transporté, donc arrosage irrégulier"],care:["Pailler pour lisser l'humidité du sol"]},
   {water:"Réduire en fin de maturation, le goût se concentre.",watch:["Récolter avant le premier gel"],care:[]}],
- vine:[{water:"Régulier au pied, jamais sur le feuillage.",watch:["Fonte des semis si froid et humide"],care:["Espacer largement : les coureuses s'étalent"]},
+ vine:[{water:"Régulier au pied, jamais sur le feuillage.",watch:["Fonte des semis si froid et humide"],care:[{t:"Espacer largement : les coureuses s'étalent",note:true}]},
   {water:"Gros besoins en eau, toujours au pied.",watch:["Feutrage blanc poudreux (oïdium) par air confiné"],care:["Pailler pour garder l'humidité et isoler les fruits du sol"]},
-  {water:"Constant ; éviter tout stress hydrique.",watch:["Fleurs mâles d'abord, femelles ensuite"],care:["Passer au P-K"]},
+  {water:"Constant ; éviter tout stress hydrique.",watch:["Fleurs mâles d'abord, femelles ensuite"],care:[{t:"Passer au P-K",auto:true}]},
   {water:"Régulier pendant la nouaison.",watch:["Jeunes fruits qui jaunissent et tombent = pollinisation incomplète"],care:["Polliniser au pinceau entre 6 h et 10 h si peu d'abeilles"]},
   {water:"Soutenu pendant le grossissement.",watch:["Pourriture au contact d'un sol humide"],care:["Glisser une planchette ou de la paille sous les fruits"]},
-  {water:"Réduire en fin de mûrissement ; arrêter l'engrais.",watch:["Peau dure et pédoncule liégeux = mûr"],care:["Récolter avant le gel en laissant un bout de pédoncule"]}],
- root:[{water:"Surface constamment humide jusqu'à la levée.",watch:["Croûte sèche = levée ratée"],care:["Semer clair pour limiter l'éclaircissage"]},
+  {water:"Réduire en fin de mûrissement ; arrêter l'engrais.",watch:["Peau dure et pédoncule liégeux = mûr"],care:[{t:"Récolter avant le gel en laissant un bout de pédoncule",when:'preGel30'}]}],
+ root:[{water:"Surface constamment humide jusqu'à la levée.",watch:["Croûte sèche = levée ratée"],care:[{t:"Semer clair pour limiter l'éclaircissage",note:true}]},
   {water:"Régulier et profond : l'eau appelle la racine vers le bas.",watch:["⚠️ Un excès d'azote donne un feuillage magnifique et une racine grêle"],care:["Éclaircir tôt : deux racines qui se touchent ne grossissent ni l'une ni l'autre"]},
   {water:"Régulier : l'alternance sec/détrempé fait éclater les racines.",watch:["Collet vert = racine déchaussée, rebutter"],care:["Butter pour couvrir les collets"]},
   {water:"Réduire avant l'arrachage.",watch:["Arracher un sujet témoin pour juger du calibre"],care:["Récolter par temps sec"]}],
  bulb:[{water:"Modéré : un sol détrempé fait pourrir le caïeu.",watch:["Levée irrégulière"],care:["Pailler contre le gel et les mauvaises herbes"]},
   {water:"Régulier pendant toute la croissance du feuillage.",watch:["Chaque feuille = une tunique du futur bulbe"],care:["Désherber soigneusement : les alliacées supportent mal la concurrence"]},
-  {water:"Régulier jusqu'au grossissement, puis réduire.",watch:["Tige florale rigide au centre : la couper"],care:["Passer à une recette pauvre en azote"]},
+  {water:"Régulier jusqu'au grossissement, puis réduire.",watch:["Tige florale rigide au centre : la couper"],care:[{t:"Passer à une recette pauvre en azote",auto:true}]},
   {water:"Arrêter l'arrosage à l'approche de la récolte.",watch:["Un tiers à la moitié des feuilles brunies = récolte"],care:["Sécher les bulbes à l'ombre et ventilés avant stockage"]}],
- herb:[{water:"Surface humide jusqu'à la levée.",watch:["Levée parfois lente"],care:["Semer clair"]},
-  {water:"Régulier ; ne pas laisser dessécher.",watch:["Montée en graine si stress ou chaleur"],care:["Apport léger seulement : l'excès d'azote dilue l'arôme et attire les pucerons"]},
+ herb:[{water:"Surface humide jusqu'à la levée.",watch:["Levée parfois lente"],care:[{t:"Semer clair",note:true}]},
+  {water:"Régulier ; ne pas laisser dessécher.",watch:["Montée en graine si stress ou chaleur"],care:[{t:"Apport léger seulement : l'excès d'azote dilue l'arôme et attire les pucerons",auto:true}]},
   {water:"Régulier pendant toute la période de coupe.",watch:["Une hampe florale annonce la fin de la tendreté"],care:["Récolter le matin, feuilles extérieures d'abord, en gardant le cœur"]}],
  potTree:[{water:"Laisser sécher les premiers centimètres entre deux arrosages.",watch:["Jeunes feuilles jaunes à nervures vertes = fer ou magnésium"],care:["Rincer le substrat à l'eau claire une fois par mois"]},
   {water:"Régulier pendant la floraison.",watch:["Chute des boutons si courant d'air ou à-coup d'eau"],care:[]},
   {water:"Régulier pendant la nouaison.",watch:["Chute physiologique de jeunes fruits : normale"],care:[]},
   {water:"Réduire en hiver.",watch:["Rentrer avant les premières nuits froides"],care:[]}],
- potRosette:[{water:"Substrat acide, arrosages espacés.",watch:["Feuilles brunes si le substrat est calcaire"],care:["Ne pas fertiliser dans les semaines qui suivent un rempotage"]},
+ potRosette:[{water:"Substrat acide, arrosages espacés.",watch:["Feuilles brunes si le substrat est calcaire"],care:[{t:"Ne pas fertiliser dans les semaines qui suivent un rempotage",note:true}]},
   {water:"Régulier et léger.",watch:[],care:[]},
   {water:"Réduire.",watch:[],care:[]}],
- shrub:[{water:"Eau profonde ≈ 2,5 cm par semaine, sans détremper.",watch:["Test de l'ongle : cambium vert = bois vivant"],care:["Aucun engrais pendant la reprise : l'azote force un feuillage que les racines abîmées ne peuvent pas nourrir"]}]
+ shrub:[{water:"Eau profonde ≈ 2,5 cm par semaine, sans détremper.",watch:["Test de l'ongle : cambium vert = bois vivant"],care:[{t:"Aucun engrais pendant la reprise : l'azote force un feuillage que les racines abîmées ne peuvent pas nourrir",auto:true}]}]
 };
 /* Ce que la FAMILLE botanique commande. Valeurs indicatives, alignées sur les cultures déjà
    calibrées de l'app : fréquence d'apport (jours), plage de pH, cible d'azote (g N / saison).
@@ -3189,10 +3282,15 @@ function actionTiming(kind){
     'Trop tard : un feuillage mouillé toute la nuit favorise les maladies. Vise demain matin tôt (≈ 6 h).');
 }
 /* type de fenêtre horaire selon la plante et la phase (pour les actions d'entretien) */
+/* ⚠️ Ces règles étaient indexées sur les identifiants d'ORIGINE (`p.id==='courge'`) : une
+   plantation créée dans l'app porte un id `plN`, et une culture ajoutée au catalogue un id
+   nouveau — aucune ne recevait donc sa fenêtre horaire. On passe par l'objet résolu
+   (archétype + mode de pollinisation), comme le veut la règle des tables héritées. */
 function careTimingKind(p,ph){
-  if((p.id==='courge'||p.id==='melon'||p.id==='pasteque')&&ph==='Floraison')return 'pollinate';
-  if((p.id==='mais_ombre'||p.id==='mais_geo')&&ph==='Soies')return 'corn';
-  if((p.id==='persil'||p.id==='thym')&&ph==='Récolte continue')return 'harvest';
+  const a=archKey(p);
+  if(a==='vine'&&p.pollen==='insectes'&&/floraison/i.test(ph))return 'pollinate';
+  if(a==='grass'&&p.pollen==='vent'&&/soies|floraison/i.test(ph))return 'corn';
+  if(a==='herb'&&/récolte/i.test(ph))return 'harvest';
   return null;
 }
 /* lien cliquable d'un nom de plante dans le Programme → ouvre sa fiche */
@@ -3234,11 +3332,20 @@ function renderToday(){
   const fa=frostAlert();
   if(fa){
     const quand=fa.days<=0?"cette nuit":fa.days===1?"demain nuit":`dans ${fa.days} jours`;
-    const tender=activePlants().filter(p=>p.tender);
+    /* ⚠️ Le texte listait « récolter, couvrir, rentrer les pots » quelle que soit la saison, et
+       nommait toutes les plantes gélives — melon semé en pleine terre compris. On ne cite que
+       ce qui est RÉELLEMENT menacé cette nuit, et chaque geste n'apparaît que s'il a un objet. */
+    const risque=plantsAtRisk();
+    const dehors=risque.filter(p=>inGround(p)&&!cycleOver(p));
+    const pots=risque.filter(p=>!inGround(p));
+    const gestes=[];
+    if(dehors.length)gestes.push(`récolter tout ce qui est mûr et couvrir les cultures encore en production (voile, drap, carton — jamais de plastique en contact avec le feuillage) : <b>${dehors.map(p=>p.name).join(', ')}</b>`);
+    if(pots.length)gestes.push(`rentrer les pots gélifs : <b>${pots.map(p=>p.name).join(', ')}</b>`);
+    gestes.push("arroser le sol en fin de journée — un sol humide restitue de la chaleur pendant la nuit");
     add('Urgent','prio',fa.hard?'🧊':'❄️',
       `${fa.hard?'GEL':'Risque de gel'} ${quand} — ${fa.tmin} °C annoncé`,
       `${fa.hard?'Gel annoncé' : 'Minimale à '+fa.tmin+' °C : au ras du sol il peut geler alors que la station annonce 2 °C (elle mesure à 1,5 m de haut).'} `
-      +`À faire aujourd'hui : récolter tout ce qui est mûr ; couvrir les cultures encore en production (voile, drap, carton — pas de plastique en contact avec le feuillage) ; rentrer les pots gélifs${tender.length?' ('+tender.map(p=>p.name).join(', ')+')':''} ; arroser le sol en fin de journée, un sol humide restitue de la chaleur la nuit.`,
+      +`À faire aujourd'hui : ${gestes.join(' ; ')}. Aucun apport d'engrais ce soir : la plante ne l'utiliserait pas.`,
       null,taskKey(['gel',new Date(fa.day).toISOString().slice(0,10)]));
   }
   // ===== URGENT : risque de maladie foliaire (indice, pour agir en préventif) =====
@@ -3274,14 +3381,14 @@ function renderToday(){
   });
   overwinterTasks(add);   // rentrer / ressortir les plantes en pot
   // ARROSAGE — proposé au MOMENT OPPORTUN de la journée (heure + chaleur du jour)
-  const waterDue=activePlants().filter(p=>{const wp=waterPlan(p);return wp&&wp.diff<=0;});
+  const waterDue=activePlants().filter(p=>{if(notYetSown(p)||dormantFor(p))return false;const wp=waterPlan(p);return wp&&wp.diff<=0;});
   const topDue=waterDue.filter(p=>!reservoirL(p)), resDue=waterDue.filter(p=>reservoirL(p));
   if(topDue.length){const t=actionTiming('water');
     add('Arrosage',t.good?'prio':'',t.ic,`${t.verb} : ${topDue.map(plantLink).join(', ')}`,`${t.advice} Valide « ✓ Arrosé » sur la plante pour fixer le prochain tour.`,topDue.length===1?topDue[0].id:null);
   } else if(hot){const t=actionTiming('water');
     add('Arrosage','',t.ic,'Arrosage — meilleur moment',`Journée chaude (max ${w.tmax}°). ${t.advice}`);}
   // besoin en eau chiffré : ET0 (évapotranspiration de référence) moins la pluie prévue
-  const wb=waterBalance(7);
+  const wb=outdoorDormant()?null:waterBalance(7);   // hors saison, le sol ne se pilote plus à l'ET₀
   if(wb&&wb.deficit>0){
     /* Le calcul en L/m² ne vaut QUE pour le sol en place : un contenant ne s'arrose pas au
        mètre carré. Pour eux, la règle d'extension est « arroser jusqu'à écoulement par le
@@ -3301,7 +3408,9 @@ function renderToday(){
     `Pluie attendue (${wb.rain} mm) ≥ évapotranspiration (${wb.et0} mm) : pas de déficit sur 7 jours. Vérifie quand même les pots et les bacs, que la pluie atteint mal.`);
 
   // apports calcium / magnésium planifiés (et non plus une note de bas de page)
-  activePlants().forEach(p=>{const c=camgDue(p);if(!c||!c.due)return;
+  activePlants().forEach(p=>{if(notYetSown(p)||dormantFor(p)||lowLightRest(p))return;
+    if(fa&&!isIndoor(p))return;
+    const c=camgDue(p);if(!c||!c.due)return;
     add('Fertilisation','','🦴',`Ca/Mg mensuel : ${p.name}`,
       `${c.txt} À appliquer en arrosage SÉPARÉ (le calcium précipite avec le phosphate du MAP/MKP). ${c.days!=null?`Dernier apport il y a ${c.days} j.`:'Jamais appliqué.'}`,p.id,
       taskKey(['camg',p.id,new Date().toISOString().slice(0,7)]));});
@@ -3309,7 +3418,12 @@ function renderToday(){
   // FERTILISATION
   const ft=rainSoon?null:actionTiming('feed');
   activePlants().forEach(p=>{const d=daysSince(state.feeds[p.id]),r=curRecipe(p);
-    if(isNoFeed(r))return; // phase de maturation/repos (ou arbuste en reprise) : aucun rappel d'engrais
+    if(notYetSown(p)||dormantFor(p))return;   // pas encore semé, ou saison de plein air finie
+    if(isNoFeed(r))return;
+    /* Un apport la veille d'un gel meurtrier ne sera jamais utilisé par la plante : ce
+       jour-là, la priorité est de récolter et de couvrir, pas de nourrir. */
+    if(fa&&!isIndoor(p))return;
+    if(lowLightRest(p))return;   // repos hivernal : apport inutile, sels accumulés // phase de maturation/repos (ou arbuste en reprise) : aucun rappel d'engrais
     const hold=feedHoldUntil(p);
     if(hold){add('Fertilisation','','⏸️',`${p.name} — engrais suspendu`,`Jusqu'au ${fmtDate(hold)}, d'après ton inspection : fertiliser maintenant aggraverait le problème identifié. Détails dans l'onglet Inspection.`,p.id);return;}
     if(d>=feedDaysOf(p)){const ph=p.stages[curStage(p)];
@@ -3319,16 +3433,26 @@ function renderToday(){
   const resowNow=activePlants().filter(p=>{const r=p.resow;if(!r||r.kind!=='frais')return false;const s=nextSow(p);return s&&s.now;});
   if(resowNow.length)add('Fertilisation','feed','🌱',`Ressemer possible : ${resowNow.map(plantLink).join(', ')}`,"Il reste assez de temps avant le gel pour une récolte d'automne — détails dans l'onglet Semis.",resowNow.length===1?resowNow[0].id:null,
     taskKey(['ressemis',isoWeek()]));
-  // SOINS & PHASES — dérivés de la PHASE de chaque plante (seulement les phases « action »)
-  const ACTION=new Set(['Boutons','Floraison','Fruits','Récolte','Récolte continue','Maturation','Bulbaison','Soies','Épis','Grossissement']);
-  activePlants().forEach(p=>{const ph=p.stages[curStage(p)],info=phaseInfo(p);
-    if(!(ACTION.has(ph)&&info.care&&info.care.length))return;
-    if(cycleOver(p))return;                       // cycle terminé : plus de soins de phase
+  /* SOINS & PHASES — plus de liste de phases codée en dur ni de « premier soin de la phase ».
+     `careDue()` ne rend que les gestes réellement actionnables aujourd'hui : les constats et
+     les changements de régime automatiques sont écartés, et un geste à fenêtre datée attend
+     sa fenêtre. On les émet TOUS : le vrai geste n'est plus caché derrière une description. */
+  activePlants().forEach(p=>{
+    const ph=p.stages[curStage(p)];
     if(observedStage(p)==null&&daysInPhase(p)!=null&&daysInPhase(p)<0)return;
+    const due=careDue(p);if(!due.length)return;
     const kind=careTimingKind(p,ph);
-    const k=taskKey(['soin',p.id,ph,isoWeek()]);
-    if(kind){const t=actionTiming(kind);add('Soins & phases',t.good?'prio':'',t.ic,`${p.name} · ${ph} — ${t.verb}`,`${info.care[0]} ${t.advice}`,p.id,k);}
-    else add('Soins & phases','','🌿',`${p.name} · ${ph}`,info.care[0],p.id,k);});
+    due.forEach((c,n)=>{
+      const k=taskKey(['soin',p.id,ph,n,isoWeek()]);
+      const W=c.when?CARE_WHEN[c.when]:null;
+      const pourquoi=W?` <span class="note">(${W.why(p)})</span>`:'';
+      /* le GESTE est le titre : une phase peut en produire plusieurs, et « Tomate · Végétatif »
+         répété trois fois ne disait pas lequel des trois restait à faire */
+      const titre=`${p.name} — ${c.t.length>58?c.t.slice(0,57)+'…':c.t}`;
+      if(kind&&n===0){const t=actionTiming(kind);
+        add('Soins & phases',t.good?'prio':'',t.ic,titre,`Phase « ${ph} ». ${t.advice}${pourquoi}`,p.id,k);}
+      else add('Soins & phases','','🌿',titre,`Phase « ${ph} ».${pourquoi}`,p.id,k);
+    });});
   /* ===== CONTRÔLES DE CONFIGURATION =====
      Certains problèmes sont connaissables SANS inspecter : un emplacement à 3 h de soleil ou
      des plants à 5 cm d'écart sont des faits déclarés, pas des symptômes à observer. Le
@@ -3349,7 +3473,7 @@ function renderToday(){
   activePlants().forEach(p=>{
     const A=archOf(p),sp=p.spacing;
     if(A.spaceMin==null||sp===''||sp==null||!isFinite(+sp)||+sp>=A.spaceMin)return;
-    if(cycleOver(p))return;
+    if(cycleOver(p)||notYetSown(p))return;
     add('Inspection','','📏',`${p.name} — plants trop serrés`,
       `Espacement déclaré : ${(SPACE_OPTS.find(o=>o[0]===String(sp))||['','—'])[1].toLowerCase()}, alors que cette culture demande ${A.spaceTxt}. Trop serrés, les plants se concurrencent pour l'eau et la lumière et aucun n'atteint sa taille ; l'air circule mal, ce qui favorise les maladies foliaires. Éclaircis en coupant les plus faibles AU RAS DU SOL — arracher déchirerait les racines des voisins.`,
       p.id,taskKey(['espacement',p.id,sp]));
@@ -3363,16 +3487,29 @@ function renderToday(){
       `${worst.fix[0]||''} ${others>0?`(+ ${others} autre${others>1?'s':''} point${others>1?'s':''} identifié${others>1?'s':''})`:''} Diagnostic complet et sources dans l'onglet Inspection.`,p.id,
       taskKey(['diag',p.id,worst.id,(lastInsp(p)||{}).ts||'']));});
   // relance : une inspection vieillit, surtout quand le programme s'appuie dessus
-  activePlants().forEach(p=>{const i=lastInsp(p);if(!i||!i.date)return;
+  activePlants().forEach(p=>{const i=lastInsp(p);if(!i||!i.date||notYetSown(p))return;
     const age=daysSince(i.date+'T00:00');
     if(age>=14)add('Inspection','','🔁',`Réinspecter ${p.name}`,`Dernière inspection il y a ${age} j. Le programme de cette plante est calé sur cette observation : une saisie fraîche le remet à jour.`,p.id,
       taskKey(['reinsp',p.id,i.date]));});
-  // cycles terminés : on arrête d'entretenir et on propose de clôturer
-  activePlants().filter(cycleOver).forEach(p=>{
-    const h=state.harvest.some(x=>x.plant===p.id&&x.date.startsWith(String(new Date().getFullYear())));
-    add('Soins & phases','','🏁',`${p.name} — cycle terminé`,
-      `Le cycle complet de cette culture est dépassé : arrosage et fertilisation sont arrêtés automatiquement. ${h?'Récolte déjà notée. ':'Pense à noter ta récolte dans le Journal — c\'est ce qui rendra le plan de l\'an prochain factuel. '}Tu peux ensuite la retirer du jardin depuis sa fiche.`,p.id,taskKey(['cycle',p.id,new Date().getFullYear()]));});
-  if(season()==='culture')add('Inspection','','🔎',"Tour d'inspection",'Passe en revue la section « À vérifier · solutions » plus bas : pour chaque plante, les éléments à contrôler et quoi faire. Une anomalie ? Saisis-la dans l\'onglet Inspection : l\'app en cherche la cause et recale le programme.');
+  /* Cycles terminés. En saison, une ligne par culture : le geste (noter la récolte, retirer
+     le plant) est encore d'actualité. Hors saison, ces mêmes lignes formaient un mur de dix
+     entrées identiques tout l'hiver, pour des cultures finies depuis des mois — elles sont
+     alors regroupées en un seul renvoi vers le bilan de saison, et seulement tant qu'il
+     n'est pas fait. */
+  const finis=activePlants().filter(cycleOver);
+  const anneeEnCours=new Date().getFullYear();
+  if(finis.length&&!outdoorDormant()){
+    finis.forEach(p=>{
+      const h=state.harvest.some(x=>x.plant===p.id&&x.date.startsWith(String(anneeEnCours)));
+      add('Soins & phases','','🏁',`${p.name} — cycle terminé`,
+        `Le cycle complet de cette culture est dépassé : arrosage et fertilisation sont arrêtés automatiquement. ${h?'Récolte déjà notée. ':'Pense à noter ta récolte dans le Journal — c\'est ce qui rendra le plan de l\'an prochain factuel. '}Tu peux ensuite la retirer du jardin depuis sa fiche.`,p.id,taskKey(['cycle',p.id,anneeEnCours]));});
+  }else if(finis.length&&!(state.closed&&state.closed[anneeEnCours])){
+    add('Soins & phases','','🏁',`${finis.length} cultures ont terminé leur cycle`,
+      `La saison de plein air est finie : ${finis.map(p=>p.name).join(', ')}. Rien à leur faire, tout est arrêté automatiquement. Il reste à <b>clôturer la saison</b> (onglet Saison) — c'est ce qui verse les familles cultivées à l'historique des parcelles et fait vivre l'alerte de rotation l'an prochain.`,
+      null,taskKey(['bilan',anneeEnCours]));
+  }
+  if(season()==='culture'&&activePlants().some(p=>!cycleOver(p)&&!notYetSown(p)))
+    add('Inspection','','🔎',"Tour d'inspection",'Passe en revue la section « À vérifier · solutions » plus bas : pour chaque plante, les éléments à contrôler et quoi faire. Une anomalie ? Saisis-la dans l\'onglet Inspection : l\'app en cherche la cause et recale le programme.',null,taskKey(['tour',isoWeek()]));
 
   const ICON={Urgent:'🚨',Arrosage:'💧',Fertilisation:'⚗️','Soins & phases':'🌿',Inspection:'🔎'};
   const order=['Urgent','Arrosage','Fertilisation','Soins & phases','Inspection'];
@@ -3412,11 +3549,16 @@ function renderPlan(){
   const el=document.getElementById('planList'),w=state.wx;
   if(!w||!w.daily){el.innerHTML='<div class="card"><div class="empty">Prévisions indisponibles hors-ligne. Reconnecte-toi pour le plan sur 14 jours.</div></div>';return}
   const days=w.daily.slice(0,14);
-  const dry=i=>days[i].rainProb<55&&days[i].rainSum<4;
+  /* un jour fertilisable : ni pluie (qui lessive l'apport), ni gel annoncé (la plante ne
+     l'utiliserait pas — c'est déjà la règle du Programme du jour) */
+  const dry=i=>days[i].rainProb<55&&days[i].rainSum<4&&days[i].tmin>2;
   const events=days.map(()=>[]);
   // projection des fertilisations, en décalant hors des jours de pluie
   const today0=new Date();today0.setHours(0,0,0,0);
   activePlants().forEach(p=>{
+    /* mêmes exclusions que le Programme du jour : projeter un apport pour une graine pas
+       encore semée, une culture finie ou un pot au repos hivernal n'a pas de sens */
+    if(notYetSown(p)||dormantFor(p)||lowLightRest(p))return;
     const r=curRecipe(p); if(isNoFeed(r))return; // phase de maturation/repos : pas d'engrais à planifier
     const fd=feedDaysOf(p),hold=feedHoldUntil(p); // intervalle et suspension issus du diagnostic
     let due = state.feeds[p.id] ? new Date(state.feeds[p.id]).getTime()+fd*864e5 : today0.getTime();
@@ -3428,14 +3570,29 @@ function renderPlan(){
   });
   // météo + arrosage heuristique
   let dryStreak=0;
-  const tender=activePlants().filter(p=>p.tender);
+  /* ⚠️ Les noms des plantes à protéger étaient écrits en dur : le plan citait « melon,
+     pastèque, ananas, citrons » même quand ces cultures étaient finies, retirées du jardin
+     ou jamais plantées, et ignorait toute culture ajoutée depuis. On part des plantes
+     réellement exposées, et l'avertissement disparaît quand il n'y a plus rien à protéger. */
+  const risque=plantsAtRisk().filter(p=>!notYetSown(p));
+  const gelifs=risque.filter(p=>p.tender);
+  const aRentrer=gelifs.filter(p=>!inGround(p)), aCouvrir=gelifs.filter(p=>inGround(p));
+  const enCulture=risque.filter(p=>!dormantFor(p));
+  /* « récolter et couvrir » ne s'adresse qu'à ce qui pousse EN TERRE : en novembre, l'alerte
+     sortait chaque jour parce que deux pots gélifs restaient dehors, alors qu'il n'y avait
+     plus rien à récolter ni à couvrir — les pots, eux, ont leur propre ligne « rentrer ». */
+  const enTerre=risque.filter(p=>inGround(p)&&!dormantFor(p));
   days.forEach((dd,i)=>{
-    if(dd.tmin<=2) events[i].unshift({cls:'cold',ic:dd.tmin<=0?'🧊':'❄️',txt:`${dd.tmin<=0?'GEL':'Risque de gel'} (${dd.tmin}°) — récolter et couvrir la veille`});
-    if(dd.tmax>=28) events[i].unshift({cls:'warn',ic:'🔥',txt:`Chaleur ${dd.tmax}° — arroser tôt le matin`});
-    if(dd.rainProb>=55||dd.rainSum>=4){ events[i].push({cls:'cold',ic:'🌧️',txt:'Pluie — ni arrosage ni engrais'}); dryStreak=0; }
-    else { dryStreak++; if(dryStreak>=3 && dd.tmax>=24) events[i].push({cls:'',ic:'🚿',txt:'Arrosage profond (bacs & pots qui sèchent)'}); }
-    if(dd.tmin<=10) events[i].push({cls:'cold',ic:'❄️',txt:`Nuit froide ${dd.tmin}° — protéger melon/pastèque/ananas, rentrer les citrons`});
-    else if(dd.tmin<=12 && tender.length) events[i].push({cls:'cold',ic:'🌡️',txt:`Nuit fraîche ${dd.tmin}° — surveiller les plantes de chaleur`});
+    if(dd.tmin<=2&&enTerre.length) events[i].unshift({cls:'cold',ic:dd.tmin<=0?'🧊':'❄️',txt:`${dd.tmin<=0?'GEL':'Risque de gel'} (${dd.tmin}°) — récolter et couvrir la veille`});
+    if(dd.tmax>=28&&enCulture.length) events[i].unshift({cls:'warn',ic:'🔥',txt:`Chaleur ${dd.tmax}° — arroser tôt le matin`});
+    if(dd.rainProb>=55||dd.rainSum>=4){ if(enCulture.length)events[i].push({cls:'cold',ic:'🌧️',txt:'Pluie — ni arrosage ni engrais'}); dryStreak=0; }
+    else { dryStreak++; if(dryStreak>=3 && dd.tmax>=24 && enCulture.length) events[i].push({cls:'',ic:'🚿',txt:'Arrosage profond (bacs & pots qui sèchent)'}); }
+    if(dd.tmin<=10&&gelifs.length){
+      const quoi=[aCouvrir.length?`protéger ${aCouvrir.map(p=>p.name).join(', ')}`:'',
+                  aRentrer.length?`rentrer ${aRentrer.map(p=>p.name).join(', ')}`:''].filter(Boolean).join(' · ');
+      events[i].push({cls:'cold',ic:'❄️',txt:`Nuit froide ${dd.tmin}° — ${quoi}`});
+    }
+    else if(dd.tmin<=12 && gelifs.length) events[i].push({cls:'cold',ic:'🌡️',txt:`Nuit fraîche ${dd.tmin}° — surveiller ${gelifs.map(p=>p.name).join(', ')}`});
   });
   const dow=['dim','lun','mar','mer','jeu','ven','sam'];
   el.innerHTML=days.map((dd,i)=>{
@@ -3621,7 +3778,12 @@ function plantBody(p){
         <table>${rows.map(([n,g])=>`<tr><td>${n}</td><td class="amt mono">${g} g</td></tr>`).join('')}</table>
         <div class="r-note">${r.note}</div></div>`}${feedFreqLine(p,noF)}${noF?'':feedVolLine(p)}${noF?'':nBudgetLine(p)}${camgLine(p)}</div>`;
   const watch=`<div class="pact"><h4>👁️ À surveiller</h4><ul>${(info.watch||[]).map(x=>`<li>${x}</li>`).join('')}</ul></div>`;
-  const care=`<div class="pact"><h4>🛠️ Entretien · ${phName}</h4><ul>${(info.care||[]).map(x=>`<li>${x}</li>`).join('')}</ul>
+  /* La fiche montre TOUS les soins de la phase, en disant lesquels sont des tâches du jour,
+     lesquels sont de simples repères, lesquels l'app applique déjà, et lesquels attendent
+     leur fenêtre. Le Programme, lui, ne reçoit que les premiers (careDue). */
+  const care=`<div class="pact"><h4>🛠️ Entretien · ${phName}</h4><ul>${careList(p).map(c=>{
+      const st=careState(p,c);
+      return `<li>${c.t}${st?` <span class="note">— ${st.ic} ${st.txt}</span>`:''}</li>`;}).join('')}</ul>
       ${(p.structural&&p.structural.length)?`<p class="note" style="margin:7px 0 0"><b>Repères permanents</b> (pas des tâches du jour) : ${p.structural.join(' · ')}</p>`:''}</div>`;
   const situ=(()=>{const b=bedOf(p),f=b?phFitFor(p,b.ph):null;const fam=famOf(p);
       const C=mediumOf(p),V=coverOf(p),W=wateringOf(p);
@@ -4256,6 +4418,11 @@ function overwinterTasks(add){
   activePlants().forEach(p=>{
     const th=indoorMin(p);if(th==null)return;
     if(!p.peren&&!p.tender)return;
+    /* ⚠️ On ne rentre que ce qui se transporte. La règle ne testait que « gélive », si bien
+       que l'app proposait de rentrer à l'abri un melon et une pastèque semés en PLEINE TERRE.
+       Et une plante dont le cycle est fini n'a plus rien à sauver : on ne rentre pas un plant
+       mort pour l'hiver. */
+    if(inGround(p)||cycleOver(p))return;
     /* Fenêtre de pertinence : on ne propose de rentrer qu'à partir de septembre, quand les
        nuits fraîches s'installent — ou plus tôt SI un gel est réellement annoncé. Une nuit
        isolée à 12 °C en juillet ou en août n'est pas un motif : la plante profite du dehors,

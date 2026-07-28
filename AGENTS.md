@@ -359,6 +359,48 @@ la phase courante.
 donc un conseil neuf. `renderTaskArchive()` liste les conseils clos et permet de les rétablir.
 ⚠️ Tout nouveau conseil doit recevoir une clé, sinon il n'est pas clôturable.
 
+### ⚠️ Pertinence temporelle du Programme — audit complet
+Chaque entrée du Programme doit être vraie **au moment où elle s'affiche**. Sept défauts
+corrigés, tous vérifiés en rejouant l'app à huit dates de l'année (mai → janvier) :
+
+1. **Soins de phase sans condition de date.** « Étête ~1 mois avant le gel » sortait fin
+   juillet, à 71 jours du gel. Un soin porte désormais un marqueur : `when` (fenêtre datée ou
+   d'état, `CARE_WHEN`), `note` (un fait, jamais une tâche — « patience, la maturation est
+   longue »), `auto` (un changement de régime que l'app applique DÉJÀ elle-même — « passe au
+   P-K » : la recette a changé toute seule, il n'y a rien à faire). `careDue()` est la seule
+   source des tâches ; la fiche plante, elle, montre tout et dit l'état de chacun (`careState`).
+2. **Seul le PREMIER soin de la phase était émis.** Quand `care[0]` décrivait un régime, le
+   vrai geste restait invisible : « coupe le scape » (ail) et « pince les gourmands » (tomate)
+   n'ont jamais été proposés. Tous les soins dus sont émis, et le **geste est le titre** —
+   trois lignes « Tomate · Végétatif » identiques ne disaient pas laquelle restait à faire.
+3. **Les `structural` fuyaient en tâches.** `phaseInfo().care` retombe sur `p.structural` quand
+   l'espèce n'a pas de soins pour ce stade : le buis sortait trois « tâches » par jour, toute
+   l'année. `careList()` lit la phase **directement**, jamais le repli.
+4. **Rien ne vérifiait que la culture était semée.** Une plantation à date de semis future
+   était placée au stade 0 : l'app réclamait eau et engrais pour une graine pas encore en
+   terre. `notYetSown()`, appliqué à l'arrosage, l'engrais, le Ca/Mg, les soins, l'espacement.
+5. **La saison de plein air ne se terminait jamais.** En novembre l'app demandait encore
+   d'arroser le thym, de récolter des herbes et calculait un déficit d'ET₀. `outdoorDormant()`
+   (novembre–mars, ou gel meurtrier passé) coupe tout **pour la pleine terre seulement** : un
+   pot rentré garde son programme. `lowLightRest()` arrête en plus les apports des pots de
+   novembre à février — la lumière ne soutient plus de croissance et les sels s'accumulent.
+6. **Un apport la veille d'un gel meurtrier.** Aucune fertilisation ni Ca/Mg tant qu'un gel est
+   annoncé pour une plante encore dehors ; l'alerte gel le dit explicitement.
+7. **Textes et listes codés en dur.** L'alerte gel énumérait « rentrer les pots gélifs » en
+   citant un melon semé en pleine terre ; le plan 14 j affichait « protéger melon/pastèque/
+   ananas, rentrer les citrons » même pour des cultures finies, retirées ou jamais plantées, et
+   ignorait toute culture ajoutée depuis. Les deux partent maintenant de `plantsAtRisk()` et
+   distinguent ce qui se **couvre** (en terre) de ce qui se **rentre** (en contenant) —
+   `overwinterTasks` ne propose plus de rentrer un melon de pleine terre, ni un plant mort.
+   Même correction pour `careTimingKind`, indexé sur les identifiants d'origine : aucune
+   plantation créée dans l'app ne recevait sa fenêtre horaire de pollinisation ou de récolte.
+
+Effets de bord corrigés au passage : le thym était marqué **annuel** (il est rustique en zone
+5b) — « cycle terminé » sortait chaque hiver pour une plante bien vivante, et son arrosage
+était coupé définitivement ; une migration corrige les catalogues déjà en `localStorage`.
+Hors saison, les dix lignes « cycle terminé » sont regroupées en un seul renvoi vers le bilan
+de saison, tant qu'il n'est pas fait.
+
 ### Pertinence temporelle (⚠️ règle de conception)
 Un conseil ne s'affiche que dans sa fenêtre utile. Cas de référence : « rentrer les pots
 gélifs » exige **septembre ou plus tard, OU un gel réellement annoncé**, et le seuil de la
@@ -528,7 +570,7 @@ des parcelles créées dans la même milliseconde, et rattachait toutes les cult
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v34`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v35`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.
