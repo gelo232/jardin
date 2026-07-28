@@ -1044,6 +1044,10 @@ function migrateModel(){
     if(pl.dtm===undefined)pl.dtm=null;
     if(pl.dtmFrom===undefined)pl.dtmFrom=null;
     if(pl.plantDate===undefined)pl.plantDate=null;
+    /* la disposition au sol vivait dans l'inspection : on la remonte sur la culture,
+       à laquelle elle appartient, sans redemander au jardinier ce qu'il a déjà saisi */
+    if(pl.rows===undefined||pl.rows===null){const i=state.insp[pl.id];
+      pl.rows=(i&&i.rows)?i.rows:'';}
   });
   syncSeedContent();
 }
@@ -1741,7 +1745,7 @@ const ARCH={
   nColor:['v_bas','Feuilles BASSES jaunes en V (de la pointe le long de la nervure centrale)'],
   colorHint:"Chez une graminée, la carence d'azote dessine un V jaune caractéristique depuis la pointe de la feuille.",
   signs:[['fentes',"Fentes sèches dans la longueur, parallèles aux nervures"]],
-  fields:['nb','rows','space'],spaceMin:2,spaceTxt:"25–30 cm entre plants",
+  fields:['rows','space'],spaceMin:2,spaceTxt:"25–30 cm entre plants",
   originLab:'Origine du plant',resent:true},
 
  fruit:{lab:'légume-fruit tuteuré',
@@ -1753,7 +1757,7 @@ const ARCH={
    ['chute_fleurs',"Fleurs qui tombent sans nouer"],
    ['fentes_fruit',"Fruits fendus / éclatés"],
    ['enroule_cuillere',"Feuilles enroulées en cuillère (bas du plant)"]],
-  fields:['nb'],originLab:'Origine du plant',resent:false},
+  fields:[],originLab:'Origine du plant',resent:false},
 
  vine:{lab:'cucurbitacée coureuse',
   hLab:'Longueur de la tige principale (cm)',
@@ -1764,7 +1768,7 @@ const ARCH={
    ['avorte',"Jeunes fruits qui jaunissent et tombent"],
    ['fletri_tige',"Flétrissement brutal d'une tige entière"],
    ['culnoir',"Extrémité du fruit noire et molle"]],
-  fields:['nb','polli','space'],spaceMin:3,spaceTxt:"60–90 cm entre plants (elles s'étalent)",
+  fields:['polli','space'],spaceMin:3,spaceTxt:"60–90 cm entre plants (elles s'étalent)",
   originLab:'Origine du plant',resent:true},
 
  root:{lab:'racine comestible',
@@ -1775,7 +1779,7 @@ const ARCH={
   signs:[['fourchue',"Racine fourchue ou difforme (sur un sujet arraché)"],
    ['collet_vert',"Collet vert au sommet de la racine"],
    ['fendue',"Racine fendue"]],
-  fields:['nb','space'],spaceMin:1,spaceTxt:"3–5 cm après éclaircissage",
+  fields:['space'],spaceMin:1,spaceTxt:"3–5 cm après éclaircissage",
   originLab:'Origine du plant',resent:true},
 
  bulb:{lab:'bulbe (alliacée)',
@@ -1786,7 +1790,7 @@ const ARCH={
   signs:[['scape',"Tige florale rigide au centre (montaison)"],
    ['col_mou',"Collet mou, bulbe qui se détache"],
    ['moisi_blanc',"Feutrage blanc à la base du bulbe"]],
-  fields:['nb','space'],spaceMin:1,spaceTxt:"10–15 cm entre caïeux",
+  fields:['space'],spaceMin:1,spaceTxt:"10–15 cm entre caïeux",
   originLab:'Mise en terre',resent:false},
 
  herb:{lab:'plante à feuillage (aromatique, salade, chou)',
@@ -1833,6 +1837,11 @@ function archOf(p){return ARCH[(p&&p.arch)||'fruit'];}
 function archKey(p){return(p&&p.arch)||'fruit';}
 /* échelle d'espacement commune, interprétée par archétype (spaceMin) */
 const SPACE_OPTS=[['','—'],['0','Moins de 5 cm'],['1','5 à 15 cm'],['2','15 à 30 cm'],['3','30 à 60 cm'],['4','Plus de 60 cm']];
+/* Disposition au sol — décision de plantation, portée par la CULTURE (comme l'espacement).
+   Ne concerne que les cultures pollinisées par le vent, où elle décide du rendement. */
+const ROWS_OPTS=[['','—'],['bloc','Bloc compact de 3 rangs ou plus'],['2rangs','Deux rangs'],
+  ['ligne','Une seule ligne'],['disperse','Plants dispersés, isolés']];
+function rowsOf(p){const pl=p&&p.planting;return(pl&&pl.rows)||'';}
 /* Mode de pollinisation : décide de ce qu'une mauvaise disposition coûte réellement. */
 const POLLEN={mais_ombre:'vent',mais_geo:'vent',
   courge:'insectes',melon:'insectes',pasteque:'insectes',
@@ -1843,50 +1852,96 @@ const POLLEN={mais_ombre:'vent',mais_geo:'vent',
    constaté, prouve que la plante a atteint le stade correspondant. Le stade retenu est le
    plus avancé dont le marqueur est confirmé — un marqueur observé ne se « dé-observe » pas.
    Sans observation, on retombe sur l'estimation par calendrier, clairement annoncée. */
+/* ⚠️ Un marqueur désignait un INDICE de stade — alors que les listes de stades varient d'une
+   espèce à l'autre AU SEIN d'un même archétype. La courge a un stade « Boutons » que le melon
+   n'a pas : toute la déduction de phase était décalée d'un cran chez elle, si bien que
+   « des fleurs sont ouvertes » prouvait « Boutons » et « des fruits sont noués » prouvait
+   « Floraison ». Conséquences en cascade, car la phase commande tout : recette d'engrais,
+   intervalle d'arrosage, soins proposés, décompte avant le gel.
+   Un marqueur désigne désormais son stade PAR SON SENS (`at` = noms acceptables, dans l'ordre
+   de préférence), résolu dans la liste RÉELLE de l'espèce. Un marqueur dont aucun stade ne
+   correspond n'est pas proposé : le melon ne se voit pas demander ses « boutons ».
+   ⚠️ `id` est l'identité STABLE d'un marqueur : les observations enregistrées le référencent.
+   Ne jamais le renommer, et ajouter les nouveaux marqueurs à la FIN du tableau — les saisies
+   antérieures aux identifiants stockent encore une position. L'ordre d'affichage, lui, suit
+   le stade prouvé, pas l'ordre du tableau. */
 const MARKERS={
  grass:[
-  {st:1,q:"Les plants sont levés, les premières feuilles sont déployées"},
-  {st:2,q:"La tige s'allonge nettement et les feuilles s'étagent (montaison)"},
-  {st:3,q:"Un plumet (panicule) est sorti au sommet de la tige"},
-  {st:4,q:"Des soies (fils) sortent du haut des épis"}],
+  {id:'g_leve',q:"Les plants sont levés, les premières feuilles sont déployées",at:['Végétatif','Croissance','Feuillage']},
+  {id:'g_montaison',q:"La tige s'allonge nettement et les feuilles s'étagent (montaison)",at:['Montaison','Végétatif']},
+  /* ⚠️ Le plumet (panicule mâle) sort AVANT les soies : il ne prouve pas la floraison femelle.
+     Il prouvait « Soies » et faisait avancer la phase d'un cran trop tôt. */
+  {id:'g_panicule',q:"Un plumet (panicule) est sorti au sommet de la tige",at:['Montaison','Végétatif']},
+  {id:'g_soies',q:"Des soies (fils) sortent du haut des épis",at:['Soies','Floraison']},
+  {id:'g_grain',q:"Les grains sont formés sur l'épi (laiteux si on en perce un)",at:['Épis','Fruits','Récolte']}],
  fruit:[
-  {st:1,q:"Le plant a dépassé les cotylédons, les vraies feuilles poussent"},
-  {st:2,q:"Des boutons floraux sont visibles"},
-  {st:3,q:"Des fleurs sont ouvertes"},
-  {st:4,q:"Des fruits sont noués (petits fruits verts formés)"},
-  {st:5,q:"Des fruits commencent à changer de couleur"}],
+  {id:'f_feuilles',q:"Le plant a dépassé les cotylédons, les vraies feuilles poussent",at:['Végétatif','Croissance']},
+  {id:'f_boutons',q:"Des boutons floraux sont visibles",at:['Boutons']},
+  {id:'f_fleurs',q:"Des fleurs sont ouvertes",at:['Floraison']},
+  {id:'f_noues',q:"Des fruits sont noués (petits fruits verts formés)",at:['Fruits','Fructification']},
+  {id:'f_couleur',q:"Des fruits commencent à changer de couleur",at:['Récolte','Maturation']}],
  vine:[
-  {st:1,q:"Le plant a 3–4 vraies feuilles"},
-  {st:2,q:"Des fleurs sont ouvertes (mâles d'abord, puis femelles à petit fruit)"},
-  {st:3,q:"Des fruits sont noués et grossissent"},
-  {st:4,q:"Un fruit mûrit : peau qui durcit, pédoncule qui se liège, parfum"}],
+  {id:'v_feuilles',q:"Le plant a 3–4 vraies feuilles",at:['Végétatif','Croissance']},
+  {id:'v_fleurs',q:"Des fleurs sont ouvertes (mâles d'abord, puis femelles à petit fruit)",at:['Floraison']},
+  {id:'v_noues',q:"Des fruits sont noués et grossissent",at:['Fruits','Fructification']},
+  {id:'v_murit',q:"Un fruit mûrit : peau qui durcit, pédoncule qui se liège, parfum",at:['Récolte','Maturation']},
+  {id:'v_boutons',q:"Des boutons floraux fermés sont visibles, aucune fleur encore ouverte",at:['Boutons']}],
  root:[
-  {st:1,q:"Les plants sont levés et le feuillage se développe"},
-  {st:2,q:"Le collet s'épaissit : une racine est perceptible au ras du sol"},
-  {st:3,q:"Une racine témoin arrachée a atteint un calibre consommable"}],
+  {id:'r_leve',q:"Les plants sont levés et le feuillage se développe",at:['Feuillage','Végétatif','Croissance']},
+  {id:'r_collet',q:"Le collet s'épaissit : une racine est perceptible au ras du sol",at:['Grossissement','Bulbaison']},
+  {id:'r_calibre',q:"Une racine témoin arrachée a atteint un calibre consommable",at:['Récolte','Maturation']}],
  bulb:[
-  {st:1,q:"Le feuillage est bien développé et dressé"},
-  {st:2,q:"Le bulbe se forme : renflement perceptible à la base"},
-  {st:3,q:"Le tiers ou la moitié des feuilles du bas ont bruni (maturité)"}],
+  {id:'b_feuillage',q:"Le feuillage est bien développé et dressé",at:['Feuillage','Végétatif','Croissance']},
+  {id:'b_bulbe',q:"Le bulbe se forme : renflement perceptible à la base",at:['Bulbaison','Grossissement']},
+  {id:'b_brunies',q:"Le tiers ou la moitié des feuilles du bas ont bruni (maturité)",at:['Maturation','Récolte']}],
  herb:[
-  {st:1,q:"La touffe est levée et fournie"},
-  {st:2,q:"On peut prélever des tiges sans épuiser le plant"}],
+  {id:'h_touffe',q:"La touffe est levée et fournie",at:['Feuillage','Croissance','Végétatif']},
+  {id:'h_recolte',q:"On peut prélever des tiges sans épuiser le plant",at:['Récolte']}],
  potTree:[
-  {st:1,q:"Des fleurs sont apparues"},
-  {st:2,q:"Des fruits sont noués"},
-  {st:3,q:"Les fruits changent de couleur"}],
+  {id:'t_fleurs',q:"Des fleurs sont apparues",at:['Floraison']},
+  {id:'t_noues',q:"Des fruits sont noués",at:['Fruits','Fructification']},
+  {id:'t_couleur',q:"Les fruits changent de couleur",at:['Maturation','Récolte']}],
  potRosette:[
-  {st:1,q:"Une inflorescence colorée est sortie au cœur de la rosette"},
-  {st:2,q:"Un fruit se forme au centre"}],
+  {id:'p_inflo',q:"Une inflorescence colorée est sortie au cœur de la rosette",at:['Floraison']},
+  {id:'p_fruit',q:"Un fruit se forme au centre",at:['Fruit','Fructification','Fruits']}],
  shrub:[
-  {st:0,q:"Le sujet est en reprise (bois vivant au test de l'ongle)"}]
+  {id:'s_reprise',q:"Le sujet est en reprise (bois vivant au test de l'ongle)",at:['Reprise','Croissance']}]
 };
-function markersFor(p){return MARKERS[archKey(p)]||MARKERS.fruit;}
+/* index du premier stade de l'espèce dont le nom correspond à l'un des candidats */
+function stageIndexOf(p,names){
+  const norm=x=>String(x||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+  const st=(p.stages||[]).map(norm);
+  for(const n of(names||[])){const c=norm(n);
+    const i=st.findIndex(x=>x===c||x.startsWith(c)||c.startsWith(x));
+    if(i>=0)return i;}
+  return null;
+}
+/* Marqueurs applicables à CETTE espèce, avec le stade réellement prouvé. Ceux dont le stade
+   n'existe pas chez elle sont écartés. L'ordre du tableau est conservé : c'est l'identité de
+   secours des saisies antérieures aux identifiants stables. */
+function markersFor(p){
+  return(MARKERS[archKey(p)]||MARKERS.fruit)
+    .map(m=>{const i=stageIndexOf(p,m.at);return i==null?null:{id:m.id,q:m.q,st:i};})
+    .filter(Boolean);
+}
+/* affichage : dans l'ordre du cycle, pas dans celui du tableau */
+function markersShown(p){return markersFor(p).slice().sort((a,b)=>a.st-b.st);}
+/* Une observation enregistrée référence un marqueur par son `id`. Les saisies faites avant
+   les identifiants stables ont stocké une POSITION : on la relit comme telle, ce qui reste
+   exact tant que les marqueurs existants gardent leur place dans le tableau. */
+function markChecked(M,marks,m,idx){
+  return marks.indexOf(m.id)>=0||marks.indexOf(String(idx))>=0;
+}
+function bestStageFrom(p,marks){
+  if(!Array.isArray(marks))return null;
+  const M=markersFor(p);let best=null;
+  M.forEach((m,idx)=>{if(markChecked(M,marks,m,idx))best=(best==null?m.st:Math.max(best,m.st));});
+  return best;
+}
 /* stade DÉDUIT des marqueurs confirmés lors de la dernière inspection */
 function observedStage(p){
   const i=lastInsp(p);if(!i||!Array.isArray(i.marks)||!i.marks.length)return null;
-  const M=markersFor(p);let best=null;
-  M.forEach((m,idx)=>{if(i.marks.indexOf(String(idx))>=0)best=(best==null?m.st:Math.max(best,m.st));});
+  const best=bestStageFrom(p,i.marks);
   return best==null?null:Math.min(best,p.stages.length-1);
 }
 /* stade déduit d'UN enregistrement quelconque de l'historique */
@@ -1897,8 +1952,7 @@ function stageOfRecord(p,rec){
      transition — mais jamais à faire régresser la phase courante, qui exige une preuve
      positive (voir observedStage). */
   if(!rec.marks.length)return 0;
-  const M=markersFor(p);let best=null;
-  M.forEach((m,idx)=>{if(rec.marks.indexOf(String(idx))>=0)best=(best==null?m.st:Math.max(best,m.st));});
+  const best=bestStageFrom(p,rec.marks);
   return best==null?0:Math.min(best,p.stages.length-1);
 }
 /* ===== DÉBUT DE PHASE DÉDUIT =====
@@ -1945,7 +1999,7 @@ function daysInPhase(p){const s=phaseStart(p);
   return s?Math.max(0,Math.floor((Date.now()-s.date.getTime())/864e5)):null;}
 /* ce que le jardinier DEVRAIT voir au stade prévu par le calendrier */
 function expectedMarker(p){
-  const st=modelStage(p),M=markersFor(p);
+  const st=modelStage(p),M=markersShown(p);
   const done=M.filter(m=>m.st<=st);
   return done.length?done[done.length-1].q:null;
 }
@@ -2260,7 +2314,8 @@ const DIAG=[
   adj:{feedHold:14}},
 
  {id:'polli_vent',sev:2,cause:"Disposition incompatible avec une pollinisation par le vent",
-  on:c=>c.p.pollen==='vent'&&((c.i.rows&&c.i.rows!=='bloc')||(isFinite(+c.i.nb)&&c.i.nb!==''&&+c.i.nb<12)),
+  on:c=>{const r=rowsOf(c.p),n=c.p.count;
+    return c.p.pollen==='vent'&&((r&&r!=='bloc')||(isFinite(+n)&&+n>0&&+n<12));},
   why:"Le maïs est pollinisé par le VENT : le pollen tombe des panicules mâles au sommet sur les soies des épis voisins. En ligne unique ou en plants dispersés, le pollen se perd à côté — chaque soie non pollinisée = un grain manquant sur l'épi. Le plant peut être en parfaite santé et donner quand même des épis à moitié vides.",
   fix:["Cette saison : secouer les tiges à la main en milieu de matinée (9–11 h 30), quand le pollen est émis, pour le faire tomber sur les soies.","À défaut, récolter du pollen dans un sac et le déposer directement sur les soies.","L'an prochain : planter en BLOC carré d'au moins 3–4 rangs (≈ 12–16 plants minimum), jamais en ligne le long d'un mur.","Espacement ≈ 25–30 cm entre plants : des trous à 5 cm reviennent à un seul plant, les racines se concurrencent."],
   src:"Principe de pollinisation anémophile du maïs, universellement documenté par les services d'extension ; fenêtre 9–11 h 30 déjà sourcée dans l'app (Purdue, Univ. Wisconsin)."},
@@ -4096,7 +4151,7 @@ function inspFields(p){
      ['fletri','Flétrissement en journée'],
      ['enroule','Feuilles enroulées sur elles-mêmes'],
      ['etirees','Tiges étirées, penchées vers la lumière'],
-     ['croute','Croûte blanchâtre à la surface du substrat']])},
+     ['croute','Croûte blanchâtre à la surface du sol ou du substrat']])},
    {k:'pests',g:'s',t:'sel',lab:'Ravageurs visibles',
     opts:[['','—'],['aucun','Aucun'],['insectes','Insectes (pucerons, chrysomèles, altises…)'],
      ['limaces','Limaces / traces de bave'],['inconnu','Dégâts sans coupable identifié']]},
@@ -4132,13 +4187,16 @@ function inspFields(p){
       hint:"Tant qu'il reste cantonné aux vieilles feuilles du bas, les fruits continuent de grossir normalement.",
       opts:OID_WHERE});
   }
-  if(has('nb'))F.push({k:'nb',g:'c',t:'num',lab:'Nombre de plants de cette culture',ph:'ex. 8',max:999});
+  /* ⚠️ Le nombre de plants et la disposition au sol sont des DÉCISIONS DE PLANTATION, pas des
+     observations : les redemander à chaque inspection créait une seconde source, qui pouvait
+     contredire celle de la fiche de culture (§ « Inspection = uniquement ce qui s'OBSERVE »).
+     On les rappelle ici, on ne les saisit plus. */
+  F.push({k:'_nb',g:'c',t:'info',lab:'Nombre de plants',
+    txt:`${p.count?`<b>${p.count}</b>`:'non renseigné'} — <i>se modifie sur la fiche de la culture.</i>`});
   if(has('space'))F.push({k:'_space',g:'c',t:'info',lab:'Espacement entre plants',
     txt:`${p.spacing!==''&&p.spacing!=null?(SPACE_OPTS.find(o=>o[0]===String(p.spacing))||['','non renseigné'])[1]:'non renseigné'} — vise ${A.spaceTxt}. <i>Se modifie sur la fiche de la culture.</i>`});
-  if(has('rows'))F.push({k:'rows',g:'c',t:'sel',lab:'Disposition au sol',
-    hint:"Cette culture est pollinisée par le VENT : la forme de la plantation décide du remplissage des épis.",
-    opts:[['','—'],['bloc','Bloc compact de 3 rangs ou plus'],['2rangs','Deux rangs'],
-     ['ligne','Une seule ligne'],['disperse','Plants dispersés, isolés']]});
+  if(has('rows'))F.push({k:'_rows',g:'c',t:'info',lab:'Disposition au sol',
+    txt:`${(ROWS_OPTS.find(o=>o[0]===String(rowsOf(p)))||['','non renseignée'])[1]} — cette culture est pollinisée par le VENT, la forme de la plantation décide du remplissage des épis. <i>Se modifie sur la fiche de la culture.</i>`});
   if(has('polli'))F.push({k:'polli',g:'c',t:'sel',lab:'Pollinisateurs observés (abeilles, bourdons)',
     hint:"Fleurs mâles et femelles séparées : sans insecte, la fleur femelle avorte.",
     opts:[['','—'],['oui','Oui, réguliers'],['peu','Rares'],['non','Aucun']]});
@@ -4150,7 +4208,7 @@ function inspFields(p){
   return F;
 }
 /* clés possibles, tous archétypes confondus — sert à la sauvegarde et à la remise à zéro */
-const INSP_KEYS=['date','h','marks','vigor','color','signs','soil','roots','nb','rows','polli','pests',
+const INSP_KEYS=['date','h','marks','vigor','color','signs','soil','roots','polli','pests',
   'oidRub','oidCover','oidTot','oidBad','oidWhere','note'];
 function inspTarget(){const s=document.getElementById('inspPlant');return s?byId(s.value):null;}
 function fillInspSelect(){
@@ -4170,10 +4228,11 @@ function renderInspForm(){
   const rawField=f=>{
     const hint=f.hint?`<div class="hint">${f.hint}</div>`:'';
     if(f.t==='marks'){
-      const M=markersFor(p),marks=Array.isArray(i.marks)?i.marks:[];
+      const M=markersShown(p),ALL=markersFor(p),marks=Array.isArray(i.marks)?i.marks:[];
       const mdl=p.stages[modelStage(p)],obs=observedStage(p);
       return `<div class="field"><label>${f.lab}</label>${hint}
-        ${M.map((m,n)=>`<label class="chk ${marks.indexOf(String(n))>=0?'on':''}"><input type="checkbox" data-mark="${n}" value="${n}" ${marks.indexOf(String(n))>=0?'checked':''} onchange="this.parentNode.classList.toggle('on',this.checked);previewStage()"> <span>${m.q}<br><span class="note">→ prouve le stade « ${p.stages[Math.min(m.st,p.stages.length-1)]} »</span></span></label>`).join('')}
+        ${M.map(m=>{const on=markChecked(ALL,marks,m,ALL.indexOf(ALL.find(x=>x.id===m.id)));
+          return `<label class="chk ${on?'on':''}"><input type="checkbox" data-mark="${m.id}" value="${m.id}" ${on?'checked':''} onchange="this.parentNode.classList.toggle('on',this.checked);previewStage()"> <span>${m.q}<br><span class="note">→ prouve le stade « ${p.stages[Math.min(m.st,p.stages.length-1)]} »</span></span></label>`;}).join('')}
         <div class="hint" id="stagePreview" style="margin-top:8px">Calendrier : <b>${mdl}</b>${obs!=null?` · déduit de tes observations : <b>${p.stages[obs]}</b>`:' · aucune observation cochée, le calendrier fait foi'}</div></div>`;
     }
     if(f.t==='stage'){
@@ -4242,8 +4301,7 @@ function markHealthy(){
 function previewStage(){
   const p=inspTarget(),el=document.getElementById('stagePreview');if(!p||!el)return;
   const marks=Array.from(document.querySelectorAll('#inspForm input[data-mark]:checked')).map(x=>x.value);
-  const M=markersFor(p);let best=null;
-  M.forEach((m,idx)=>{if(marks.indexOf(String(idx))>=0)best=(best==null?m.st:Math.max(best,m.st));});
+  const best=bestStageFrom(p,marks);
   const mdl=p.stages[modelStage(p)];
   el.innerHTML=best==null
     ? `Calendrier : <b>${mdl}</b> · aucune observation cochée, le calendrier fait foi`
@@ -4584,6 +4642,9 @@ function openPlantForm(id){
     </div>
     <div class="field"><label for="pf_count">Nombre de plants</label>
       <input type="number" id="pf_count" min="0" max="999" placeholder="ex. 6" value="${pl&&pl.count?pl.count:''}"></div>
+    <div class="field" id="pf_rowsWrap"><label for="pf_rows">Disposition au sol</label>
+      <div class="hint">Cette culture est pollinisée par le <b>vent</b> : le pollen tombe des panicules sur les soies voisines. En ligne unique ou en plants dispersés, il se perd à côté et les épis se remplissent mal. C'est une décision de plantation — l'app la relit, elle ne la redemande pas à chaque inspection.</div>
+      <select id="pf_rows">${ROWS_OPTS.map(([v,l])=>`<option value="${v}"${String((pl&&pl.rows)||'')===v?' selected':''}>${l}</option>`).join('')}</select></div>
     <div class="field"><label for="pf_spacing">Espacement entre plants</label>
       <div class="hint">Décision de plantation, pas une observation : trop serré, les plants se concurrencent et aucun n'atteint sa taille.</div>
       <select id="pf_spacing">${SPACE_OPTS.map(([v,l])=>`<option value="${v}"${String((pl&&pl.spacing)||'')===v?' selected':''}>${l}</option>`).join('')}</select></div>
@@ -4597,7 +4658,7 @@ function openPlantForm(id){
       <button class="btn ghost sm" style="width:100%;margin-top:8px" onclick="deletePlanting('${pl.id}')">🗑️ Supprimer définitivement</button>
       <p class="note" style="margin:8px 0 0">« Retirer du jardin » (sur la fiche) met simplement de côté en conservant les données. La suppression définitive, elle, efface aussi journal, inspections et récoltes de cette culture.</p>`:''}
   </div>`;
-  el.style.display='';onVarietyChange();onSowingChange();el.scrollIntoView({block:'start',behavior:'smooth'});
+  el.style.display='';onVarietyChange();onSowingChange();syncRowsField();el.scrollIntoView({block:'start',behavior:'smooth'});
 }
 /* ===== FORMULAIRE « NOUVELLE CULTURE » =====
    Deux chemins, du plus court au plus long : le catalogue (rien à renseigner), puis la
@@ -4761,9 +4822,16 @@ function delSpecies(sid){
 /* Changer d'espèce ne doit recharger QUE la liste des variétés. Reconstruire tout le
    formulaire réinitialisait le sélecteur à sa première option (Ail, par ordre alphabétique) :
    il devenait impossible de choisir une autre espèce. */
+function syncRowsField(){
+  const ssel=document.getElementById('pf_species'),w=document.getElementById('pf_rowsWrap');
+  if(!ssel||!w)return;
+  const sp=state.species[ssel.value];
+  w.style.display=(sp&&sp.pollen==='vent')?'':'none';
+}
 function onSpeciesChange(){
   const ssel=document.getElementById('pf_species'),vsel=document.getElementById('pf_variety');
   if(!ssel||!vsel)return;
+  syncRowsField();
   vsel.innerHTML='<option value="">— non précisée —</option>'
     +varietiesOf(ssel.value).map(v=>`<option value="${v.n.replace(/"/g,'&quot;')}">${v.n}${v.dtm?` — ${v.dtm} j`:''}</option>`).join('')
     +'<option value="__autre__">Autre / non listée…</option>';
@@ -4797,7 +4865,7 @@ function savePlanting(){
   if(!bed){toast('Crée d\'abord une parcelle dans Saison › Sol.');return;}
   const data={species:sid,label:(g('label')||'').trim()||null,bed,
     sowDate:g('sow')||new Date().toISOString().slice(0,10),sowing:g('sowing')||'direct',
-    count:num(g('count')),volL:num(g('volL')),spacing:g('spacing')||'',
+    count:num(g('count')),volL:num(g('volL')),spacing:g('spacing')||'',rows:g('rows')||'',
     plantDate:g('plant')||null};
   const vsel=g('variety');
   if(vsel==='__autre__'){data.variety=(g('varName')||'').trim()||null;
@@ -4883,7 +4951,7 @@ function renderInspHistory(){
 /* ===== SUPPRESSION / RESTAURATION D'UN PLANT ===== */
 function removePlant(id){
   const p=byId(id);if(!p)return;
-  if(!confirm(`Retirer « ${p.name} » du jardin ?\n\nIl disparaît du Programme, du plan 14 jours et du Doseur.\nSon journal et ses inspections sont conservés : tu pourras le remettre depuis l'onglet Inspection.`))return;
+  if(!confirm(`Retirer « ${p.name} » du jardin ?\n\nIl disparaît du Programme, du plan 14 jours et du Doseur.\nSon journal et ses inspections sont conservés : tu pourras le remettre depuis l'onglet Plantes, en bas de la liste.`))return;
   if(state.removed.indexOf(id)<0)state.removed.push(id);
   save();clearDG();
   fillInspSelect();renderInspForm();renderTrash();renderHarvest();

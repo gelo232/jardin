@@ -150,6 +150,28 @@ catégorie : ne pas l'emporter en réécrivant `plantBody()`.
   **champs pertinents** (`fields` : `nb`/`rows`/`space`/`polli`) et l'espacement visé
   (`spaceMin`/`spaceTxt`). Ne JAMAIS réintroduire de champ global sans se demander s'il a
   un sens pour un ail, une carotte ou un citronnier en pot.
+- ⚠️⚠️ **Un marqueur désigne son stade PAR SON SENS, jamais par un indice.** `MARKERS[archétype]`
+  était indexé par POSITION, alors que les listes de stades varient d'une espèce à l'autre au
+  sein d'un même archétype : la courge a un stade « Boutons » que le melon n'a pas. Toute sa
+  déduction de phase était décalée d'un cran — « des fleurs sont ouvertes » prouvait
+  « Boutons », « des fruits sont noués » prouvait « Floraison » — et comme la phase commande
+  tout, la recette d'engrais, l'arrosage, les soins et le décompte avant gel l'étaient aussi.
+  Chaque marqueur porte maintenant `at` = les noms de stade acceptables, par ordre de
+  préférence, résolus par `stageIndexOf()` dans la liste RÉELLE de l'espèce ; un marqueur dont
+  aucun stade ne correspond n'est pas proposé (le melon ne se voit pas demander ses boutons).
+  Même défaut corrigé chez les graminées : le plumet (panicule mâle) prouvait « Soies » alors
+  qu'il sort AVANT elles, et aucun marqueur ne prouvait correctement « Épis ».
+  ⚠️ `id` est l'identité STABLE d'un marqueur : les observations le référencent. Ne jamais le
+  renommer ; ajouter les nouveaux marqueurs à la FIN du tableau, car les saisies antérieures
+  stockent encore une position (`markChecked` relit les deux formes). L'affichage suit le
+  stade prouvé (`markersShown`), pas l'ordre du tableau.
+- ⚠️ **Ce qui se DÉCLARE n'appartient pas à l'inspection.** Le nombre de plants y était
+  redemandé alors qu'il vit sur la culture (`pf_count`) : deux sources qui pouvaient se
+  contredire. La disposition au sol y était saisie alors que c'est une décision de plantation.
+  Les deux sont désormais portées par la culture (`planting.count`, `planting.rows` +
+  `ROWS_OPTS`/`rowsOf`, champ affiché seulement pour une espèce anémophile) et seulement
+  RAPPELÉES dans l'inspection, comme l'espacement et l'ensoleillement. `polli_vent` lit la
+  culture. Une migration remonte la disposition déjà saisie en inspection.
 - Clés stockées : `INSP_KEYS` (toutes archétypes confondus) dans `state.insp[id]`
   (dernière) et `state.inspLog` (historique → `growthRate()` = cm/semaine mesurés).
   Chaque enregistrement porte son `arch`.
@@ -586,7 +608,7 @@ des parcelles créées dans la même milliseconde, et rattachait toutes les cult
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v36`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v37`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.
