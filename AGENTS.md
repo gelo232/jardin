@@ -218,6 +218,23 @@ catégorie : ne pas l'emporter en réécrivant `plantBody()`.
   Fusion des effets : la cause la plus grave impose la recette ; `waterDelta` retient la
   **magnitude maximale** (pas la somme — deux causes corrélées doubleraient la correction) ;
   `feedDelta` s'additionne, borné ±6 ; `feedHold` = suspension d'engrais en jours.
+- **Chlorose internervaire : la POSITION nomme l'élément.** Deux règles distinctes, jamais
+  fusionnées — c'est une erreur agronomique qui a déjà été commise ici. Le **fer est
+  immobile** : la plante ne peut pas le déplacer, sa carence sort donc sur les **jeunes**
+  feuilles (`color:'nervures'` → `chlorose_fe`). Le **magnésium est mobile** : la plante le
+  retire de ses vieilles feuilles pour ses pousses, sa carence sort donc sur les
+  **anciennes** (`color:'bas_nerv'` → `carence_mg`). Même dessin, extrémités opposées de la
+  plante, correctifs opposés — conseiller du Ca/Mg sur une chlorose ferrique ne corrige
+  rien. Le libellé unique « ferrique / magnésienne » qui existait avant produisait
+  exactement cette erreur. `bas_nerv` est intégré au test de sénescence (`senesc`) pour que
+  l'ail en fin de cycle continue de sortir `senescence_bulbe` et non une carence.
+  `chlorose_fe.fix` est **fonction du contexte** : pot → rinçage du substrat ; pleine terre
+  avec pH mesuré ≥ 7,3 → cause nommée et acidification ; pH non mesuré → renvoi à
+  Saison → sol avant tout traitement ; pH correct → piste racinaire (détrempé, tassé).
+  Aucune des deux règles ne porte d'`adj` : une indisponibilité liée au pH ou aux racines
+  ne se corrige pas en changeant la recette d'engrais ou l'intervalle d'arrosage.
+  Le correctif foliaire est présenté comme un **dépannage** : il ne reverdit que les
+  feuilles présentes au traitement, jamais les suivantes (Univ. of Illinois Extension).
 - **Points d'application** (tout le reste en découle) : `curStage()` (stade observé >
   calendrier), `stageSince()` (daté de l'observation), `curRecipe()` vs `baseRecipe()`,
   `waterEvery()` vs `baseWaterEvery()`, `feedDaysOf()`, `feedHoldUntil()`. Le Programme,

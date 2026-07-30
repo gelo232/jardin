@@ -654,33 +654,36 @@ const SEED_PLANTINGS=[
   {id:'courge',vol:"≈ 8–10 L par pied (gros buveur), au sol",icon:'🎃',name:'Courges',sub:'semé ~23 mai · boutons visibles',
    stages:['Semis','Végétatif','Boutons','Floraison','Fruits','Récolte'],stage:2,recipe:'fleur',feedDays:12,sun:'plein soleil',tender:false,
    water:"Gros besoins en eau. Arrose au pied, jamais sur le feuillage (oïdium garanti sinon).",
-   watch:["Taches blanches sur les feuilles : passe le doigt dessus. Ça s'efface comme de la farine → oïdium. Ça ne part pas et ça suit les nervures → panachure de la variété, normale.","Premières fleurs mâles puis femelles (petite courge à la base)"],
+   watch:["Taches blanches sur les feuilles : passe le doigt dessus. Ça s'efface comme de la farine → oïdium. Ça ne part pas et ça suit les nervures → panachure de la variété, normale.","Premières fleurs mâles puis femelles (petite courge à la base)","JEUNES feuilles du bout de la liane jaunes entre des nervures restées vertes, alors que les anciennes restent vert foncé → chlorose ferrique (pH ou racines), pas un manque d'engrais"],
    structural:["À la floraison : pollinise à la main au pinceau le matin si peu d'abeilles.","Glisse une planchette ou de la paille sous les jeunes fruits."],
    checks:[
     {q:"Feutrage blanc poudreux sur les feuilles (oïdium)",fix:"D'abord le test du doigt : si le blanc ne part pas et suit exactement les nervures, c'est la panachure de la variété — rien à faire. S'il s'efface comme de la farine, c'est l'oïdium : arrose au pied, aère, et ne coupe QUE les feuilles dont plus de la moitié du limbe est blanchie ou qui ont déjà jauni sous le feutrage — jamais plus du tiers du feuillage en une fois, et jamais une feuille qui ombrage un fruit. Saisis l'étendue en Inspection : l'app calcule le nombre exact de feuilles à retirer aujourd'hui."},
     {q:"Jeunes fruits qui jaunissent et avortent",fix:"Pollinisation incomplète : pollinise à la main au pinceau le matin (fleur mâle → femelle)."},
-    {q:"Fruit en contact avec le sol humide",fix:"Glisse une planchette ou de la paille dessous pour éviter la pourriture."}
+    {q:"Fruit en contact avec le sol humide",fix:"Glisse une planchette ou de la paille dessous pour éviter la pourriture."},
+    {q:"JEUNES feuilles jaunes à nervures vertes, les anciennes encore vert foncé",fix:"Chlorose ferrique, pas une faim d'azote — et la distinction se lit à la POSITION du jaunissement. Le fer est immobile dans la plante : sa carence frappe les feuilles les plus JEUNES. L'azote, mobile, ferait exactement l'inverse (vieilles feuilles du collet d'abord). Ajouter de l'engrais azoté ici ne corrige rien et force du feuillage pâle en plus. Le fer est presque toujours présent dans le sol, mais bloqué : au-dessus de pH 7, ou par un sol détrempé, tassé, aux racines abîmées. Mesure le pH de la parcelle (Saison → sol) avant de traiter — la courge veut 6,0–6,8. Contre un mur, la chaux du béton alcalinise le sol sur place. Dépannage : fer chélaté en pulvérisation foliaire tôt le matin ou en soirée, dose selon l'étiquette ; il ne reverdit que les feuilles déjà sorties, donc à répéter tant que la cause au sol persiste. Saisis ce symptôme en Inspection pour le diagnostic complet."}
    ],flag:null},
   {id:'melon',vol:"≈ 5–8 L par pied, puis laisser sécher la surface",icon:'🍈',name:'Melon cantaloup',sub:'semé ~23 mai · 3 feuilles',
    stages:['Semis','Végétatif','Floraison','Fruits','Maturation'],stage:1,recipe:'jeune',feedDays:14,sun:'chaleur maximale',tender:true,
    water:"Aime la chaleur, déteste les racines détrempées. Arrose régulièrement mais laisse sécher la surface.",
-   watch:["Croissance qui stagne sous 15 °C la nuit"],
+   watch:["Croissance qui stagne sous 15 °C la nuit","JEUNES feuilles jaunes entre des nervures restées vertes, les anciennes encore vert foncé → chlorose ferrique ; chez le melon, souvent des racines détrempées avant un problème de pH"],
    structural:["Un paillage sombre réchauffe le sol et accélère tout.","Pince la tige après 4–5 feuilles pour ramifier."],
    checks:[
     {q:"Croissance qui stagne (nuits sous 15 °C)",fix:"Paillage sombre, coin le plus chaud, protège les nuits fraîches (<12 °C)."},
     {q:"Racines détrempées",fix:"Laisse sécher la surface entre deux arrosages ; le melon déteste l'excès d'eau."},
     {q:"Feutrage blanc poudreux sur les feuilles (oïdium)",fix:"Comme toutes les cucurbitacées. Test du doigt d'abord : le blanc qui suit les nervures et ne s'efface pas est variétal, pas une maladie. Sinon, ne coupe que les feuilles couvertes à plus de la moitié ou déjà jaunies, jamais plus du tiers du feuillage à la fois. Saisis l'étendue en Inspection pour le compte exact."},
-    {q:"Trous dans les feuilles / feuilles rongées",fix:"Même ravageurs que la pastèque (chrysomèle, altises, limaces) : voile anti-insectes jusqu'à la floraison, ramassage, terre de diatomée ; surveille le flétrissement bactérien."}
+    {q:"Trous dans les feuilles / feuilles rongées",fix:"Même ravageurs que la pastèque (chrysomèle, altises, limaces) : voile anti-insectes jusqu'à la floraison, ramassage, terre de diatomée ; surveille le flétrissement bactérien."},
+    {q:"JEUNES feuilles jaunes à nervures vertes, les anciennes encore vert foncé",fix:"Chlorose ferrique — le fer est immobile, donc sa carence frappe les feuilles les plus JEUNES ; l'azote, mobile, ferait l'inverse (vieilles feuilles d'abord). N'ajoute pas d'azote. Chez le melon, le premier suspect n'est pas le sol calcaire mais l'EAU : des racines détrempées bloquent le fer aussi bien qu'un pH élevé, et le melon déteste précisément l'excès d'eau. Laisse sécher la surface entre deux arrosages, vérifie le drainage. Si le problème persiste au sec, mesure le pH de la parcelle (Saison → sol ; le melon veut 6,0–6,8). Dépannage : fer chélaté en foliaire tôt le matin ou en soirée — il ne reverdit que les feuilles déjà sorties, à répéter. Saisis ce symptôme en Inspection pour le diagnostic complet."}
    ],
    flag:{type:'cold',txt:"❄️ Cantaloup semé en pleine terre ~23 mai : ~100 j depuis le semis avant maturité, donc récolte espérée début–mi-septembre seulement si l'été reste chaud (course contre le gel du ~7 oct). Donne-lui le coin le plus chaud, paillage sombre, protège sous 12 °C la nuit."}},
   {id:'pasteque',vol:"≈ 1–2 L au stade 2 feuilles (ne pas noyer), 5–8 L par pied à maturité",icon:'🍉',name:'Pastèque',sub:'semé fin mai–juin · 2 feuilles',
    stages:['Semis','Végétatif','Floraison','Fruits','Maturation'],stage:1,recipe:'jeune',feedDays:14,sun:'chaleur maximale',tender:true,
    water:"Très jeune et fragile. Sol chaud et humide sans excès. Évite tout stress de froid.",
-   watch:["Sensible au froid au stade 2 feuilles — la moindre nuit fraîche la bloque","Trous dans les feuilles / feuilles rongées → ravageurs (voir solutions)"],
+   watch:["Sensible au froid au stade 2 feuilles — la moindre nuit fraîche la bloque","Trous dans les feuilles / feuilles rongées → ravageurs (voir solutions)","JEUNES feuilles jaunes entre des nervures restées vertes → chlorose ferrique ; au stade 2 feuilles, presque toujours un excès d'eau ou un sol froid, pas une carence du sol"],
    structural:["Stade le plus vulnérable : fertilisation très diluée seulement."],
    checks:[
     {q:"Trous dans les feuilles / feuilles rongées (au stade 2 feuilles)",fix:"Inspecte le dessous des feuilles et le sol tôt le matin ou au crépuscule. Coupables probables au Québec : chrysomèle rayée du concombre (petit coléoptère jaune et noir), altises (criblage de petits trous <3 mm, « shot-hole »), limaces (traces luisantes, dégâts la nuit). Solutions : voile anti-insectes sur arceaux dès maintenant et jusqu'à la floraison (le retirer alors pour la pollinisation), ramassage manuel, terre de diatomée sèche autour du pied, pièges à bière contre les limaces, et garder le tour du pied propre (les ravageurs hivernent dans les débris). ⚠️ La chrysomèle transmet le flétrissement bactérien des cucurbitacées : interviens vite, les semis tolèrent peu de dégâts."},
     {q:"Coup de froid (stade 2 feuilles, très fragile)",fix:"Maximise la chaleur : paillage sombre, mur exposé sud, protection sous 12 °C la nuit."},
+    {q:"JEUNES feuilles jaunes à nervures vertes, les anciennes encore vert foncé",fix:"Chlorose ferrique — le fer est immobile, sa carence frappe donc les feuilles les plus JEUNES ; l'azote, mobile, ferait l'inverse. Surtout ne fertilise pas plus : à ce stade la pastèque ne supporte que des apports très dilués. Sur un jeune plant, la cause est presque toujours racinaire — sol froid ou détrempé, qui bloque l'absorption du fer même dans une bonne terre. Réchauffe (paillage sombre), laisse ressuyer, et n'arrose qu'au besoin. Si ça persiste en sol chaud et ressuyé, mesure le pH (Saison → sol ; 6,0–6,8 visé). Le fer chélaté en foliaire ne fait que dépanner les feuilles déjà sorties. Saisis ce symptôme en Inspection pour le diagnostic complet."},
     {q:"Feutrage blanc poudreux sur les feuilles (oïdium)",fix:"Comme toutes les cucurbitacées. Test du doigt d'abord : le blanc qui suit les nervures et ne s'efface pas est variétal, pas une maladie. Sinon, ne coupe que les feuilles couvertes à plus de la moitié ou déjà jaunies, jamais plus du tiers du feuillage à la fois. Saisis l'étendue en Inspection pour le compte exact."}
    ],
    flag:{type:'cold',txt:"❄️ La plus à risque : pastèque semée de graine fin mai/juin au Québec, ~110 j jusqu'à maturité → mûrir avant le gel (~7 oct) est incertain. Maximise la chaleur (paillage sombre, mur exposé sud, protection des nuits fraîches). Les variétés hâtives type Sugar Baby (~75–80 j depuis repiquage) sont les seules réalistes ici."}},
@@ -728,10 +731,10 @@ const SEED_PLANTINGS=[
   {id:'citron',vol:"remplir le réservoir jusqu'à 3 L (capacité)",icon:'🍋',name:'Citronniers (×2)',sub:'jeunes semis · 1 tige 30 cm · pot à réserve 3 L + paillis',
    stages:['Croissance','Floraison','Fruits','Maturation'],stage:0,recipe:'agrumes',feedDays:14,sun:'plein soleil',tender:true,selfWater:3,
    water:"Pot à réserve d'eau (3 L) avec mèche : remplis le réservoir quand il est vide. Laisse sécher les 3–4 premiers cm en surface (paillis en place) ; jamais les pieds dans l'eau (le réservoir nourrit par capillarité, il ne doit pas noyer les racines).",
-   watch:["Feuilles jaunes à nervures vertes → carence fer/magnésium (ton fer chélaté corrige ça)","Chute des feuilles → arrosage irrégulier ou coup de froid"],
+   watch:["JEUNES feuilles jaunes à nervures vertes → fer (ton fer chélaté corrige ça). VIEILLES feuilles au même dessin → magnésium : la position désigne l'élément","Chute des feuilles → arrosage irrégulier ou coup de froid"],
    structural:["Jeunes semis (1 tige, jamais fleuris) : plusieurs années avant la 1re floraison, surtout non greffés. Vise une croissance saine et ramifiée — étête vers 40–50 cm pour forcer des branches.","Dehors au plein soleil l'été, rentrer avant 10 °C.","Magnésium apprécié : poudre Ca/Mg en arrosage séparé, 1×/mois."],
    checks:[
-    {q:"Feuilles jaunes à nervures vertes (chlorose fer/magnésium)",fix:"Pulvérisation foliaire de fer chélaté (tôt le matin ou en soirée) ; magnésium via poudre Ca/Mg en arrosage séparé, 1×/mois. Jamais de KCl (chlore) sur agrumes."},
+    {q:"Feuilles jaunes à nervures vertes (chlorose internervaire)",fix:"Regarde D'ABORD quelles feuilles sont touchées, les deux causes n'ont pas le même correctif. JEUNES feuilles (pousses du haut) : c'est le FER, immobile dans la plante — pulvérisation foliaire de fer chélaté, tôt le matin ou en soirée. VIEILLES feuilles (les plus basses) : c'est le MAGNÉSIUM, mobile, que l'arbre a déplacé vers ses jeunes pousses — poudre Ca/Mg en arrosage SÉPARÉ, 1×/mois (il précipite avec le MAP/MKP). Traiter au fer une carence de magnésium ne corrige rien, et l'inverse non plus. Jamais de KCl (chlore) sur agrumes."},
     {q:"Chute des feuilles",fix:"Arrosage irrégulier ou coup de froid : stabilise l'humidité (réservoir 3 L), rentre avant 10 °C."},
     {q:"Réservoir d'eau (3 L) — où verser l'eau",fix:"Verse dans le réservoir (tube de remplissage), pas sur le feuillage ni sur les copeaux ; laisse sécher les 3–4 premiers cm de surface entre deux remplissages. Amorçage par le haut au départ, puis ≈ 1×/mois un rinçage abondant par le haut contre l'accumulation de sels."}
    ],
@@ -1173,7 +1176,7 @@ const PH={
    {r:'aucun',water:"ARRÊTE l'arrosage ~2 sem. avant la récolte.",watch:["Récolte quand 1/3 à 1/2 des feuilles du bas ont bruni"],care:["Récolte par temps sec, fais sécher (curing) 2–3 sem. à l'ombre aérée"]},
   ],
   citron:[
-   {r:'agrumes',water:"Laisse sécher les 3–4 premiers cm puis arrose à fond ; jamais les pieds dans l'eau.",watch:["Feuilles jaunes à nervures vertes → fer/magnésium","Chute des feuilles → eau irrégulière ou froid"],care:[{t:"Jeune plant : vise la croissance, étête vers 40–50 cm pour ramifier",when:'haut40'},{t:"Dehors plein soleil l'été, rentre avant 10°",note:true}]},
+   {r:'agrumes',water:"Laisse sécher les 3–4 premiers cm puis arrose à fond ; jamais les pieds dans l'eau.",watch:["JEUNES feuilles jaunes à nervures vertes → fer ; VIEILLES feuilles au même dessin → magnésium","Chute des feuilles → eau irrégulière ou froid"],care:[{t:"Jeune plant : vise la croissance, étête vers 40–50 cm pour ramifier",when:'haut40'},{t:"Dehors plein soleil l'été, rentre avant 10°",note:true}]},
    {r:'agrumes',water:"Régulier pendant la floraison.",watch:["Chute des fleurs si stress hydrique/courant d'air"],care:[{t:"Des années avant la 1re floraison pour un semis — patience",note:true}]},
    {r:'agrumes',water:"Constant pendant la formation des fruits.",watch:["Chute de jeunes fruits = normal (le plant en garde quelques-uns)"],care:[{t:"Apport régulier sans chlore",auto:true}]},
    {r:'agrumes',water:"Régulier ; maturation lente (plusieurs mois).",watch:["Le fruit met des mois à colorer"],care:[{t:"Patience : maturation longue",note:true}]},
@@ -1532,7 +1535,7 @@ const ARCH_GUIDE={
  herb:[{water:"Surface humide jusqu'à la levée.",watch:["Levée parfois lente"],care:[{t:"Semer clair",note:true}]},
   {water:"Régulier ; ne pas laisser dessécher.",watch:["Montée en graine si stress ou chaleur"],care:[{t:"Apport léger seulement : l'excès d'azote dilue l'arôme et attire les pucerons",auto:true}]},
   {water:"Régulier pendant toute la période de coupe.",watch:["Une hampe florale annonce la fin de la tendreté"],care:["Récolter le matin, feuilles extérieures d'abord, en gardant le cœur"]}],
- potTree:[{water:"Laisser sécher les premiers centimètres entre deux arrosages.",watch:["Jeunes feuilles jaunes à nervures vertes = fer ou magnésium"],care:["Rincer le substrat à l'eau claire une fois par mois"]},
+ potTree:[{water:"Laisser sécher les premiers centimètres entre deux arrosages.",watch:["JEUNES feuilles jaunes à nervures vertes = fer (immobile) ; le magnésium, mobile, toucherait les VIEILLES feuilles"],care:["Rincer le substrat à l'eau claire une fois par mois"]},
   {water:"Régulier pendant la floraison.",watch:["Chute des boutons si courant d'air ou à-coup d'eau"],care:[]},
   {water:"Régulier pendant la nouaison.",watch:["Chute physiologique de jeunes fruits : normale"],care:[]},
   {water:"Réduire en hiver.",watch:["Rentrer avant les premières nuits froides"],care:[]}],
@@ -1777,7 +1780,7 @@ const ARCH={
   hLab:'Longueur de la tige principale (cm)',
   hHint:"Mesure la liane la plus longue, du collet à son extrémité.",
   nColor:['bas_pale','Feuilles les plus ANCIENNES (près du collet) jaunes uniformément'],
-  colorHint:"La carence d'azote décolore d'abord les vieilles feuilles près du collet, sans motif en V.",
+  colorHint:"Regarde D'ABORD OÙ se situe le jaunissement — c'est lui qui nomme l'élément, pas l'intensité. Vieilles feuilles près du collet, jaunes uniformément → azote. À l'inverse, JEUNES feuilles du bout de la liane jaunes entre des nervures restées vertes, alors que les anciennes restent vert foncé → fer : motif fréquent sur cucurbitacée en sol calcaire, détrempé ou tassé, et surtout PAS de l'azote.",
   signs:[['feutrage',"Taches ou feutrage blanc sur le dessus des feuilles"],
    ['avorte',"Jeunes fruits qui jaunissent et tombent"],
    ['fletri_tige',"Flétrissement brutal d'une tige entière"],
@@ -1819,7 +1822,7 @@ const ARCH={
  potTree:{lab:'arbuste en pot',
   hLab:'Hauteur du sujet (cm)',hHint:"Du substrat à la pousse la plus haute.",
   nColor:['bas_pale','Vieilles feuilles jaunes uniformément'],
-  colorHint:"Sur agrume, le motif le plus fréquent est le jaunissement des JEUNES feuilles à nervures vertes : c'est le fer ou le magnésium, pas l'azote.",
+  colorHint:"Sur agrume, le motif le plus fréquent est le jaunissement des JEUNES feuilles à nervures vertes : c'est le FER, pas l'azote. Le magnésium donne le même dessin mais sur les VIEILLES feuilles — il est mobile, l'arbre le déplace vers ses jeunes pousses.",
   signs:[['chute_feuilles',"Chute des feuilles"],
    ['collant',"Feuilles collantes / dépôt noir (fumagine)"]],
   fields:[],rootsLab:'Racines (visibles en dépotant)',
@@ -2179,11 +2182,39 @@ const DIAG=[
   fix:["Ajouter du potassium : sulfate de potassium (0-0-53) au Doseur, sans supprimer l'azote si le plant est encore en croissance.","Vérifier l'arrosage : la sécheresse bloque l'absorption du K même quand le sol en contient.","Ne pas augmenter la dose « au cas où » : l'excès de K bloque le magnésium."],
   src:"Iowa State Univ. Extension — Potassium deficiency symptoms in corn ; SDSU Extension (potassium et sécheresse)."},
 
- {id:'chlorose_fe',sev:2,cause:"Chlorose ferrique / magnésienne",
+ /* ⚠️ Fer et magnésium donnent tous deux une chlorose INTERNERVAIRE, mais jamais sur les mêmes
+    feuilles : le fer est IMMOBILE (symptôme sur les JEUNES feuilles), le magnésium est MOBILE
+    (symptôme sur les ANCIENNES). Les réunir sous un libellé unique « ferrique / magnésienne »
+    conduisait à conseiller du magnésium pour un problème de fer. Deux symptômes distincts,
+    deux règles distinctes : c'est la POSITION du jaunissement qui nomme l'élément. */
+ {id:'chlorose_fe',sev:2,cause:"Chlorose ferrique — fer bloqué, pas absent",
   on:c=>c.i.color==='nervures',
-  why:"Le fer n'est PAS mobile dans la plante : sa carence apparaît donc sur les JEUNES feuilles (les plus hautes), qui jaunissent entre des nervures restées vertes. C'est exactement l'inverse de l'azote — d'où l'importance de regarder OÙ se situe le jaunissement avant de fertiliser.",
-  fix:["Pulvérisation foliaire de fer chélaté, tôt le matin (< 9 h 30) ou en soirée (> 18 h 30), stomates ouverts.","Magnésium via la poudre Ca/Mg, en arrosage SÉPARÉ (précipite avec le MAP/MKP).","Ne pas augmenter la dose : l'excès de micronutriments est toxique."],
-  src:"Contenu déjà sourcé dans l'app (correctif fer chélaté, fiche agrumes)."},
+  why:c=>"Le fer n'est PAS mobile dans la plante : elle ne peut pas le retirer de ses vieilles feuilles pour nourrir les jeunes. Sa carence apparaît donc sur les JEUNES feuilles du sommet, qui jaunissent entre des nervures restées vertes, tandis que les anciennes restent vert foncé. C'est exactement l'inverse de l'azote — d'où l'importance de regarder OÙ se situe le jaunissement avant de fertiliser."
+   +(c.arch==='vine'?" Sur cucurbitacée, c'est précisément ce dessin : les feuilles les plus récentes du bout de la liane pâlissent en réseau, le reste du feuillage reste franc."
+     :" Le manganèse et le zinc, immobiles eux aussi, se bloquent dans les mêmes conditions et donnent un dessin voisin.")
+   +" Le fer est presque toujours PRÉSENT dans le sol : c'est sa disponibilité qui manque. Au-dessus de pH 7 il devient insoluble ; un sol détrempé, tassé ou aux racines abîmées produit le même blocage quelle que soit la richesse de la terre. Ajouter de l'azote n'y change rien et ne fait que forcer du feuillage pâle supplémentaire.",
+  fix:c=>{
+   const F=["Ne PAS augmenter l'azote : le jaunissement des JEUNES feuilles n'est pas une faim d'azote."];
+   if(!inGround(c.p)){
+    F.push("En pot : rincer le substrat à l'eau claire (les sels accumulés gênent l'absorption) et vérifier que l'eau s'écoule réellement par le fond.");
+   }else{
+    const b=bedOf(c.p),v=phVerdict(b?b.ph:'');
+    if(v&&v.lvl==='haut')F.push("Cause identifiée : pH "+String(+b.ph).replace('.',',')+" mesuré sur « "+b.name+" » — au-dessus de 7, le fer devient insoluble. Acidifier lentement : soufre élémentaire à l'automne, compost et tourbe de sphaigne à l'incorporation. Jamais de chaux ni de cendre de bois.");
+    else if(!v)F.push("Mesurer le pH de la parcelle (Saison → sol) AVANT de traiter : c'est lui qui dit si le fer est bloqué par le sol ou par les racines. Sans cette mesure, le correctif foliaire ne fait que masquer le problème.");
+    else F.push("Le pH mesuré n'explique pas un blocage du fer — il ne se bloque qu'en sol alcalin. Chercher donc du côté des racines : sol détrempé, tassé ou arrosage excessif bloquent le fer autant qu'un sol calcaire. Laisser ressuyer, décompacter la surface, pailler.");
+    F.push("Le long d'un mur ou d'une fondation, le béton et le mortier libèrent de la chaux et alcalinisent le sol sur place : à cet endroit l'acidification est à refaire régulièrement, elle ne tient pas.");
+   }
+   F.push("Dépannage : fer chélaté en pulvérisation foliaire, tôt le matin (< 9 h 30) ou en soirée (> 18 h 30), stomates ouverts. Dose selon l'étiquette du produit.");
+   F.push("Le foliaire ne reverdit QUE les feuilles présentes le jour du traitement : celles qui pousseront ensuite ressortiront jaunes tant que la cause au sol n'est pas corrigée. À répéter au fur et à mesure de la croissance.");
+   F.push("Ne pas augmenter la dose : l'excès de micronutriments est toxique.");
+   return F;},
+  src:"Univ. of Illinois Extension — Chlorosis (le fer débute sur les jeunes feuilles ou terminales ; causes : drainage déficient, racines abîmées ou tassées, alcalinité ; le foliaire n'agit que sur les feuilles présentes au traitement) ; Utah State Univ. Extension — Iron Chlorosis (indisponible en sol alcalin pH > 7 et calcaire ; éviter les sols saturés ; applications foliaires à répéter à mesure que le feuillage pousse) ; Washington State Univ. Hortsense — Lime-induced chlorosis (chaux libérée par le béton et les fondations)."},
+
+ {id:'carence_mg',sev:2,cause:"Carence en magnésium",
+  on:c=>c.i.color==='bas_nerv'&&!c.senesc,
+  why:"Le magnésium est MOBILE : la plante le retire de ses vieilles feuilles pour alimenter les jeunes pousses. Sa carence dessine donc une chlorose internervaire — jaune entre des nervures restées vertes — sur les feuilles les plus ANCIENNES et les plus basses, en progressant vers le haut. C'est le même dessin que la chlorose ferrique, mais à l'autre bout de la plante : seule la POSITION distingue les deux, et c'est elle qui décide du correctif.",
+  fix:["Magnésium via la poudre Ca/Mg, en arrosage SÉPARÉ : mélangé au MAP ou au MKP, il précipite et n'atteint pas la plante.","Ne pas traiter au fer : sur les vieilles feuilles, le fer n'est pas en cause.","Vérifier le potassium : un excès de K bloque l'absorption du magnésium, les deux se concurrencent à la racine.","Sol acide sous 5,5 : le magnésium y est peu disponible — chaux dolomitique à l'automne, qui en apporte en même temps qu'elle remonte le pH."],
+  src:"Penn State Dept. of Plant Science — Magnesium deficiency (chlorose internervaire des feuilles les plus âgées) ; Univ. of Illinois Extension — Chlorosis (la position du symptôme désigne l'élément) ; antagonisme K/Mg déjà sourcé dans l'app (règle « carence en potassium », SDSU Extension)."},
 
  {id:'choc_transplant',sev:3,cause:"Choc de transplantation (perturbation racinaire)",
   on:c=>archOf(c.p).resent&&c.p.sowing==='repique'&&(c.i.vigor==='lente'||c.i.vigor==='nulle')&&(!c.i.color||c.i.color==='vert'),
@@ -2479,7 +2510,7 @@ function diagnose(p){
   const model=modelStage(p),obs=observedStage(p);
   const ak=archKey(p),st=(obs==null?model:obs),stName=(p.stages[st]||'').toLowerCase();
   // sénescence normale : bulbe en fin de cycle dont les feuilles basses jaunissent
-  const senesc=(ak==='bulb')&&(['bas_pale','pale'].indexOf(i.color)>=0)
+  const senesc=(ak==='bulb')&&(['bas_pale','pale','bas_nerv'].indexOf(i.color)>=0)
     &&(stName.indexOf('bulbaison')>=0||stName.indexOf('maturation')>=0||st>=p.stages.length-2);
   const c={p,i,arch:ak,senesc,model,obs:st,lag:(obs==null?0:Math.max(0,model-obs)),
     signs:inspSigns(p),growth:growthRate(p)};
@@ -4187,6 +4218,7 @@ function inspFields(p){
    {k:'color',g:'s',t:'sel',lab:'Couleur du feuillage',hint:A.colorHint,
     opts:[['','—'],['vert','Vert normal'],['pale','Vert pâle uniforme'],
      A.nColor,
+     ['bas_nerv','Feuilles ANCIENNES jaunes ENTRE les nervures (nervures restées vertes)'],
      ['bords','Jaunissement / brunissement des BORDS (marges)'],
      ['nervures','JEUNES feuilles jaunes à nervures restées vertes'],
      ['violace','Teinte violacée / pourpre']]},
@@ -4984,7 +5016,8 @@ function renderInspHistory(){
       +`</div><div class="note" style="margin:0 0 8px">${A.hLab.replace(' (cm)','')} : de <b>${pts[0].h} cm</b> (${frDate(pts[0].date)}) à <b>${pts[pts.length-1].h} cm</b> (${frDate(pts[pts.length-1].date)})</div>`;
   }
   const lbl={vert:'vert normal',pale:'vert pâle',v_bas:'jaunissement en V',bas_pale:'vieilles feuilles jaunes',
-    bords:'bords jaunis',nervures:'nervures vertes',violace:'violacé'};
+    bas_nerv:'vieilles feuilles internervaires',bords:'bords jaunis',
+    nervures:'jeunes feuilles internervaires',violace:'violacé'};
   el.innerHTML=`<details class="fgrp"><summary>🗂️ Historique des inspections <span class="fg-n">${h.length} saisie${h.length>1?'s':''}</span></summary>
     <div class="fgrp-b">${spark}
       ${h.map(x=>{
