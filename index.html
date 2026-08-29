@@ -654,12 +654,14 @@ const SEED_PLANTINGS=[
   {id:'courge',vol:"≈ 8–10 L par pied (gros buveur), au sol",icon:'🎃',name:'Courges',sub:'semé ~23 mai · boutons visibles',
    stages:['Semis','Végétatif','Boutons','Floraison','Fruits','Récolte'],stage:2,recipe:'fleur',feedDays:12,sun:'plein soleil',tender:false,
    water:"Gros besoins en eau. Arrose au pied, jamais sur le feuillage (oïdium garanti sinon).",
-   watch:["Taches blanches sur les feuilles : passe le doigt dessus. Ça s'efface comme de la farine → oïdium. Ça ne part pas et ça suit les nervures → panachure de la variété, normale.","Premières fleurs mâles puis femelles (petite courge à la base)"],
+   watch:["Taches blanches sur les feuilles : passe le doigt dessus. Ça s'efface comme de la farine → oïdium. Ça ne part pas et ça suit les nervures → panachure de la variété, normale.","Premières fleurs mâles puis femelles (petite courge à la base)","Maturité : quatre signes — pédoncule liégeux, peau qui résiste à l'ongle, couleur de fond faite (tache au sol), vrille sèche. Renseigne-les en Inspection, l'app dit si la courge se récolte."],
    structural:["À la floraison : pollinise à la main au pinceau le matin si peu d'abeilles.","Glisse une planchette ou de la paille sous les jeunes fruits."],
    checks:[
     {q:"Feutrage blanc poudreux sur les feuilles (oïdium)",fix:"D'abord le test du doigt : si le blanc ne part pas et suit exactement les nervures, c'est la panachure de la variété — rien à faire. S'il s'efface comme de la farine, c'est l'oïdium : arrose au pied, aère, et ne coupe QUE les feuilles dont plus de la moitié du limbe est blanchie ou qui ont déjà jauni sous le feutrage — jamais plus du tiers du feuillage en une fois, et jamais une feuille qui ombrage un fruit. Saisis l'étendue en Inspection : l'app calcule le nombre exact de feuilles à retirer aujourd'hui."},
     {q:"Jeunes fruits qui jaunissent et avortent",fix:"Pollinisation incomplète : pollinise à la main au pinceau le matin (fleur mâle → femelle)."},
-    {q:"Fruit en contact avec le sol humide",fix:"Glisse une planchette ou de la paille dessous pour éviter la pourriture."}
+    {q:"Fruit en contact avec le sol humide",fix:"Glisse une planchette ou de la paille dessous pour éviter la pourriture."},
+    {q:"Est-ce qu'une courge peut être récoltée ?",fix:"Quatre signes, dont deux décisifs selon la variété. ① <b>Pédoncule</b> : vert et charnu = le fruit importe encore des sucres ; dur, sec, brun et fissuré = fini. ② <b>Test de l'ongle</b> : appuie l'ongle du pouce entre deux côtes (jamais sur la face posée au sol) — s'il marque ou perce, la peau n'est pas faite et la courge ne se gardera pas. ③ <b>Couleur de fond / tache au sol</b> : la peau perd son brillant ; chez la <b>poivrée (acorn)</b> c'est la tache au sol qui passe du jaune pâle à l'orange, et une peau entièrement orange signe une courge passée ; chez la butternut, plus aucune strie verte sur un beige uniforme. ④ <b>Vrille</b> du nœud portant le fruit, brunie et sèche (confirmation seulement). Décisifs : tache au sol + ongle pour la poivrée, pédoncule + ongle pour les autres. Saisis-les en Inspection : l'app tranche et donne la coupe et la conservation. <b>Courgette</b> : rien de tout cela — elle se récolte immature, 15–20 cm, peau brillante que l'ongle transperce."},
+    {q:"Comment couper et conserver une courge d'hiver",fix:"Sécateur, par temps sec, en laissant 5 à 10 cm de pédoncule : jamais arrachée, jamais portée par la tige (un pédoncule détaché ouvre une plaie et la pourriture entre par là). Ensuite ressuyage 10 à 14 j à 25–29 °C, ventilé, puis stockage à 10–13 °C au sec et à l'obscurité. ⚠️ La <b>poivrée (acorn) ne se ressuie pas</b> : le chaud dégrade sa chair et raccourcit sa garde — elle va directement au frais (~10 °C) et se conserve 5 à 8 semaines seulement. Avant la première nuit sous 0 °C, tout rentre : un fruit gelé ne se conserve plus."}
    ],flag:null},
   {id:'melon',vol:"≈ 5–8 L par pied, puis laisser sécher la surface",icon:'🍈',name:'Melon cantaloup',sub:'semé ~23 mai · 3 feuilles',
    stages:['Semis','Végétatif','Floraison','Fruits','Maturation'],stage:1,recipe:'jeune',feedDays:14,sun:'chaleur maximale',tender:true,
@@ -1148,7 +1150,7 @@ const PH={
    {r:'fleur',water:"Constant ; évite le stress hydrique.",watch:["Fleurs mâles d'abord, puis femelles"],care:[{t:"Passe au P-K",auto:true}]},
    {r:'fleur',water:"Régulier pendant la nouaison.",watch:["Fruits qui avortent = pollinisation incomplète"],care:["Pollinise au pinceau le matin si peu d'abeilles"]},
    {r:'fleur',water:"Soutenu pendant le grossissement.",watch:["Pourriture au sol humide"],care:["Glisse une planchette sous les jeunes fruits"]},
-   {r:'aucun',water:"Réduis l'eau en fin de mûrissement ; stoppe l'engrais.",watch:["Courge d'hiver : peau dure + pédoncule liégeux = mûre"],care:["Récolte avant le gel ; laisse un bout de pédoncule","Ressuie ~10 j au soleil pour la conservation"]},
+   {r:'aucun',water:"Réduis l'eau en fin de mûrissement ; stoppe l'engrais.",watch:["Quatre signes de maturité : pédoncule liégeux, peau qui résiste à l'ongle, couleur de fond faite et mate, vrille du fruit desséchée — deux d'entre eux sont décisifs, lesquels dépend de la variété","Poivrée (acorn) : c'est la TACHE AU SOL virant à l'orange qui tranche, pas la couleur d'ensemble ; une peau entièrement orange = courge passée"],care:[{t:"Récolte au sécateur en laissant 5 à 10 cm de pédoncule, par temps sec et avant le gel",when:'preGel30'},{t:"Après la coupe : ressuyage 10–14 j à 25–29 °C — SAUF la poivrée (acorn), qui ne se ressuie pas et va directement au frais (~10 °C)",note:true}]},
   ],
   persil:[
    {r:'jeune',water:"Surface humide jusqu'à la levée (lente, 2–3 sem.).",watch:["Sèche en surface = germination ratée"],care:[{t:"Patience : le persil lève lentement",note:true}]},
@@ -1520,7 +1522,7 @@ const ARCH_GUIDE={
   {water:"Constant ; éviter tout stress hydrique.",watch:["Fleurs mâles d'abord, femelles ensuite"],care:[{t:"Passer au P-K",auto:true}]},
   {water:"Régulier pendant la nouaison.",watch:["Jeunes fruits qui jaunissent et tombent = pollinisation incomplète"],care:["Polliniser au pinceau entre 6 h et 10 h si peu d'abeilles"]},
   {water:"Soutenu pendant le grossissement.",watch:["Pourriture au contact d'un sol humide"],care:["Glisser une planchette ou de la paille sous les fruits"]},
-  {water:"Réduire en fin de mûrissement ; arrêter l'engrais.",watch:["Peau dure et pédoncule liégeux = mûr"],care:[{t:"Récolter avant le gel en laissant un bout de pédoncule",when:'preGel30'}]}],
+  {water:"Réduire en fin de mûrissement ; arrêter l'engrais.",watch:["Quatre signes de maturité : pédoncule liégeux, peau qui résiste à l'ongle, couleur de fond mate, vrille du fruit desséchée","Une peau que l'ongle marque encore ne se conservera pas, quelle que soit la couleur"],care:[{t:"Récolter au sécateur en laissant 5 à 10 cm de pédoncule, avant le gel",when:'preGel30'}]}],
  root:[{water:"Surface constamment humide jusqu'à la levée.",watch:["Croûte sèche = levée ratée"],care:[{t:"Semer clair pour limiter l'éclaircissage",note:true}]},
   {water:"Régulier et profond : l'eau appelle la racine vers le bas.",watch:["⚠️ Un excès d'azote donne un feuillage magnifique et une racine grêle"],care:["Éclaircir tôt : deux racines qui se touchent ne grossissent ni l'une ni l'autre"]},
   {water:"Régulier : l'alternance sec/détrempé fait éclater les racines.",watch:["Collet vert = racine déchaussée, rebutter"],care:["Butter pour couvrir les collets"]},
@@ -1898,7 +1900,7 @@ const MARKERS={
   {id:'v_feuilles',q:"Le plant a 3–4 vraies feuilles",at:['Végétatif','Croissance']},
   {id:'v_fleurs',q:"Des fleurs sont ouvertes (mâles d'abord, puis femelles à petit fruit)",at:['Floraison']},
   {id:'v_noues',q:"Des fruits sont noués et grossissent",at:['Fruits','Fructification']},
-  {id:'v_murit',q:"Un fruit mûrit : peau qui durcit, pédoncule qui se liège, parfum",at:['Récolte','Maturation']},
+  {id:'v_murit',q:"Un fruit mûrit : peau qui durcit, pédoncule qui se liège, couleur de fond qui vire (parfum chez le melon)",at:['Récolte','Maturation']},
   {id:'v_boutons',q:"Des boutons floraux fermés sont visibles, aucune fleur encore ouverte",at:['Boutons']}],
  root:[
   {id:'r_leve',q:"Les plants sont levés et le feuillage se développe",at:['Feuillage','Végétatif','Croissance']},
@@ -2159,6 +2161,236 @@ function oidCullBlock(p){
       <div class="diff"><span class="d-k">À garder en place</span><span class="d-v">${cu.keep} feuille${cu.keep>1?'s':''} encore bénéficiaire${cu.keep>1?'s':''}</span></div>`:''}
     <p class="note" style="margin:7px 0 4px">🕑 Si tu traites (pulvérisation foliaire) : ${t.good?`<b style="color:var(--leaf-d)">c'est le bon moment (${t.short})</b>`:`<b style="color:var(--amber)">${t.short}</b>`}${windOK()?'':` · <b style="color:var(--amber)">vent ${w&&w.wind!=null?w.wind+' km/h':'trop fort'} : pas de pulvérisation au-delà de 12 km/h</b>`} — dessus ET dessous des feuilles, tous les 7–10 j et après chaque pluie.</p>
     <ul>${OID_TREAT.map(x=>`<li>${x}</li>`).join('')}</ul></div>`;
+}
+/* ===== MATURITÉ DES COURGES : LES QUATRE SIGNES, NOMMÉS ET PONDÉRÉS =====
+   « Récolte quand c'est mûr » ne veut rien dire tant qu'on n'a pas dit à QUOI ça se voit.
+   Même défaut que « retire les feuilles atteintes » : un conseil qu'on ne sait pas appliquer.
+   Une courge d'hiver cueillie trop tôt est fade et ne se conserve pas ; laissée trop tard,
+   elle perd sa chair et prend le gel. Le jugement tient à QUATRE signes observables — et
+   DEUX seulement sont décisifs, les autres confirment. Lesquels sont décisifs dépend de la
+   variété : c'est la raison d'être de `MAT_KINDS`.
+
+   Faits qui fondent les critères :
+   • PÉDONCULE — tant qu'il est vert et charnu, le fruit importe encore des sucres. Il devient
+     dur, sec, brun et fissuré (liégeux) quand les échanges cessent : c'est le signe le plus
+     fiable chez la butternut, la spaghetti et les potirons. Il l'est BEAUCOUP MOINS chez la
+     poivrée (acorn), dont le pédoncule sèche tard, peu, et sans que ce soit concluant.
+   • TEST DE L'ONGLE — l'ongle du pouce appuyé sur la peau, entre deux côtes, jamais sur la
+     face posée au sol (toujours plus tendre). S'il marque ou perce, la peau n'est pas faite
+     et le fruit ne se conservera pas. S'il résiste, la peau est mûre. Décisif pour TOUTES les
+     courges d'hiver : c'est la peau qui décide de la conservation.
+   • TACHE AU SOL / COULEUR DE FOND — la face posée sur la terre change de couleur en
+     mûrissant, et la peau perd son brillant. Chez la POIVRÉE c'est LE critère : la tache passe
+     du jaune pâle à l'ORANGE. ⚠️ Mais une poivrée dont la peau entière a viré à l'orange est
+     TROP mûre : la chair devient fibreuse et fade.
+   • VRILLE — la vrille du nœud qui porte le fruit brunit et sèche quand le fruit est fini.
+     Confirmation, jamais preuve à elle seule : l'oïdium et la sécheresse la dessèchent aussi.
+   • COURGES D'ÉTÉ (courgette, pâtisson) — elles se récoltent IMMATURES : les quatre signes ne
+     s'y appliquent pas, et le critère y est même inverse (peau brillante que l'ongle
+     transperce). Les attendre donne un fruit spongieux à grosses graines.
+   • RESSUYAGE — 10 à 14 j à 25–29 °C durcit la peau et cicatrise les plaies, d'où plusieurs
+     mois de conservation. ⚠️ EXCEPTION : la POIVRÉE (acorn) ne se ressuie PAS au chaud — le
+     traitement dégrade sa chair et raccourcit sa garde ; elle va directement au stockage
+     à ~10 °C. C'est aussi une courge de garde COURTE (5 à 8 semaines).
+   • COUPE — au sécateur, 5 à 10 cm de pédoncule laissés sur le fruit. Jamais arrachée, jamais
+     portée par la tige : un pédoncule détaché ouvre une plaie, et la pourriture entre par là.
+   • GEL — le feuillage gelé n'abîme pas les fruits, mais un fruit pris par le gel ne se
+     conserve plus : tout rentrer avant la première nuit sous 0 °C, mûr ou non.
+   • Les jours à maturité (`varietyOutlook`) restent un REPÈRE, pas un critère : ils disent
+     quand commencer à regarder, ce sont les signes qui tranchent.
+   Sources : recommandations « harvesting and curing winter squash » des services d'extension
+   nord-américains (Univ. of Illinois, Oregon State Univ., UMass) — dont la contre-indication
+   explicite du ressuyage pour l'acorn et le critère de la tache au sol orange. */
+const MAT_STEM=[['','— non observé —'],
+ ['vert',"Vert et charnu, encore souple"],
+ ['vire',"Il durcit et passe au beige, sans être sec"],
+ ['liege',"Dur, sec, brun et fissuré — liégeux"]];
+const MAT_NAIL=[['','— pas encore testé —'],
+ ['perce',"L'ongle entre dans la peau sans forcer"],
+ ['marque',"L'ongle laisse une marque, sans percer"],
+ ['resiste',"La peau résiste : l'ongle ne marque pas"]];
+const MAT_TENDRIL=[['','— non observé —'],
+ ['verte',"Verte et souple"],
+ ['seche',"Brunie et sèche"]];
+/* Profils variétaux : le couple DÉCISIF change d'une courge à l'autre, et l'échelle de
+   couleur aussi. `re` est testée sur « nom de la culture + variété » — jamais sur `p.id`
+   (règle des tables héritées : une plantation créée dans l'app porte un id `plN`).
+   ⚠️ L'ordre compte : /courge/ matche aussi « courgette », donc l'été passe en premier. */
+const MAT_KINDS=[
+ {k:'ete',summer:true,lab:"courge d'été",
+  re:/courgette|zucchini|p[aâ]tisson|courge d.?[ée]t[ée]|summer squash/i,
+  crit:"Elle se récolte <b>immature</b> : 15 à 20 cm, peau <b>brillante</b> que l'ongle transperce encore. Les quatre signes de maturité ne s'appliquent pas — les attendre donne un fruit spongieux à grosses graines et une chair fade.",
+  cadence:"Récolte tous les 2 à 3 jours : chaque fruit laissé sur pied fait chuter la production suivante.",
+  keep:"Aucune garde : une semaine au réfrigérateur, pas de ressuyage."},
+ {k:'poivree',lab:"poivrée (acorn)",
+  re:/poivr[ée]|acorn|delicata/i,
+  keyPair:['ground','nail'],
+  short:{ground:"tache au sol virée à l'orange"},
+  ground:[['','— non observé —'],
+   ['pale',"Tache au sol encore blanchâtre ou jaune très pâle"],
+   ['creme',"Elle jaunit franchement, le vert reste sombre"],
+   ['mure',"Elle a viré à l'ORANGE — le reste de la peau est vert sombre et mat"],
+   ['trop',"TOUTE la courge est passée à l'orange"]],
+  groundHint:"Chez la poivrée, la couleur d'ensemble ne dit rien : elle reste vert sombre jusqu'au bout. C'est la <b>tache au sol</b> — la face posée sur la terre — qui donne la maturité, en passant du jaune pâle à l'orange. Si l'orange gagne toute la peau, la courge est passée : la chair devient fibreuse et fade.",
+  stemNote:"Chez la poivrée, le pédoncule sèche tard et peu : ne compte pas dessus pour trancher, il confirme seulement.",
+  cure:"⚠️ <b>La poivrée ne se ressuie PAS.</b> Le passage au chaud (25–29 °C) qui bonifie une butternut dégrade sa chair et raccourcit sa conservation. Elle va <b>directement au stockage</b> : ~10 °C, au sec, à l'obscurité, sans empiler les fruits.",
+  keep:"5 à 8 semaines — c'est une courge d'hiver de garde COURTE. Consomme-la avant les butternut, pas après."},
+ {k:'musquee',lab:"butternut / musquée",
+  re:/butternut|musqu[ée]|doubeurre/i,
+  keyPair:['stem','nail'],
+  short:{ground:'beige uniforme, plus aucune strie verte'},
+  ground:[['','— non observé —'],
+   ['pale',"Fond beige-vert, stries vertes bien marquées"],
+   ['creme',"Les stries vertes s'estompent, le brillant s'en va"],
+   ['mure',"Beige (tan) uniforme et MAT, plus aucune strie verte"]],
+  groundHint:"Chez la butternut, c'est la couleur d'ensemble qui parle : tant qu'il reste des stries vertes, elle n'est pas finie. Mûre, elle est d'un beige uniforme et mat — le brillant a disparu.",
+  cure:"Ressuyage <b>10 à 14 j à 25–29 °C</b>, ventilé et à l'abri de la pluie : la peau achève de durcir et les plaies cicatrisent. Puis stockage à 10–13 °C, au sec et à l'obscurité.",
+  keep:"2 à 3 mois après ressuyage, davantage si le stockage reste frais et sec."},
+ {k:'spaghetti',lab:"spaghetti",
+  re:/spaghetti/i,
+  keyPair:['stem','nail'],
+  short:{ground:'jaune doré franc et mat'},
+  ground:[['','— non observé —'],
+   ['pale',"Ivoire ou jaune très pâle"],
+   ['creme',"Le jaune se fonce, le brillant s'en va"],
+   ['mure',"Jaune doré franc et MAT"]],
+  groundHint:"La spaghetti passe de l'ivoire au jaune doré franc en mûrissant, et sa peau devient mate. Une courge encore pâle et brillante n'est pas faite.",
+  cure:"Ressuyage <b>10 à 14 j à 25–29 °C</b>, ventilé, puis stockage à 10–13 °C au sec et à l'obscurité.",
+  keep:"1 à 2 mois."},
+ {k:'hiver',lab:"courge d'hiver",
+  re:/courge|citrouille|potiron|potimarron|giraumon|hubbard|kabocha|buttercup|winter squash/i,
+  keyPair:['stem','nail'],
+  ground:[['','— non observé —'],
+   ['pale',"Fond encore clair, peau brillante"],
+   ['creme',"La teinte change, le brillant s'en va"],
+   ['mure',"Couleur de fond faite, peau MATE"]],
+  groundHint:"Une peau encore brillante est une peau qui grossit encore : la maturité rend le fond mat. Renseigne la variété sur la fiche de la culture — l'app remplacera ce critère générique par celui de ta courge (la poivrée, par exemple, ne se juge QUE sur la tache au sol).",
+  cure:"Ressuyage <b>10 à 14 j à 25–29 °C</b>, ventilé et à l'abri de la pluie, puis stockage à 10–13 °C au sec et à l'obscurité. ⚠️ Une exception : la <b>poivrée (acorn)</b> ne se ressuie pas — précise la variété si c'en est une.",
+  keep:"De quelques semaines à plusieurs mois selon la variété."}
+];
+/* Énoncés partagés — dits UNE fois, réutilisés par la fiche, l'inspection et le Programme. */
+const MAT_CUT="Coupe au <b>sécateur</b>, par temps sec, en laissant <b>5 à 10 cm de pédoncule</b> sur le fruit. Ne l'arrache jamais et ne la porte jamais par la tige : un pédoncule détaché ouvre une plaie, et c'est par là que la pourriture entre au stockage. Manipule sans cogner — un choc invisible devient une tache molle trois semaines plus tard.";
+const MAT_EARLY="Une courge d'hiver cueillie avant que la peau soit faite reste comestible, mais elle est fade et ne se garde que quelques semaines : hors du pied, elle ne mûrit pratiquement plus.";
+const MAT_FROST="Le feuillage gelé n'abîme pas les fruits, mais un fruit pris par le gel ne se conserve plus. Avant la première nuit sous 0 °C, tout rentre — mûr ou non.";
+/* Nom court de chaque signe — un seul jeu, lu par la fiche ET par le Programme, pour que les
+   deux ne puissent pas nommer différemment le même critère. Un profil peut le préciser
+   (`short`) : chez la poivrée, ce n'est pas « la couleur de fond », c'est la tache au sol. */
+const MAT_SHORT={stem:'pédoncule liégeux',nail:"peau qui résiste à l'ongle",
+  ground:'couleur de fond faite et mate',tendril:'vrille sèche'};
+function matShort(t,k){return(t&&t.short&&t.short[k])||MAT_SHORT[k];}
+const MAT_SAY={
+ pret:{ic:'🧺',t:"Mûre — récolte",col:'var(--leaf-d)'},
+ proche:{ic:'⏳',t:"Presque — encore quelques jours",col:'var(--amber)'},
+ attendre:{ic:'🌱',t:"Pas encore mûre",col:'var(--ink-soft)'},
+ trop:{ic:'⚠️',t:"Passée — récolte sans attendre",col:'var(--amber)'},
+ gel:{ic:'🧊',t:"Gel proche — récolte quand même",col:'var(--amber)'},
+ inconnu:{ic:'❓',t:"Les signes ne sont pas renseignés",col:'var(--ink-soft)'}
+};
+/* La courge de cette culture, s'il y en a une. null pour un melon, une pastèque, un concombre :
+   leurs signes de maturité sont autres (glissement du pédoncule, parfum), on ne leur sert pas
+   le critère d'une courge. */
+function matKind(p){
+  if(archKey(p)!=='vine')return null;
+  const s=`${(p&&p.name)||''} ${(p&&p.variety)||''}`;
+  return MAT_KINDS.find(k=>k.re.test(s))||null;
+}
+/* Les quatre questions, dans l'ordre où on les regarde au jardin. Une seule définition,
+   partagée par le formulaire d'inspection et la fiche : les deux ne peuvent pas diverger. */
+function matFields(t){
+  return[
+   {k:'matStem',s:'stem',q:'le pédoncule',opts:MAT_STEM,
+    lab:"Pédoncule — la tige qui relie le fruit à la liane",
+    hint:"Tant qu'il est vert et charnu, le fruit importe encore des sucres : il n'est pas fini."+(t.stemNote?" "+t.stemNote:"")},
+   {k:'matNail',s:'nail',q:"le test de l'ongle",opts:MAT_NAIL,
+    lab:"Test de l'ongle sur la peau",
+    hint:"Appuie l'ongle du pouce entre deux côtes, <b>jamais sur la face posée au sol</b> (toujours plus tendre). C'est la peau qui décide de la conservation : si l'ongle la marque, la courge ne se gardera pas."},
+   {k:'matGround',s:'ground',q:'la couleur de fond / tache au sol',opts:t.ground,
+    lab:"Couleur de fond et tache au sol",
+    hint:t.groundHint},
+   {k:'matTendril',s:'tendril',q:'la vrille du fruit',opts:MAT_TENDRIL,
+    lab:"Vrille du nœud qui porte le fruit",
+    hint:"Elle brunit et sèche quand le fruit est fini. Confirmation seulement : l'oïdium et la sécheresse la dessèchent aussi."}];
+}
+/* Ce que le jardinier a réellement observé sur les quatre signes (vide = non renseigné). */
+function matObs(p){
+  const i=lastInsp(p)||{};
+  const o={stem:i.matStem||'',nail:i.matNail||'',ground:i.matGround||'',tendril:i.matTendril||''};
+  o.given=['stem','nail','ground','tendril'].filter(k=>o[k]).length;
+  return o;
+}
+/* Verdict. Le couple décisif de la variété tranche ; les deux autres signes confirment.
+   ⚠️ Un gel proche prime sur tout sauf « déjà mûre » : à ce moment-là le choix n'est plus
+   entre récolter et attendre, mais entre récolter et perdre. */
+function matVerdict(p){
+  const t=matKind(p);if(!t)return null;
+  const o=matObs(p);
+  if(t.summer)return{kind:t,obs:o,v:'ete'};
+  const ok={stem:o.stem==='liege',nail:o.nail==='resiste',
+    ground:(o.ground==='mure'||o.ground==='trop'),tendril:o.tendril==='seche'};
+  const done=['stem','nail','ground','tendril'].filter(k=>ok[k]).length;
+  const keyOK=t.keyPair.filter(k=>ok[k]).length;
+  const dtf=daysToFrost(),alert=frostAlert(),urgent=!!alert||dtf<=7;
+  let v;
+  if(o.ground==='trop')v='trop';
+  else if(keyOK===2)v='pret';
+  else if(!o.given)v='inconnu';
+  else if(keyOK===1&&done>=2)v='proche';
+  else v='attendre';
+  if(urgent&&v!=='pret'&&v!=='trop')v='gel';
+  return{kind:t,obs:o,ok,done,keyOK,v,urgent,frostDays:dtf,alert};
+}
+/* Ce qu'il reste à observer, nommé : l'app ne dit pas « on ne sait pas », elle dit quoi
+   regarder pour savoir. */
+function matMissing(p){
+  const r=matVerdict(p);if(!r||r.kind.summer)return[];
+  return matFields(r.kind).filter(f=>!r.obs[f.s]).map(f=>f.q);
+}
+/* On ne juge pas la maturité d'une fleur : rien ne s'affiche et rien ne se demande tant que
+   les fruits ne sont pas noués. Une question sans objet est du bruit. */
+function matShow(p){
+  const r=matVerdict(p);if(!r||r.kind.summer)return false;
+  const fr=stageIndexOf(p,['Fruits','Fructification']);
+  return fr==null||curStage(p)>=fr;
+}
+/* Résumé d'une ligne pour l'en-tête repliable de la fiche : décider sans déplier. */
+function matSummary(p){
+  if(!matShow(p))return '';
+  const r=matVerdict(p),say=MAT_SAY[r.v];
+  return say?`${say.ic} ${say.t.toLowerCase()}`:'';
+}
+/* Bloc de la fiche plante et de l'onglet Inspection — rendu EN DIRECT : le verdict dépend
+   du gel annoncé, qui change avec la météo, alors que les observations ne bougent pas. */
+function matBlock(p){
+  const r=matVerdict(p);if(!r)return '';
+  const t=r.kind;
+  if(t.summer)return `<div class="pact"><h4>🧺 Quand récolter — ${t.lab}</h4>
+    <p style="margin:0 0 6px">${t.crit}</p>
+    <p class="note" style="margin:0">${t.cadence} ${t.keep}</p></div>`;
+  if(!matShow(p))return '';
+  const say=MAT_SAY[r.v],F=matFields(t);
+  const rows=F.map(f=>{
+    const val=r.obs[f.s],lab=(f.opts.find(o=>o[0]===val)||f.opts[0])[1];
+    const dec=t.keyPair.indexOf(f.s)>=0;
+    const ic=!val?'❓':(r.ok[f.s]?'✅':(dec?'⛔':'⬜'));
+    return `<div class="diff"><span class="d-k">${ic} ${f.q.replace(/^(le|la|l')\s?/,'')}${dec?' <b style="color:var(--leaf-d)">·&nbsp;décisif</b>':''}</span><span class="d-v">${val?lab:'<i>non renseigné</i>'}</span></div>`;
+  }).join('');
+  const miss=matMissing(p);
+  let verdict;
+  if(r.v==='pret')verdict=`Les deux signes décisifs de la ${t.lab} sont réunis : <b>${t.keyPair.map(k=>matShort(t,k)).join('</b> et <b>')}</b>. La peau est faite, le fruit ne grossira plus : récolte.`;
+  else if(r.v==='trop')verdict=`La couleur est allée trop loin : la courge est passée. Récolte-la maintenant et consomme-la en premier — sa chair ne s'améliorera plus, et elle ne se gardera pas.`;
+  else if(r.v==='gel')verdict=`${r.alert?`Gel annoncé (${r.alert.tmin} °C)`:`Le premier gel est attendu dans ${r.frostDays} j`} : la question n'est plus de savoir si elle est mûre, mais de ne pas la perdre. ${MAT_EARLY} ${MAT_FROST}`;
+  else if(r.v==='proche')verdict=`Un seul des deux signes décisifs est acquis. Le fruit finit encore : laisse-lui quelques jours et revérifie — tant que le gel n'est pas annoncé, chaque jour sur pied est du sucre et de la garde en plus.`;
+  else if(r.v==='inconnu')verdict=`Aucun des quatre signes n'est renseigné. Va voir le fruit et coche-les en Inspection : ${miss.join(', ')}.`;
+  else verdict=`Les signes décisifs ne sont pas acquis : le fruit importe encore des sucres. ${MAT_EARLY}`+(miss.length?` Il reste à observer : <b>${miss.join(', ')}</b>.`:'');
+  const vo=varietyOutlook(p);
+  const cal=vo?`<p class="note" style="margin:7px 0 0">📅 Repère de calendrier : ${vo.dtm} j à maturité ${p.variety?`pour « ${p.variety} »`:'(valeur générique de l\'espèce)'} → vers le <b>${fmtDate(vo.maturity)}</b>. Un repère, pas un critère : il dit quand commencer à regarder, ce sont les signes qui tranchent.</p>`:'';
+  return `<div class="pact"><h4>🧺 Récolte — les quatre signes (${t.lab})</h4>
+    <p style="margin:0 0 8px"><b style="color:${say.col}">${say.ic} ${say.t}</b> — ${verdict}</p>
+    ${rows}
+    <p class="note" style="margin:9px 0 0"><b>Couper</b> : ${MAT_CUT}</p>
+    <p class="note" style="margin:6px 0 0"><b>Après la coupe</b> : ${t.cure} Conservation attendue : ${t.keep}</p>
+    ${t.stemNote?`<p class="note" style="margin:6px 0 0">ℹ️ ${t.stemNote}</p>`:''}
+    ${cal}</div>`;
 }
 /* ===== BASE DE DIAGNOSTIC =====
    sev : 3 = bloquant, 2 = à corriger, 1 = bénin (aucune action).
@@ -3490,6 +3722,33 @@ function renderToday(){
       `Tu as déclaré ${cu.bad} feuilles au-delà du seuil sur ${cu.tot}, et le plafond d'un passage est de ${cu.cap} (le tiers du feuillage) : ${OID_CAP} Une fois le premier passage fait, coupe les ${cu.rest} restantes 7 jours plus tard, le temps que le plant compense. Même critère : ${OID_CRIT}`,
       p.id,taskKey(['effeuillage',p.id,(lastInsp(p)||{}).ts||'']));
   });
+  /* Récolte des courges : le verdict des quatre signes remonte au Programme. Une tâche
+     seulement quand il y a un GESTE à faire — mûre, passée, ou gel qui force la main. Tant
+     que le fruit finit, il n'y a rien à faire et rien ne s'affiche. */
+  activePlants().forEach(p=>{
+    if(notYetSown(p)||dormantFor(p)||!matShow(p))return;
+    const r=matVerdict(p),t=r.kind,say=MAT_SAY[r.v];
+    if(['pret','trop','gel'].indexOf(r.v)>=0){
+      add('Soins & phases','prio','🧺',`${p.name} — ${say.t.toLowerCase()}`,
+        (r.v==='gel'
+          ? `${r.alert?`Gel annoncé (${r.alert.tmin} °C)`:`Premier gel attendu dans ${r.frostDays} j`} : ${MAT_FROST} ${MAT_EARLY} `
+          : r.v==='trop'
+            ? `La couleur est allée trop loin : la chair ne s'améliorera plus et la garde est compromise. Récolte maintenant et consomme ces fruits en premier. `
+            : `Les deux signes décisifs de la ${t.lab} sont acquis (${t.keyPair.map(k=>matShort(t,k)).join(' + ')}) : la peau est faite, le fruit ne grossira plus. `)
+        +`${MAT_CUT} <b>Après la coupe</b> : ${t.cure} Conservation attendue : ${t.keep}`,
+        p.id,taskKey(['recolte',p.id,r.v,isoWeek()]));
+      return;
+    }
+    /* Relance d'observation : seulement quand la culture est ARRIVÉE dans sa fenêtre —
+       calendrier de maturité atteint, ou dernier stade. Avant, il n'y a rien à regarder. */
+    const vo=varietyOutlook(p),last=curStage(p)>=p.stages.length-1;
+    if(!last&&!(vo&&vo.maturity<=new Date()))return;
+    const miss=matMissing(p);if(!miss.length)return;
+    add('Inspection','','🔎',`${p.name} — lire les quatre signes de récolte`,
+      `La fenêtre de maturité est ouverte${vo?` (${vo.dtm} j à maturité, atteints le ${fmtDate(vo.maturity)})`:''}, mais le calendrier n'est qu'un repère : ce sont les signes du fruit qui tranchent. Va observer et coche en Inspection — il manque : <b>${miss.join(', ')}</b>. `
+      +`Les deux décisifs pour une ${t.lab} : ${t.keyPair.map(k=>matShort(t,k)).join(' et ')}.`,
+      p.id,taskKey(['maturite',p.id,isoWeek()]));
+  });
   overwinterTasks(add);   // rentrer / ressortir les plantes en pot
   // ARROSAGE — proposé au MOMENT OPPORTUN de la journée (heure + chaleur du jour)
   const waterDue=activePlants().filter(p=>{if(notYetSown(p)||dormantFor(p))return false;const wp=waterPlan(p);return wp&&wp.diff<=0;});
@@ -3904,7 +4163,7 @@ function plantBody(p){
   /* La fiche montre TOUS les soins de la phase, en disant lesquels sont des tâches du jour,
      lesquels sont de simples repères, lesquels l'app applique déjà, et lesquels attendent
      leur fenêtre. Le Programme, lui, ne reçoit que les premiers (careDue). */
-  const care=`<div class="pact"><h4>🛠️ Entretien · ${phName}</h4><ul>${careList(p).map(c=>{
+  const care=matBlock(p)+`<div class="pact"><h4>🛠️ Entretien · ${phName}</h4><ul>${careList(p).map(c=>{
       const st=careState(p,c);
       return `<li>${c.t}${st?` <span class="note">— ${st.ic} ${st.txt}</span>`:''}</li>`;}).join('')}</ul>
       ${(()=>{
@@ -3931,7 +4190,7 @@ function plantBody(p){
     ${pgroup(p,'eau','💧','Arrosage',waterEvery(p)?`tous les ${waterEvery(p)} j`:'à réduire',wat,false)}
     ${pgroup(p,'nutri','⚗️','Nutrition',noF?'aucun apport':r.name,fert,false)}
     ${pgroup(p,'diag','🔎','Diagnostic & contrôles',(dg(p).findings||[]).filter(f=>f.sev>=2).length?'points identifiés':'',oidCullBlock(p)+checksBlock+watch,false)}
-    ${pgroup(p,'soin','🛠️','Entretien',phName,care,false)}
+    ${pgroup(p,'soin','🛠️','Entretien',(()=>{const m=matSummary(p);return m?`${phName} · ${m}`:phName;})(),care,false)}
     ${pgroup(p,'situ','🧱','Situation & sol',bedOf(p)?bedOf(p).name:'sans parcelle',situ,false)}
     ${p.flag?`<div class="flag ${p.flag.type}">${p.flag.txt}${p.flag.type==='iron'?(()=>{const t=actionTiming('foliar');return `<br><span class="note" style="display:block;margin-top:7px">🕑 Si pulvérisation foliaire (fer chélaté) : ${t.good?`<b style="color:var(--leaf-d)">c'est le bon moment (${t.short})</b>`:`<b style="color:var(--amber)">${t.short}</b>`} — stomates ouverts tôt le matin (&lt;9 h 30) ou en soirée (&gt;18 h 30), jamais en plein soleil.`})():''}</div>`:''}
     <div class="pill-row"><span class="pill">Soleil : ${p.sun}</span>
@@ -4235,6 +4494,15 @@ function inspFields(p){
       hint:"Tant qu'il reste cantonné aux vieilles feuilles du bas, les fruits continuent de grossir normalement.",
       opts:OID_WHERE});
   }
+  /* Maturité des courges : les quatre signes. Réservés aux COURGES (pas au melon ni à la
+     pastèque, dont les signes sont autres) et affichés seulement une fois les fruits noués —
+     juger la maturité d'une fleur n'a pas de sens. Le couple décisif et l'échelle de couleur
+     viennent du profil variétal. Voir le module MATURITÉ (matVerdict). */
+  {const mk=matKind(p),fr=stageIndexOf(p,['Fruits','Fructification']);
+   if(mk&&!mk.summer&&(fr==null||curStage(p)>=fr)){
+     const at=F.findIndex(f=>f.k==='marks')+1;
+     F.splice(at,0,...matFields(mk).map(f=>({k:f.k,g:'m',t:'sel',lab:f.lab,hint:f.hint,opts:f.opts})));
+   }}
   /* ⚠️ Le nombre de plants et la disposition au sol sont des DÉCISIONS DE PLANTATION, pas des
      observations : les redemander à chaque inspection créait une seconde source, qui pouvait
      contredire celle de la fiche de culture (§ « Inspection = uniquement ce qui s'OBSERVE »).
@@ -4257,7 +4525,8 @@ function inspFields(p){
 }
 /* clés possibles, tous archétypes confondus — sert à la sauvegarde et à la remise à zéro */
 const INSP_KEYS=['date','h','marks','vigor','color','signs','soil','roots','polli','pests',
-  'oidRub','oidCover','oidTot','oidBad','oidWhere','note'];
+  'oidRub','oidCover','oidTot','oidBad','oidWhere',
+  'matStem','matNail','matGround','matTendril','note'];
 function inspTarget(){const s=document.getElementById('inspPlant');return s?byId(s.value):null;}
 function fillInspSelect(){
   const sel=document.getElementById('inspPlant');if(!sel)return;
@@ -4418,7 +4687,7 @@ function renderInspResult(){
     <p class="note" style="margin:9px 0 0">Ces valeurs sont désormais celles utilisées <b>partout</b> : Programme du jour, plan 14 jours, fiche de la plante et Doseur.</p></div>`;
   el.innerHTML=`<div class="card card-pad" style="margin-top:14px">
     <div style="font-weight:800;font-size:15px;margin-bottom:10px">${p.icon} ${p.name}</div>
-    ${meas}${diag}${prog}</div>`;
+    ${meas}${diag}${matBlock(p)}${prog}</div>`;
 }
 /* ===== PHOTOS D'INSPECTION (IndexedDB) =====
    Une photo datée vaut mieux que la mémoire pour juger d'une évolution. localStorage est

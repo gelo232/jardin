@@ -277,6 +277,57 @@ presque toutes en portent. Module dédié (constantes `OID_*` + `oidObs` / `oidC
   Programme via `worst.fix[0]`.
 - Tâche `effeuillage|<culture>|<ts>` : les feuilles laissées par le plafond du tiers.
 
+## 4bis-mat. Maturité des courges : « c'est mûr » CHIFFRÉ, et VARIABLE SELON LA VARIÉTÉ
+
+Deuxième application de la règle « ne jamais donner un conseil qu'on ne sait pas appliquer ».
+L'app disait « peau dure + pédoncule liégeux = mûre » — vrai pour une butternut, trompeur pour
+une **poivrée (acorn)**, dont le pédoncule sèche tard et peu. Module dédié (constantes `MAT_*`
++ `matKind` / `matFields` / `matObs` / `matVerdict` / `matShow` / `matSummary` / `matMissing` /
+`matBlock`), placé entre le module OÏDIUM et `DIAG`.
+
+- **Quatre signes observables**, saisis en Inspection (`matStem`, `matNail`, `matGround`,
+  `matTendril`, ajoutés à `INSP_KEYS`) : pédoncule liégeux · test de l'ongle · couleur de fond
+  et tache au sol · vrille sèche.
+- ⚠️ **Deux seulement sont DÉCISIFS, et lesquels dépend de la variété** — c'est toute la raison
+  d'être de `MAT_KINDS` (`keyPair`) : `ground+nail` pour la poivrée (sa couleur d'ensemble reste
+  vert sombre jusqu'au bout, c'est la tache au sol qui vire à l'orange), `stem+nail` pour la
+  butternut, la spaghetti et le générique. Les deux autres signes confirment, ils ne prouvent
+  rien seuls. L'**échelle de couleur** proposée à la saisie change elle aussi de variété en
+  variété (`t.ground`), et la poivrée a une option de plus : peau ENTIÈREMENT orange = passée.
+- ⚠️ **La courgette est une courge d'ÉTÉ** : profil `ete`, aucun des quatre signes ne s'y
+  applique, le critère y est inverse (peau brillante que l'ongle transperce, 15–20 cm). Le
+  module le dit au lieu de servir le critère d'une courge d'hiver. `/courge/` matchant aussi
+  « courgette », **l'entrée d'été est en tête de `MAT_KINDS`** : l'ordre du tableau est
+  significatif.
+- ⚠️ **Le ressuyage n'est pas universel** : 10–14 j à 25–29 °C pour la butternut et la
+  spaghetti, mais la **poivrée ne se ressuie pas** (le chaud dégrade sa chair et raccourcit sa
+  garde — stockage direct à ~10 °C, 5 à 8 semaines seulement). L'ancien conseil « ressuie ~10 j
+  au soleil », servi à toutes les courges, était donc faux pour celle du jardin. Il est en plus
+  passé en `note` : c'est un geste d'APRÈS la coupe, pas une tâche du jour (cf. §4 pertinence
+  temporelle — il sortait tous les jours de la phase Récolte).
+- **Reconnaissance de la culture par le NOM, jamais par `p.id`** (règle des tables héritées) :
+  `matKind` teste des expressions régulières sur « nom + variété ». Un melon, une pastèque ou
+  un concombre ne matchent rien → aucun champ, aucun bloc : leurs signes de maturité sont
+  autres (glissement du pédoncule, parfum), et on ne leur sert pas le critère d'une courge.
+- **Rien ne s'affiche ni ne se demande avant la nouaison** (`matShow` : stade ≥ « Fruits ») —
+  juger la maturité d'une fleur n'a pas de sens, et une question sans objet est du bruit.
+- **Un gel proche prime sur tout sauf « déjà mûre »** : le choix n'est plus entre récolter et
+  attendre, mais entre récolter et perdre. `matVerdict().v` ∈ `pret | proche | attendre | trop |
+  gel | inconnu | ete`.
+- **Points de sortie** : bloc `matBlock(p)` en tête de la section 🛠️ Entretien de la fiche (son
+  verdict remonte au résumé de l'en-tête via `matSummary`), même bloc dans le résultat
+  d'inspection, et deux tâches au Programme — `recolte|<culture>|<verdict>|<semaine>` quand il y
+  a un GESTE à faire (mûre / passée / gel), `maturite|<culture>|<semaine>` pour relancer
+  l'observation, et **seulement** une fois la fenêtre de maturité ouverte (calendrier atteint ou
+  dernier stade). Tant que le fruit finit, il n'y a rien à faire et rien ne s'affiche.
+- **Noms courts partagés** (`MAT_SHORT` + surcharge `t.short`) : la fiche et le Programme ne
+  peuvent pas nommer différemment le même critère.
+- Les **jours à maturité** (`varietyOutlook`) restent un repère affiché, jamais un critère : ils
+  disent quand commencer à regarder, ce sont les signes qui tranchent.
+- Contenu propagé aux installations existantes par `syncSeedContent()` (`checks`, `watch`,
+  `PH.courge[5]`) — vérifié en rejouant l'app avec un catalogue rétrogradé dans `localStorage`,
+  variété de l'utilisateur préservée.
+
 ## 4-0. MODÈLE DE DONNÉES (⚠️ lire en premier)
 
     JARDIN
@@ -632,7 +683,7 @@ des parcelles créées dans la même milliseconde, et rattachait toutes les cult
 ## 5. Workflow de mise à jour ⚠️
 
 1. Éditer `index.html`.
-2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v38`) — sinon les clients
+2. **Incrémenter `CACHE` dans `sw.js`** (actuellement `jardin-v39`) — sinon les clients
    gardent l'ancienne version en cache.
 3. `git -C "D:\KGW\Afronim\jardin-app" add -A && commit && push`. GitHub Pages se
    reconstruit en ~1 min.
